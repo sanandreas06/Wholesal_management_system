@@ -1,0 +1,29 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: wms-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: wholesale
+      POSTGRES_PASSWORD: wholesale
+      POSTGRES_DB: wholesale_management
+    ports:
+      - "5432:5432"
+    volumes:
+      - wms_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U wholesale -d wholesale_management"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+  redis:
+    image: redis:8-alpine
+    container_name: wms-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - wms_redis_data:/data
+volumes:
+  wms_postgres_data:
+  wms_redis_data:

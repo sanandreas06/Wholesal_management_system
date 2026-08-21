@@ -1,0 +1,23 @@
+{
+  "name": "wholesale-management-system",
+  "private": true,
+  "packageManager": "pnpm@10.15.0",
+  "scripts": {
+    "dev": "pnpm --parallel --filter @wms/web --filter @wms/api dev",
+    "build": "pnpm --recursive build",
+    "test": "pnpm --recursive test",
+    "db:generate": "prisma generate --schema database/prisma/schema.prisma",
+    "db:push": "prisma db push --schema database/prisma/schema.prisma",
+    "db:migrate": "prisma migrate dev --schema database/prisma/schema.prisma",
+    "db:seed": "tsx database/prisma/seed/seed.ts",
+    "db:studio": "prisma studio --schema database/prisma/schema.prisma"
+  },
+  "devDependencies": {
+    "prisma": "6.16.2",
+    "tsx": "4.20.5"
+  },
+  "dependencies": {
+    "@prisma/client": "6.16.2",
+    "bcryptjs": "3.0.2"
+  }
+}

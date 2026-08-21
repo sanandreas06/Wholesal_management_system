@@ -1,0 +1,241 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Organization {
+  id        String    @id @default(uuid())
+  name      String
+  code      String    @unique
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  branches  Branch[]
+  products  Product[]
+  regions   Region[]
+  roles     Role[]
+  sales     Sale[]
+  users     User[]
+}
+
+model Branch {
+  id             String       @id @default(uuid())
+  organizationId String
+  name           String
+  code           String
+  location       String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  regionId       String?
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  region         Region?      @relation(fields: [regionId], references: [id])
+  sales          Sale[]
+  users          User[]
+
+  @@unique([organizationId, code])
+  @@index([organizationId])
+  @@index([regionId])
+}
+
+model User {
+  id             String       @id @default(uuid())
+  organizationId String
+  branchId       String?
+  email          String       @unique
+  name           String
+  passwordHash   String
+  status         UserStatus   @default(ACTIVE)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  sales          Sale[]
+  branch         Branch?      @relation(fields: [branchId], references: [id])
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userRoles      UserRole[]
+
+  @@index([organizationId])
+  @@index([branchId])
+}
+
+model Product {
+  id             String       @id @default(uuid())
+  organizationId String
+  sku            String
+  name           String
+  category       String?
+  unitPrice      Decimal      @db.Decimal(14, 2)
+  stockQuantity  Int          @default(0)
+  reorderLevel   Int          @default(10)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  saleItems      SaleItem[]
+
+  @@unique([organizationId, sku])
+  @@index([organizationId])
+}
+
+model Sale {
+  id             String       @id @default(uuid())
+  organizationId String
+  branchId       String
+  userId         String
+  invoiceNumber  String       @unique
+  status         SaleStatus   @default(COMPLETED)
+  totalAmount    Decimal      @db.Decimal(14, 2)
+  soldAt         DateTime     @default(now())
+  createdAt      DateTime     @default(now())
+  branch         Branch       @relation(fields: [branchId], references: [id])
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id])
+  items          SaleItem[]
+
+  @@index([organizationId, soldAt])
+  @@index([branchId, soldAt])
+}
+
+model SaleItem {
+  id        String  @id @default(uuid())
+  saleId    String
+  productId String
+  quantity  Int
+  unitPrice Decimal @db.Decimal(14, 2)
+  lineTotal Decimal @db.Decimal(14, 2)
+  product   Product @relation(fields: [productId], references: [id])
+  sale      Sale    @relation(fields: [saleId], references: [id], onDelete: Cascade)
+
+  @@index([saleId])
+  @@index([productId])
+}
+
+model Region {
+  id             String       @id @default(uuid())
+  organizationId String
+  name           String
+  code           String
+  description    String?
+  status         RoleStatus   @default(ACTIVE)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  branches       Branch[]
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, code])
+  @@index([organizationId])
+}
+
+model Role {
+  id             String           @id @default(uuid())
+  organizationId String
+  name           String
+  code           String
+  description    String?
+  status         RoleStatus       @default(ACTIVE)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  permissions    RolePermission[]
+  userRoles      UserRole[]
+
+  @@unique([organizationId, code])
+  @@index([organizationId])
+}
+
+model Permission {
+  id          String             @id @default(uuid())
+  resource    PermissionResource
+  action      PermissionAction
+  description String?
+  createdAt   DateTime           @default(now())
+  roles       RolePermission[]
+
+  @@unique([resource, action])
+}
+
+model UserRole {
+  id        String   @id @default(uuid())
+  userId    String
+  roleId    String
+  createdAt DateTime @default(now())
+  role      Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, roleId])
+  @@index([userId])
+  @@index([roleId])
+}
+
+model RolePermission {
+  id           String     @id @default(uuid())
+  roleId       String
+  permissionId String
+  createdAt    DateTime   @default(now())
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permissionId])
+  @@index([roleId])
+  @@index([permissionId])
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+enum SaleStatus {
+  COMPLETED
+  VOIDED
+}
+
+enum RoleStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum PermissionAction {
+  READ
+  CREATE
+  UPDATE
+  DELETE
+  APPROVE
+  EXPORT
+  IMPORT
+}
+
+enum PermissionResource {
+  DASHBOARD
+  USERS
+  ROLES
+  ORGANIZATION
+  REGIONS
+  BRANCHES
+  PRODUCTS
+  CATEGORIES
+  BRANDS
+  UNITS
+  SUPPLIERS
+  CUSTOMERS
+  PURCHASING
+  GOODS_RECEIVING
+  INVENTORY
+  STOCK_COUNTS
+  STOCK_TRANSFERS
+  STOCK_ADJUSTMENTS
+  SALES
+  PAYMENTS
+  RETURNS
+  EXPENSES
+  DEPOSITS
+  RECONCILIATION
+  VARIANCE_CASES
+  BRANCH_CLOSING
+  REPORTS
+  EXCEL_IMPORT
+  AUDIT
+  SETTINGS
+  PERMISSIONS
+}

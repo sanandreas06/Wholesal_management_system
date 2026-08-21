@@ -1,0 +1,17 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: wholesale
+      POSTGRES_PASSWORD: wholesale
+      POSTGRES_DB: wholesale_management
+    ports:
+      - "5432:5432"
+    volumes:
+      - wms_postgres_data:/var/lib/postgresql/data
+  redis:
+    image: redis:8-alpine
+    ports:
+      - "6379:6379"
+volumes:
+  wms_postgres_data:
