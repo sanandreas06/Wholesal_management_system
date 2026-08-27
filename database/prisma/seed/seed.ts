@@ -311,17 +311,17 @@ async function main() {
   }
 
   const organizationAdminResources = [
-    "organization",
-    "region",
-    "branch",
-    "user",
-    "role",
-    "permission",
-    "product",
-    "inventory",
-    "sales",
-    "reports",
-  ];
+  "ORGANIZATION",
+  "REGIONS",
+  "BRANCHES",
+  "USERS",
+  "ROLES",
+  "PERMISSIONS",
+  "PRODUCTS",
+  "INVENTORY",
+  "SALES",
+  "REPORTS",
+];
 
   for (const permission of permissions) {
     if (organizationAdminResources.includes(permission.resource)) {
