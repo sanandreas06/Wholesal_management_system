@@ -9,6 +9,7 @@ import { BranchesModule } from "./branches/branches.module";
 import { UsersModule } from "./users/users.module";
 import { RolesModule } from "./roles/roles.module";
 import { PermissionsModule } from "./permissions/permissions.module";
+import { OrganizationModule } from "./organization/organization.module";
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { PermissionsModule } from "./permissions/permissions.module";
     AuthModule,
     RegionsModule,
     BranchesModule,
+    OrganizationModule,
     UsersModule,
     RolesModule,
     PermissionsModule
