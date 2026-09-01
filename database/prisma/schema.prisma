@@ -8,17 +8,20 @@ datasource db {
 }
 
 model Organization {
-  id        String    @id @default(uuid())
-  name      String
-  code      String    @unique
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  branches  Branch[]
-  products  Product[]
-  regions   Region[]
-  roles     Role[]
-  sales     Sale[]
-  users     User[]
+  id         String     @id @default(uuid())
+  name       String
+  code       String     @unique
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+  branches   Branch[]
+  products   Product[]
+  regions    Region[]
+  roles      Role[]
+  sales      Sale[]
+  users      User[]
+  categories Category[]
+  brands     Brand[]
+  units      Unit[]
 }
 
 model Branch {
@@ -65,6 +68,9 @@ model Product {
   sku            String
   name           String
   category       String?
+  categoryId     String?
+  brandId        String?
+  unitId         String?
   unitPrice      Decimal      @db.Decimal(14, 2)
   stockQuantity  Int          @default(0)
   reorderLevel   Int          @default(10)
@@ -72,9 +78,15 @@ model Product {
   updatedAt      DateTime     @updatedAt
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   saleItems      SaleItem[]
+  categoryRef    Category?    @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  brand          Brand?       @relation(fields: [brandId], references: [id], onDelete: SetNull)
+  unit           Unit?        @relation(fields: [unitId], references: [id], onDelete: SetNull)
 
   @@unique([organizationId, sku])
   @@index([organizationId])
+  @@index([categoryId])
+  @@index([brandId])
+  @@index([unitId])
 }
 
 model Sale {
@@ -178,6 +190,51 @@ model RolePermission {
   @@unique([roleId, permissionId])
   @@index([roleId])
   @@index([permissionId])
+}
+
+model Category {
+  id             String   @id @default(uuid())
+  organizationId String
+  name           String
+  code           String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  products     Product[]
+
+  @@unique([organizationId, code])
+  @@index([organizationId])
+}
+
+model Brand {
+  id             String   @id @default(uuid())
+  organizationId String
+  name           String
+  code           String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  products     Product[]
+
+  @@unique([organizationId, code])
+  @@index([organizationId])
+}
+
+model Unit {
+  id             String   @id @default(uuid())
+  organizationId String
+  name           String
+  code           String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  products     Product[]
+
+  @@unique([organizationId, code])
+  @@index([organizationId])
 }
 
 enum UserStatus {
