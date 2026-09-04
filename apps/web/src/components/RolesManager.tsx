@@ -85,6 +85,7 @@ function RoleModal({ role, onClose, onSaved }: { role: Role | null; onClose: () 
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal" onClick={e => e.stopPropagation()}>
+        <button type="button" className="modal-close" onClick={onClose} aria-label="Close">&times;</button>
         <h2>{role ? "Edit Role" : "New Role"}</h2>
         <form onSubmit={submit}>
           <label>Name<input value={name} onChange={e => setName(e.target.value)} required /></label>
@@ -124,6 +125,7 @@ function PermissionsModal({ role, allPermissions, onClose, onSaved }: { role: Ro
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal modal-wide" onClick={e => e.stopPropagation()}>
+        <button type="button" className="modal-close" onClick={onClose} aria-label="Close">&times;</button>
         <h2>Permissions for {role.name}</h2>
         <form onSubmit={submit}>
           <div className="permission-groups">

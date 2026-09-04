@@ -83,10 +83,11 @@ function BranchModal({ branch, regions, onClose, onSaved }: { branch: Branch | n
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal" onClick={e => e.stopPropagation()}>
+        <button type="button" className="modal-close" onClick={onClose} aria-label="Close">&times;</button>
         <h2>{branch ? "Edit Branch" : "New Branch"}</h2>
         <form onSubmit={submit}>
-          <label>Name<input value={name} onChange={e => setName(e.target.value)} required /></label>
-          <label>Code<input value={code} onChange={e => setCode(e.target.value.toUpperCase())} required /></label>
+          <label>Name<input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Kumasi Central" required /></label>
+          <label>Code<input value={code} onChange={e => setCode(e.target.value.toUpperCase())} placeholder="e.g. KSI-001" required /></label>
           <label>Location<input value={location} onChange={e => setLocation(e.target.value)} /></label>
           <label>Region
             <select value={regionId} onChange={e => setRegionId(e.target.value)}>

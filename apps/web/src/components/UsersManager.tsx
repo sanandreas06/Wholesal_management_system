@@ -92,6 +92,7 @@ function UserModal({ user, branches, roles, onClose, onSaved }: { user: User | n
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal" onClick={e => e.stopPropagation()}>
+        <button type="button" className="modal-close" onClick={onClose} aria-label="Close">&times;</button>
         <h2>{user ? "Edit User" : "New User"}</h2>
         <form onSubmit={submit}>
           <label>Name<input value={name} onChange={e => setName(e.target.value)} required /></label>
@@ -140,6 +141,7 @@ function RolesModal({ user, roles, onClose, onSaved }: { user: User; roles: Role
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal" onClick={e => e.stopPropagation()}>
+        <button type="button" className="modal-close" onClick={onClose} aria-label="Close">&times;</button>
         <h2>Roles for {user.name}</h2>
         <form onSubmit={submit}>
           <div className="checkbox-list">

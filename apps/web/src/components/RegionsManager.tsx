@@ -76,10 +76,11 @@ function RegionModal({ region, onClose, onSaved }: { region: Region | null; onCl
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal" onClick={e => e.stopPropagation()}>
+        <button type="button" className="modal-close" onClick={onClose} aria-label="Close">&times;</button>
         <h2>{region ? "Edit Region" : "New Region"}</h2>
         <form onSubmit={submit}>
-          <label>Name<input value={name} onChange={e => setName(e.target.value)} required /></label>
-          <label>Code<input value={code} onChange={e => setCode(e.target.value.toUpperCase())} required /></label>
+          <label>Name<input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Ashanti Region" required /></label>
+          <label>Code<input value={code} onChange={e => setCode(e.target.value.toUpperCase())} placeholder="e.g. ASH" required /></label>
           <label>Description<input value={description} onChange={e => setDescription(e.target.value)} /></label>
           {error && <div className="error">{error}</div>}
           <div className="modal-actions">

@@ -173,6 +173,16 @@ async function main() {
     ["PRODUCTS", PermissionAction.UPDATE],
     ["PRODUCTS", PermissionAction.DELETE],
 
+    ["BRANDS", PermissionAction.READ],
+    ["BRANDS", PermissionAction.CREATE],
+    ["BRANDS", PermissionAction.UPDATE],
+    ["BRANDS", PermissionAction.DELETE],
+
+    ["UNITS", PermissionAction.READ],
+    ["UNITS", PermissionAction.CREATE],
+    ["UNITS", PermissionAction.UPDATE],
+    ["UNITS", PermissionAction.DELETE],
+
     ["INVENTORY", PermissionAction.READ],
     ["INVENTORY", PermissionAction.CREATE],
     ["INVENTORY", PermissionAction.UPDATE],
@@ -318,6 +328,9 @@ async function main() {
   "ROLES",
   "PERMISSIONS",
   "PRODUCTS",
+  "CATEGORIES",
+  "BRANDS",
+  "UNITS",
   "INVENTORY",
   "SALES",
   "REPORTS",
@@ -452,6 +465,73 @@ async function main() {
   });
 }
 
+  for (const product of products) {
+  await prisma.product.upsert({
+    where: {
+      organizationId_sku: {
+        organizationId: organization.id,
+        sku: product.sku,
+      },
+    },
+    update: {
+      name: product.name,
+      category: product.category,
+      unitPrice: product.unitPrice,
+      stockQuantity: product.stockQuantity,
+    },
+    create: {
+      organizationId: organization.id,
+      sku: product.sku,
+      name: product.name,
+      category: product.category,
+      unitPrice: product.unitPrice,
+      stockQuantity: product.stockQuantity,
+    },
+  });
+}
+
+
+  // ============================================================
+  // CATEGORY MIGRATION (link legacy category text to real Category rows)
+  // ============================================================
+
+  const distinctCategoryNames = Array.from(new Set(products.map((p) => p.category)));
+
+  const categoryIdByName: Record<string, string> = {};
+
+  for (const categoryName of distinctCategoryNames) {
+    const code = categoryName.toUpperCase().replace(/[^A-Z0-9]+/g, "_").slice(0, 30);
+
+    const category = await prisma.category.upsert({
+      where: {
+        organizationId_code: {
+          organizationId: organization.id,
+          code,
+        },
+      },
+      update: { name: categoryName },
+      create: {
+        organizationId: organization.id,
+        name: categoryName,
+        code,
+      },
+    });
+
+    categoryIdByName[categoryName] = category.id;
+  }
+
+  for (const product of products) {
+    await prisma.product.updateMany({
+      where: {
+        organizationId: organization.id,
+        sku: product.sku,
+      },
+      data: {
+        categoryId: categoryIdByName[product.category],
+      },
+    });
+  }
+
   // ============================================================
   // DEMO SALES
   // ============================================================
@@ -509,4 +589,4 @@ main()
     console.error(error);
     process.exit(1);
   })
-  .finally(() => prisma.$disconnect());
+  .finally(() => prisma.$disconnect());  

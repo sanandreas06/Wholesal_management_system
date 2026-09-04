@@ -10,6 +10,10 @@ import { UsersModule } from "./users/users.module";
 import { RolesModule } from "./roles/roles.module";
 import { PermissionsModule } from "./permissions/permissions.module";
 import { OrganizationModule } from "./organization/organization.module";
+import { CategoriesModule } from "./categories/categories.module";
+import { BrandsModule } from "./brands/brands.module";
+import { UnitsModule } from "./units/units.module";
+import { ProductsModule } from "./products/products.module";
 
 @Module({
   imports: [
@@ -21,7 +25,11 @@ import { OrganizationModule } from "./organization/organization.module";
     OrganizationModule,
     UsersModule,
     RolesModule,
-    PermissionsModule
+    PermissionsModule,
+    CategoriesModule,
+    BrandsModule,
+    UnitsModule,
+    ProductsModule
   ],
   controllers: [HealthController, DashboardController],
   providers: [DashboardService]

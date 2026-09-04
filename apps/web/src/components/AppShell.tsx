@@ -9,7 +9,11 @@ const NAV = [
   { href: "/regions", label: "Regions", permission: "REGIONS:READ" },
   { href: "/branches", label: "Branches", permission: "BRANCHES:READ" },
   { href: "/users", label: "Users", permission: "USERS:READ" },
-  { href: "/roles", label: "Roles", permission: "ROLES:READ" }
+  { href: "/roles", label: "Roles", permission: "ROLES:READ" },
+  { href: "/products", label: "Products", permission: "PRODUCTS:READ" },
+  { href: "/categories", label: "Categories", permission: "CATEGORIES:READ" },
+  { href: "/brands", label: "Brands", permission: "BRANDS:READ" },
+  { href: "/units", label: "Units", permission: "UNITS:READ" }
 ];
 
 export default function AppShell({ title, children }: { title: string; children: ReactNode }) {
