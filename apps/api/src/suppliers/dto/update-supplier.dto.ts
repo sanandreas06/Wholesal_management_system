@@ -1,10 +1,12 @@
-import { IsEmail, IsIn, IsNumber, IsInt, IsOptional, IsString, Min, MaxLength, MinLength } from "class-validator";
+import { IsEmail, IsIn, IsNumber, IsInt, IsOptional, IsString, Matches, Min, MaxLength, MinLength } from "class-validator";
+
+const PHONE_PATTERN = /^[0-9+()\-\s]{7,20}$/;
 
 export class UpdateSupplierDto {
   @IsOptional() @IsString() @MinLength(2) @MaxLength(160) name?: string;
   @IsOptional() @IsString() @MinLength(1) @MaxLength(30) code?: string;
-  @IsOptional() @IsString() @MaxLength(30) phone?: string;
-  @IsOptional() @IsEmail() email?: string;
+  @IsOptional() @IsString() @Matches(PHONE_PATTERN, { message: "phone must be a valid phone number (digits, spaces, +, -, parentheses only)" }) phone?: string;
+  @IsOptional() @IsEmail({}, { message: "email must be a valid email address" }) email?: string;
   @IsOptional() @IsString() @MaxLength(255) address?: string;
   @IsOptional() @IsNumber() @Min(0) creditLimit?: number;
   @IsOptional() @IsInt() @Min(0) creditDays?: number;
