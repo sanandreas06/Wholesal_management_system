@@ -14,6 +14,8 @@ import { CategoriesModule } from "./categories/categories.module";
 import { BrandsModule } from "./brands/brands.module";
 import { UnitsModule } from "./units/units.module";
 import { ProductsModule } from "./products/products.module";
+import { SuppliersModule } from "./suppliers/suppliers.module";
+import { CustomersModule } from "./customers/customers.module";
 
 @Module({
   imports: [
@@ -29,7 +31,9 @@ import { ProductsModule } from "./products/products.module";
     CategoriesModule,
     BrandsModule,
     UnitsModule,
-    ProductsModule
+    ProductsModule,
+    SuppliersModule,
+    CustomersModule
   ],
   controllers: [HealthController, DashboardController],
   providers: [DashboardService]

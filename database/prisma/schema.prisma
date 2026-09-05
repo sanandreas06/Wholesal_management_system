@@ -22,6 +22,8 @@ model Organization {
   categories Category[]
   brands     Brand[]
   units      Unit[]
+  suppliers  Supplier[]
+  customers  Customer[]
 }
 
 model Branch {
@@ -235,6 +237,65 @@ model Unit {
 
   @@unique([organizationId, code])
   @@index([organizationId])
+}
+
+model Supplier {
+  id             String     @id @default(uuid())
+  organizationId String
+  name           String
+  code           String
+  phone          String?
+  email          String?
+  address        String?
+  creditLimit    Decimal?   @db.Decimal(14, 2)
+  creditDays     Int?
+  status         RoleStatus @default(ACTIVE)
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  contacts     Contact[]
+
+  @@unique([organizationId, code])
+  @@index([organizationId])
+}
+
+model Customer {
+  id             String     @id @default(uuid())
+  organizationId String
+  name           String
+  code           String
+  phone          String?
+  email          String?
+  address        String?
+  creditLimit    Decimal?   @db.Decimal(14, 2)
+  creditDays     Int?
+  status         RoleStatus @default(ACTIVE)
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  contacts     Contact[]
+
+  @@unique([organizationId, code])
+  @@index([organizationId])
+}
+
+model Contact {
+  id         String   @id @default(uuid())
+  supplierId String?
+  customerId String?
+  name       String
+  role       String?
+  phone      String?
+  email      String?
+  createdAt  DateTime @default(now())
+
+  supplier Supplier? @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  customer Customer? @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([supplierId])
+  @@index([customerId])
 }
 
 enum UserStatus {

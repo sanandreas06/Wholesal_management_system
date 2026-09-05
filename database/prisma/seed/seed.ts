@@ -173,6 +173,16 @@ async function main() {
     ["PRODUCTS", PermissionAction.UPDATE],
     ["PRODUCTS", PermissionAction.DELETE],
 
+    ["SUPPLIERS", PermissionAction.READ],
+    ["SUPPLIERS", PermissionAction.CREATE],
+    ["SUPPLIERS", PermissionAction.UPDATE],
+    ["SUPPLIERS", PermissionAction.DELETE],
+
+    ["CUSTOMERS", PermissionAction.READ],
+    ["CUSTOMERS", PermissionAction.CREATE],
+    ["CUSTOMERS", PermissionAction.UPDATE],
+    ["CUSTOMERS", PermissionAction.DELETE],
+
     ["BRANDS", PermissionAction.READ],
     ["BRANDS", PermissionAction.CREATE],
     ["BRANDS", PermissionAction.UPDATE],
@@ -334,6 +344,8 @@ async function main() {
   "INVENTORY",
   "SALES",
   "REPORTS",
+  "SUPPLIERS",
+  "CUSTOMERS",
 ];
 
   for (const permission of permissions) {

@@ -57,16 +57,31 @@ Status: ✅ Complete. Verified in-browser and via API.
 - Organization settings (view stats, edit name) — API + UI, tested live
 
 ### Batch 3 — Products
-Status: 🔜 Next up.
-- Product management
-- Categories
-- Brands
-- Units
-- SKU management
-- Stock/reorder thresholds
+Status: ✅ Complete. Verified in-browser and via API.
+- Category, Brand, Unit models added to schema (additive migration, no
+  destructive changes — kept `Product.category` text field alongside new
+  `categoryId`/`brandId`/`unitId` relations)
+- Full CRUD APIs: `/api/categories`, `/api/brands`, `/api/units`,
+  `/api/products` — org-scoped, permission-guarded, with FK validation
+  (a product's category/brand/unit must belong to your organization) and
+  delete guards (can't delete a category still assigned to products, can't
+  delete a product with sales history)
+- Product management UI with SKU, pricing, stock quantity, reorder level,
+  and a "Low stock only" filter using the API's `?lowStock=true` query param
+- Categories/Brands/Units management UI (simple list/create/edit/delete)
+- One-time seed migration linking existing seeded products' legacy
+  `category` text to real `Category` records — Brands/Units left empty by
+  design, for the user to populate with real supplier/unit data
+- Fixed a modal UX bug affecting every modal in the app: missing
+  height/scroll limits meant content (including Cancel buttons and
+  dropdowns) could render below the visible area with no way to reach it.
+  Added explicit × close buttons, scroll containment, and example
+  placeholder text across all forms.
+- Fixed a typo from earlier (`org-form` missing its `.` in globals.css,
+  so that rule silently never applied)
 
 ### Batch 4 — Suppliers & Customers
-Status: Not started.
+Status: 🔜 Next up.
 
 ### Batch 5 — Purchasing & Receiving
 Status: Not started.

@@ -13,7 +13,9 @@ const NAV = [
   { href: "/products", label: "Products", permission: "PRODUCTS:READ" },
   { href: "/categories", label: "Categories", permission: "CATEGORIES:READ" },
   { href: "/brands", label: "Brands", permission: "BRANDS:READ" },
-  { href: "/units", label: "Units", permission: "UNITS:READ" }
+  { href: "/units", label: "Units", permission: "UNITS:READ" },
+  { href: "/suppliers", label: "Suppliers", permission: "SUPPLIERS:READ" },
+  { href: "/customers", label: "Customers", permission: "CUSTOMERS:READ" }
 ];
 
 export default function AppShell({ title, children }: { title: string; children: ReactNode }) {

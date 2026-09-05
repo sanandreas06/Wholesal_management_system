@@ -26,7 +26,11 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     throw new ApiError("Session expired", 401);
   }
   const data = res.status === 204 ? null : await res.json().catch(() => null);
-  if (!res.ok) throw new ApiError((data && data.message) || "Request failed", res.status);
+  if (!res.ok) {
+    const rawMessage = data && data.message;
+    const message = Array.isArray(rawMessage) ? rawMessage.join(", ") : (rawMessage || "Request failed");
+    throw new ApiError(message, res.status);
+  }
   return data as T;
 }
 
