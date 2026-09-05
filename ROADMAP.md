@@ -81,10 +81,36 @@ Status: ✅ Complete. Verified in-browser and via API.
   so that rule silently never applied)
 
 ### Batch 4 — Suppliers & Customers
-Status: 🔜 Next up.
+Status: ✅ Complete. Verified in-browser and via API.
+- `Supplier`, `Customer`, and shared `Contact` models added (additive
+  migration — no destructive changes, same safe pattern as Batch 3)
+- Full CRUD APIs: `/api/suppliers`, `/api/customers` — org-scoped,
+  permission-guarded, with credit limit/credit days fields
+- Nested contact management per supplier/customer:
+  `POST/PUT/DELETE /api/{suppliers|customers}/:id/contacts[/:contactId]`
+  — contacts are guarded by the parent's own permission (no separate
+  `CONTACTS` permission resource exists, by design)
+- Server-side duplicate contact detection (same email, or same name+phone,
+  rejected with a clear error) — catches what client-side validation alone
+  would miss
+- Phone number format validation (`@Matches`) and clearer email error
+  messages — applied to **both** the Contact DTOs and the Supplier/Customer
+  DTOs themselves (initially only added to Contacts; a real gap was caught
+  when testing showed a supplier's own phone field accepted garbage input
+  with no validation — fixed by applying the same pattern to
+  create/update Supplier and Customer DTOs)
+- Fixed a frontend bug where NestJS validation error arrays displayed as
+  raw arrays instead of readable joined text
+- Reworked the Contacts modal UX: opens showing the existing contact list
+  first (or "No contacts yet"), with an explicit "+ Add Contact" button
+  revealing the form on demand — previously it always showed the form
+  immediately, which was confusing
+- Note: duplicate detection on Supplier/Customer *records themselves* was
+  already covered by the existing `code` uniqueness check from the start;
+  the new duplicate check specifically targets *contacts*, which had none
 
 ### Batch 5 — Purchasing & Receiving
-Status: Not started.
+Status: 🔜 Next up.
 
 ### Batch 6 — Inventory
 Status: Not started.

@@ -8,37 +8,40 @@ datasource db {
 }
 
 model Organization {
-  id         String     @id @default(uuid())
-  name       String
-  code       String     @unique
-  createdAt  DateTime   @default(now())
-  updatedAt  DateTime   @updatedAt
-  branches   Branch[]
-  products   Product[]
-  regions    Region[]
-  roles      Role[]
-  sales      Sale[]
-  users      User[]
-  categories Category[]
-  brands     Brand[]
-  units      Unit[]
-  suppliers  Supplier[]
-  customers  Customer[]
+  id             String          @id @default(uuid())
+  name           String
+  code           String          @unique
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  branches       Branch[]
+  products       Product[]
+  regions        Region[]
+  roles          Role[]
+  sales          Sale[]
+  users          User[]
+  categories     Category[]
+  brands         Brand[]
+  units          Unit[]
+  suppliers      Supplier[]
+  customers      Customer[]
+  purchaseOrders PurchaseOrder[]
+  goodsReceipts  GoodsReceipt[]
 }
 
 model Branch {
-  id             String       @id @default(uuid())
+  id             String          @id @default(uuid())
   organizationId String
   name           String
   code           String
   location       String?
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
   regionId       String?
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  region         Region?      @relation(fields: [regionId], references: [id])
+  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  region         Region?         @relation(fields: [regionId], references: [id])
   sales          Sale[]
   users          User[]
+  purchaseOrders PurchaseOrder[]
 
   @@unique([organizationId, code])
   @@index([organizationId])
@@ -46,43 +49,46 @@ model Branch {
 }
 
 model User {
-  id             String       @id @default(uuid())
+  id             String         @id @default(uuid())
   organizationId String
   branchId       String?
-  email          String       @unique
+  email          String         @unique
   name           String
   passwordHash   String
-  status         UserStatus   @default(ACTIVE)
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
+  status         UserStatus     @default(ACTIVE)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
   sales          Sale[]
-  branch         Branch?      @relation(fields: [branchId], references: [id])
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branch         Branch?        @relation(fields: [branchId], references: [id])
+  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   userRoles      UserRole[]
+  goodsReceipts  GoodsReceipt[]
 
   @@index([organizationId])
   @@index([branchId])
 }
 
 model Product {
-  id             String       @id @default(uuid())
-  organizationId String
-  sku            String
-  name           String
-  category       String?
-  categoryId     String?
-  brandId        String?
-  unitId         String?
-  unitPrice      Decimal      @db.Decimal(14, 2)
-  stockQuantity  Int          @default(0)
-  reorderLevel   Int          @default(10)
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
-  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  saleItems      SaleItem[]
-  categoryRef    Category?    @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-  brand          Brand?       @relation(fields: [brandId], references: [id], onDelete: SetNull)
-  unit           Unit?        @relation(fields: [unitId], references: [id], onDelete: SetNull)
+  id                 String              @id @default(uuid())
+  organizationId     String
+  sku                String
+  name               String
+  category           String?
+  categoryId         String?
+  brandId            String?
+  unitId             String?
+  unitPrice          Decimal             @db.Decimal(14, 2)
+  stockQuantity      Int                 @default(0)
+  reorderLevel       Int                 @default(10)
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  organization       Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  saleItems          SaleItem[]
+  categoryRef        Category?           @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  brand              Brand?              @relation(fields: [brandId], references: [id], onDelete: SetNull)
+  unit               Unit?               @relation(fields: [unitId], references: [id], onDelete: SetNull)
+  purchaseOrderItems PurchaseOrderItem[]
+  goodsReceiptItems  GoodsReceiptItem[]
 
   @@unique([organizationId, sku])
   @@index([organizationId])
@@ -253,8 +259,9 @@ model Supplier {
   createdAt      DateTime   @default(now())
   updatedAt      DateTime   @updatedAt
 
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  contacts     Contact[]
+  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  contacts       Contact[]
+  purchaseOrders PurchaseOrder[]
 
   @@unique([organizationId, code])
   @@index([organizationId])
@@ -296,6 +303,92 @@ model Contact {
 
   @@index([supplierId])
   @@index([customerId])
+}
+
+enum PurchaseOrderStatus {
+  DRAFT
+  SENT
+  PARTIALLY_RECEIVED
+  RECEIVED
+  CLOSED
+  CANCELLED
+}
+
+model PurchaseOrder {
+  id             String              @id @default(uuid())
+  organizationId String
+  supplierId     String
+  branchId       String
+  orderNumber    String
+  status         PurchaseOrderStatus @default(DRAFT)
+  orderDate      DateTime            @default(now())
+  expectedDate   DateTime?
+  notes          String?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+
+  organization Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  supplier     Supplier            @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+  branch       Branch              @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  items        PurchaseOrderItem[]
+  receipts     GoodsReceipt[]
+
+  @@unique([organizationId, orderNumber])
+  @@index([organizationId])
+  @@index([supplierId])
+  @@index([branchId])
+}
+
+model PurchaseOrderItem {
+  id               String  @id @default(uuid())
+  purchaseOrderId  String
+  productId        String
+  quantityOrdered  Int
+  quantityReceived Int     @default(0)
+  unitCost         Decimal @db.Decimal(14, 2)
+
+  purchaseOrder PurchaseOrder      @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  product       Product            @relation(fields: [productId], references: [id], onDelete: Restrict)
+  receiptItems  GoodsReceiptItem[]
+
+  @@index([purchaseOrderId])
+  @@index([productId])
+}
+
+model GoodsReceipt {
+  id                    String   @id @default(uuid())
+  organizationId        String
+  purchaseOrderId       String
+  receivedByUserId      String
+  receivedAt            DateTime @default(now())
+  supplierInvoiceNumber String?
+  supplierInvoiceAmount Decimal? @db.Decimal(14, 2)
+  notes                 String?
+  createdAt             DateTime @default(now())
+
+  organization  Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  purchaseOrder PurchaseOrder      @relation(fields: [purchaseOrderId], references: [id], onDelete: Restrict)
+  receivedBy    User               @relation(fields: [receivedByUserId], references: [id], onDelete: Restrict)
+  items         GoodsReceiptItem[]
+
+  @@index([organizationId])
+  @@index([purchaseOrderId])
+}
+
+model GoodsReceiptItem {
+  id                  String  @id @default(uuid())
+  goodsReceiptId      String
+  purchaseOrderItemId String
+  productId           String
+  quantityReceived    Int
+  unitCost            Decimal @db.Decimal(14, 2)
+
+  goodsReceipt      GoodsReceipt      @relation(fields: [goodsReceiptId], references: [id], onDelete: Cascade)
+  purchaseOrderItem PurchaseOrderItem @relation(fields: [purchaseOrderItemId], references: [id], onDelete: Restrict)
+  product           Product           @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@index([goodsReceiptId])
+  @@index([purchaseOrderItemId])
 }
 
 enum UserStatus {

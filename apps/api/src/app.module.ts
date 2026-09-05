@@ -16,6 +16,7 @@ import { UnitsModule } from "./units/units.module";
 import { ProductsModule } from "./products/products.module";
 import { SuppliersModule } from "./suppliers/suppliers.module";
 import { CustomersModule } from "./customers/customers.module";
+import { PurchaseOrdersModule } from "./purchase-orders/purchase-orders.module";
 
 @Module({
   imports: [
@@ -33,7 +34,8 @@ import { CustomersModule } from "./customers/customers.module";
     UnitsModule,
     ProductsModule,
     SuppliersModule,
-    CustomersModule
+    CustomersModule,
+    PurchaseOrdersModule
   ],
   controllers: [HealthController, DashboardController],
   providers: [DashboardService]
