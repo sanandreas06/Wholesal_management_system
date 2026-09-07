@@ -205,6 +205,16 @@ async function main() {
     ["GOODS_RECEIVING", PermissionAction.READ],
     ["GOODS_RECEIVING", PermissionAction.CREATE],
 
+    ["STOCK_ADJUSTMENTS", PermissionAction.READ],
+    ["STOCK_ADJUSTMENTS", PermissionAction.CREATE],
+
+    ["STOCK_TRANSFERS", PermissionAction.READ],
+    ["STOCK_TRANSFERS", PermissionAction.CREATE],
+    ["STOCK_TRANSFERS", PermissionAction.UPDATE],
+
+    ["STOCK_COUNTS", PermissionAction.READ],
+    ["STOCK_COUNTS", PermissionAction.CREATE],
+
     ["SALES", PermissionAction.READ],
     ["SALES", PermissionAction.CREATE],
     ["SALES", PermissionAction.UPDATE],
@@ -356,6 +366,9 @@ async function main() {
   "CUSTOMERS",
   "PURCHASING",
   "GOODS_RECEIVING",
+  "STOCK_ADJUSTMENTS",
+  "STOCK_TRANSFERS", 
+  "STOCK_COUNTS", 
 ];
 
   for (const permission of permissions) {
@@ -600,6 +613,49 @@ async function main() {
           },
         },
       });
+    }
+  }
+
+  // ============================================================
+  // INVENTORY MIGRATION (split existing product stock evenly across branches)
+  // ============================================================
+
+  for (const product of dbProducts) {
+    const alreadyMigrated = await prisma.inventory.count({
+      where: { productId: product.id },
+    });
+    if (alreadyMigrated > 0) continue; // idempotent — safe to re-run
+
+    const branchCount = branches.length;
+    const base = Math.floor(product.stockQuantity / branchCount);
+    const remainder = product.stockQuantity % branchCount;
+
+    for (let i = 0; i < branchCount; i++) {
+      const branch = branches[i];
+      const qty = base + (i < remainder ? 1 : 0); // distribute remainder to first branches
+
+      await prisma.inventory.create({
+        data: {
+          organizationId: organization.id,
+          productId: product.id,
+          branchId: branch.id,
+          quantity: qty,
+        },
+      });
+
+      if (qty > 0) {
+        await prisma.stockMovement.create({
+          data: {
+            organizationId: organization.id,
+            productId: product.id,
+            branchId: branch.id,
+            type: "INITIAL",
+            quantityDelta: qty,
+            resultingQuantity: qty,
+            notes: "Initial stock migration (evenly split across branches)",
+          },
+        });
+      }
     }
   }
 

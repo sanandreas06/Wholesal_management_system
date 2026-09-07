@@ -1,0 +1,209 @@
+diff --git a/apps/api/src/app.module.ts b/apps/api/src/app.module.ts
+index d33ee7d..39a38b3 100644
+--- a/apps/api/src/app.module.ts
++++ b/apps/api/src/app.module.ts
+@@ -17,6 +17,7 @@ import { ProductsModule } from "./products/products.module";
+ import { SuppliersModule } from "./suppliers/suppliers.module";
+ import { CustomersModule } from "./customers/customers.module";
+ import { PurchaseOrdersModule } from "./purchase-orders/purchase-orders.module";
++import { InventoryModule } from "./inventory/inventory.module";
+ 
+ @Module({
+   imports: [
+@@ -35,7 +36,8 @@ import { PurchaseOrdersModule } from "./purchase-orders/purchase-orders.module";
+     ProductsModule,
+     SuppliersModule,
+     CustomersModule,
+-    PurchaseOrdersModule
++    PurchaseOrdersModule,
++    InventoryModule
+   ],
+   controllers: [HealthController, DashboardController],
+   providers: [DashboardService]
+diff --git a/apps/api/src/inventory/inventory.controller.ts b/apps/api/src/inventory/inventory.controller.ts
+new file mode 100644
+index 0000000..be617c8
+--- /dev/null
++++ b/apps/api/src/inventory/inventory.controller.ts
+@@ -0,0 +1,31 @@
++import { Controller, Get, Query, UseGuards } from "@nestjs/common";
++import { JwtAuthGuard } from "../common/guards/jwt-auth.guard";
++import { PermissionsGuard } from "../common/guards/permissions.guard";
++import { RequirePermissions } from "../common/decorators/permissions.decorator";
++import { CurrentUser } from "../common/decorators/current-user.decorator";
++import { AuthUser } from "../common/types/auth-user.type";
++import { InventoryService } from "./inventory.service";
++
++@UseGuards(JwtAuthGuard, PermissionsGuard)
++@Controller("inventory")
++export class InventoryController {
++  constructor(private readonly inventory: InventoryService) {}
++
++  @Get()
++  @RequirePermissions("INVENTORY:READ")
++  list(@CurrentUser() user: AuthUser, @Query("branchId") branchId?: string) {
++    return this.inventory.list(user.organizationId, branchId);
++  }
++
++  @Get("low-stock")
++  @RequirePermissions("INVENTORY:READ")
++  lowStock(@CurrentUser() user: AuthUser, @Query("branchId") branchId?: string) {
++    return this.inventory.lowStock(user.organizationId, branchId);
++  }
++
++  @Get("movements")
++  @RequirePermissions("INVENTORY:READ")
++  movements(@CurrentUser() user: AuthUser, @Query("productId") productId?: string, @Query("branchId") branchId?: string) {
++    return this.inventory.movements(user.organizationId, { productId, branchId });
++  }
++}
+diff --git a/apps/api/src/inventory/inventory.module.ts b/apps/api/src/inventory/inventory.module.ts
+new file mode 100644
+index 0000000..b2d45db
+--- /dev/null
++++ b/apps/api/src/inventory/inventory.module.ts
+@@ -0,0 +1,10 @@
++import { Module } from "@nestjs/common";
++import { InventoryController } from "./inventory.controller";
++import { InventoryService } from "./inventory.service";
++
++@Module({
++  controllers:[InventoryController],
++  providers:[InventoryService],
++  exports:[InventoryService]
++})
++export class InventoryModule {}
+diff --git a/apps/api/src/inventory/inventory.service.ts b/apps/api/src/inventory/inventory.service.ts
+new file mode 100644
+index 0000000..eb63796
+--- /dev/null
++++ b/apps/api/src/inventory/inventory.service.ts
+@@ -0,0 +1,79 @@
++import { Injectable } from "@nestjs/common";
++import { Prisma, StockMovementType } from "@prisma/client";
++import { PrismaService } from "../prisma/prisma.service";
++
++export interface AdjustStockParams {
++  organizationId: string;
++  productId: string;
++  branchId: string;
++  type: StockMovementType;
++  quantityDelta: number; // positive to increase, negative to decrease
++  referenceType?: string;
++  referenceId?: string;
++  userId?: string;
++  notes?: string;
++}
++
++@Injectable()
++export class InventoryService {
++  constructor(private readonly prisma: PrismaService) {}
++
++  /**
++   * The single path every stock-changing feature should go through:
++   * goods receiving, adjustments, transfers, sales (later).
++   * Must be called with a transaction client so it composes safely
++   * into a larger atomic operation (e.g. goods receiving also updates
++   * a PurchaseOrderItem in the same transaction).
++   */
++  async adjustStock(tx: Prisma.TransactionClient, params: AdjustStockParams) {
++    const inventory = await tx.inventory.upsert({
++      where:{ productId_branchId:{ productId:params.productId, branchId:params.branchId } },
++      update:{ quantity:{ increment: params.quantityDelta } },
++      create:{ organizationId:params.organizationId, productId:params.productId, branchId:params.branchId, quantity: Math.max(params.quantityDelta,0) }
++    });
++
++    await tx.stockMovement.create({
++      data:{
++        organizationId: params.organizationId,
++        productId: params.productId,
++        branchId: params.branchId,
++        type: params.type,
++        quantityDelta: params.quantityDelta,
++        resultingQuantity: inventory.quantity,
++        referenceType: params.referenceType,
++        referenceId: params.referenceId,
++        userId: params.userId,
++        notes: params.notes
++      }
++    });
++
++    // Keep Product.stockQuantity as a maintained aggregate across all branches,
++    // so existing Products UI/API (built before branch-level tracking existed)
++    // keeps working without changes.
++    await tx.product.update({ where:{id:params.productId}, data:{ stockQuantity:{ increment: params.quantityDelta } } });
++
++    return inventory;
++  }
++
++  list(organizationId: string, branchId?: string) {
++    return this.prisma.inventory.findMany({
++      where:{ organizationId, ...(branchId ? {branchId} : {}) },
++      include:{ product:{select:{id:true,name:true,sku:true,reorderLevel:true}}, branch:{select:{id:true,name:true}} },
++      orderBy:[{branch:{name:"asc"}},{product:{name:"asc"}}]
++    });
++  }
++
++  async lowStock(organizationId: string, branchId?: string) {
++    const rows = await this.list(organizationId, branchId);
++    return rows.filter(r => r.quantity <= r.product.reorderLevel);
++  }
++
++  movements(organizationId: string, filters: { productId?: string; branchId?: string }) {
++    return this.prisma.stockMovement.findMany({
++      where:{ organizationId, ...(filters.productId ? {productId:filters.productId} : {}), ...(filters.branchId ? {branchId:filters.branchId} : {}) },
++      include:{ product:{select:{id:true,name:true,sku:true}}, branch:{select:{id:true,name:true}}, user:{select:{id:true,name:true}} },
++      orderBy:{createdAt:"desc"},
++      take:200
++    });
++  }
++}
+diff --git a/apps/api/src/purchase-orders/purchase-orders.module.ts b/apps/api/src/purchase-orders/purchase-orders.module.ts
+index 31cd05b..cdbdead 100644
+--- a/apps/api/src/purchase-orders/purchase-orders.module.ts
++++ b/apps/api/src/purchase-orders/purchase-orders.module.ts
+@@ -1,8 +1,10 @@
+ import { Module } from "@nestjs/common";
++import { InventoryModule } from "../inventory/inventory.module";
+ import { PurchaseOrdersController } from "./purchase-orders.controller";
+ import { PurchaseOrdersService } from "./purchase-orders.service";
+ 
+ @Module({
++  imports:[InventoryModule],
+   controllers:[PurchaseOrdersController],
+   providers:[PurchaseOrdersService]
+ })
+diff --git a/apps/api/src/purchase-orders/purchase-orders.service.ts b/apps/api/src/purchase-orders/purchase-orders.service.ts
+index e0a730c..e3c78d9 100644
+--- a/apps/api/src/purchase-orders/purchase-orders.service.ts
++++ b/apps/api/src/purchase-orders/purchase-orders.service.ts
+@@ -1,5 +1,6 @@
+ import { BadRequestException, ConflictException, Injectable, NotFoundException } from "@nestjs/common";
+ import { PrismaService } from "../prisma/prisma.service";
++import { InventoryService } from "../inventory/inventory.service";
+ import { CreatePurchaseOrderDto } from "./dto/create-purchase-order.dto";
+ import { UpdatePurchaseOrderDto } from "./dto/update-purchase-order.dto";
+ import { CreateGoodsReceiptDto } from "./dto/create-goods-receipt.dto";
+@@ -13,7 +14,7 @@ const poInclude = {
+ 
+ @Injectable()
+ export class PurchaseOrdersService {
+-  constructor(private readonly prisma: PrismaService) {}
++  constructor(private readonly prisma: PrismaService, private readonly inventory: InventoryService) {}
+ 
+   list(organizationId: string) {
+     return this.prisma.purchaseOrder.findMany({ where:{organizationId}, orderBy:{orderDate:"desc"}, include:poInclude });
+@@ -128,7 +129,12 @@ export class PurchaseOrdersService {
+       for(const line of dto.items) {
+         const poItem = poItemsById.get(line.purchaseOrderItemId)!;
+         await tx.purchaseOrderItem.update({ where:{id:line.purchaseOrderItemId}, data:{ quantityReceived:{increment:line.quantityReceived} } });
+-        await tx.product.update({ where:{id:poItem.productId}, data:{ stockQuantity:{increment:line.quantityReceived} } });
++        await this.inventory.adjustStock(tx, {
++          organizationId, productId: poItem.productId, branchId: po.branch.id,
++          type: "RECEIPT", quantityDelta: line.quantityReceived,
++          referenceType: "GoodsReceipt", referenceId: receipt.id, userId,
++          notes: `Received against ${po.orderNumber}`
++        });
+       }
+ 
+       const refreshedItems = await tx.purchaseOrderItem.findMany({ where:{purchaseOrderId:id} });

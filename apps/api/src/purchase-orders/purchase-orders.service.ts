@@ -1,5 +1,6 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
+import { InventoryService } from "../inventory/inventory.service";
 import { CreatePurchaseOrderDto } from "./dto/create-purchase-order.dto";
 import { UpdatePurchaseOrderDto } from "./dto/update-purchase-order.dto";
 import { CreateGoodsReceiptDto } from "./dto/create-goods-receipt.dto";
@@ -13,7 +14,7 @@ const poInclude = {
 
 @Injectable()
 export class PurchaseOrdersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService, private readonly inventory: InventoryService) {}
 
   list(organizationId: string) {
     return this.prisma.purchaseOrder.findMany({ where:{organizationId}, orderBy:{orderDate:"desc"}, include:poInclude });
@@ -128,7 +129,12 @@ export class PurchaseOrdersService {
       for(const line of dto.items) {
         const poItem = poItemsById.get(line.purchaseOrderItemId)!;
         await tx.purchaseOrderItem.update({ where:{id:line.purchaseOrderItemId}, data:{ quantityReceived:{increment:line.quantityReceived} } });
-        await tx.product.update({ where:{id:poItem.productId}, data:{ stockQuantity:{increment:line.quantityReceived} } });
+        await this.inventory.adjustStock(tx, {
+          organizationId, productId: poItem.productId, branchId: po.branch.id,
+          type: "RECEIPT", quantityDelta: line.quantityReceived,
+          referenceType: "GoodsReceipt", referenceId: receipt.id, userId,
+          notes: `Received against ${po.orderNumber}`
+        });
       }
 
       const refreshedItems = await tx.purchaseOrderItem.findMany({ where:{purchaseOrderId:id} });

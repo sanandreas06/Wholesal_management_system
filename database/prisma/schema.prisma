@@ -26,6 +26,8 @@ model Organization {
   customers      Customer[]
   purchaseOrders PurchaseOrder[]
   goodsReceipts  GoodsReceipt[]
+  inventories    Inventory[]
+  stockMovements StockMovement[]
 }
 
 model Branch {
@@ -42,6 +44,8 @@ model Branch {
   sales          Sale[]
   users          User[]
   purchaseOrders PurchaseOrder[]
+  inventories    Inventory[]
+  stockMovements StockMovement[]
 
   @@unique([organizationId, code])
   @@index([organizationId])
@@ -49,20 +53,21 @@ model Branch {
 }
 
 model User {
-  id             String         @id @default(uuid())
+  id             String          @id @default(uuid())
   organizationId String
   branchId       String?
-  email          String         @unique
+  email          String          @unique
   name           String
   passwordHash   String
-  status         UserStatus     @default(ACTIVE)
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
+  status         UserStatus      @default(ACTIVE)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
   sales          Sale[]
-  branch         Branch?        @relation(fields: [branchId], references: [id])
-  organization   Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branch         Branch?         @relation(fields: [branchId], references: [id])
+  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   userRoles      UserRole[]
   goodsReceipts  GoodsReceipt[]
+  stockMovements StockMovement[]
 
   @@index([organizationId])
   @@index([branchId])
@@ -89,6 +94,8 @@ model Product {
   unit               Unit?               @relation(fields: [unitId], references: [id], onDelete: SetNull)
   purchaseOrderItems PurchaseOrderItem[]
   goodsReceiptItems  GoodsReceiptItem[]
+  inventories        Inventory[]
+  stockMovements     StockMovement[]
 
   @@unique([organizationId, sku])
   @@index([organizationId])
@@ -389,6 +396,57 @@ model GoodsReceiptItem {
 
   @@index([goodsReceiptId])
   @@index([purchaseOrderItemId])
+}
+
+model Inventory {
+  id             String   @id @default(uuid())
+  organizationId String
+  productId      String
+  branchId       String
+  quantity       Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  product      Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
+  branch       Branch       @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, branchId])
+  @@index([organizationId])
+  @@index([branchId])
+}
+
+enum StockMovementType {
+  RECEIPT
+  ADJUSTMENT
+  TRANSFER_IN
+  TRANSFER_OUT
+  SALE
+  INITIAL
+}
+
+model StockMovement {
+  id                String            @id @default(uuid())
+  organizationId    String
+  productId         String
+  branchId          String
+  type              StockMovementType
+  quantityDelta     Int
+  resultingQuantity Int
+  referenceType     String?
+  referenceId       String?
+  userId            String?
+  notes             String?
+  createdAt         DateTime          @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  product      Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
+  branch       Branch       @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  user         User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+  @@index([productId, branchId])
+  @@index([branchId])
 }
 
 enum UserStatus {

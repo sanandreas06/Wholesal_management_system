@@ -110,10 +110,35 @@ Status: ✅ Complete. Verified in-browser and via API.
   the new duplicate check specifically targets *contacts*, which had none
 
 ### Batch 5 — Purchasing & Receiving
-Status: 🔜 Next up.
+Status: ✅ Complete. Verified in-browser via full workflow test.
+- `PurchaseOrder`, `PurchaseOrderItem`, `GoodsReceipt`, `GoodsReceiptItem`
+  models added (additive migration, same safe pattern as prior batches)
+- Purchase order workflow with real state transitions:
+  `DRAFT → SENT → PARTIALLY_RECEIVED → RECEIVED`, plus `CLOSED`/`CANCELLED`
+  — chosen over a simpler 3-state model since wholesale suppliers routinely
+  deliver in multiple shipments; building partial-receiving support in now
+  avoided a harder retrofit later
+- Full CRUD + workflow actions: `POST/PUT/DELETE /api/purchase-orders`,
+  `PATCH .../send`, `PATCH .../cancel` — items only editable while `DRAFT`,
+  cancellation blocked once anything has been received
+- **Goods receiving is the core piece**: `POST /api/purchase-orders/:id/receipts`
+  validates received quantities against what's actually still owed, then
+  atomically (single Prisma transaction): creates the receipt record,
+  increments the product's stock, increments the PO item's received count,
+  and recalculates the PO's overall status — proven correct via manual
+  end-to-end testing (partial receive → status updated correctly → stock
+  increased by the exact right amount → later full receive → status flipped
+  to RECEIVED)
+- Supplier invoice number/amount are optional fields on a receipt (goods
+  often arrive before the paperwork does) — intentional, not a gap, though
+  there's currently no way to attach invoice info to a receipt *after* the
+  fact if it wasn't entered at receiving time; worth adding later if needed
+- Purchase Orders UI: list with status badges, dynamic line-item entry on
+  create, detail view showing ordered-vs-received quantities and receipt
+  history, inline goods-receiving form
 
 ### Batch 6 — Inventory
-Status: Not started.
+Status: 🔜 Next up.
 
 ### Batch 7 — Sales
 Status: Not started.
