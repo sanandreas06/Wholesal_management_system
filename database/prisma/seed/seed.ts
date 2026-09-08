@@ -215,6 +215,10 @@ async function main() {
     ["STOCK_COUNTS", PermissionAction.READ],
     ["STOCK_COUNTS", PermissionAction.CREATE],
 
+    ["STOCK_TRANSFERS", PermissionAction.READ],
+    ["STOCK_TRANSFERS", PermissionAction.CREATE],
+    ["STOCK_TRANSFERS", PermissionAction.UPDATE],
+
     ["SALES", PermissionAction.READ],
     ["SALES", PermissionAction.CREATE],
     ["SALES", PermissionAction.UPDATE],
@@ -369,6 +373,7 @@ async function main() {
   "STOCK_ADJUSTMENTS",
   "STOCK_TRANSFERS", 
   "STOCK_COUNTS", 
+  "STOCK_TRANSFERS",
 ];
 
   for (const permission of permissions) {

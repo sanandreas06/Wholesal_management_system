@@ -18,7 +18,8 @@ const NAV = [
   { href: "/customers", label: "Customers", permission: "CUSTOMERS:READ" },
   { href: "/purchase-orders", label: "Purchase Orders", permission: "PURCHASING:READ" },
   { href: "/inventory", label: "Inventory", permission: "INVENTORY:READ" },
-  { href: "/stock-adjustments", label: "Stock Adjustments", permission: "STOCK_ADJUSTMENTS:READ" }
+  { href: "/stock-adjustments", label: "Stock Adjustments", permission: "STOCK_ADJUSTMENTS:READ" },
+  { href: "/stock-transfers", label: "Stock Transfers", permission: "STOCK_TRANSFERS:READ" }
 ];
 
 export default function AppShell({ title, children }: { title: string; children: ReactNode }) {

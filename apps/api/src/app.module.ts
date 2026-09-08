@@ -19,6 +19,7 @@ import { CustomersModule } from "./customers/customers.module";
 import { PurchaseOrdersModule } from "./purchase-orders/purchase-orders.module";
 import { InventoryModule } from "./inventory/inventory.module";
 import { StockAdjustmentsModule } from "./stock-adjustments/stock-adjustments.module";
+import { StockTransfersModule } from "./stock-transfers/stock-transfers.module";
 
 @Module({
   imports: [
@@ -39,7 +40,8 @@ import { StockAdjustmentsModule } from "./stock-adjustments/stock-adjustments.mo
     CustomersModule,
     PurchaseOrdersModule,
     InventoryModule,
-    StockAdjustmentsModule
+    StockAdjustmentsModule,
+    StockTransfersModule
   ],
   controllers: [HealthController, DashboardController],
   providers: [DashboardService]

@@ -28,6 +28,7 @@ model Organization {
   goodsReceipts  GoodsReceipt[]
   inventories    Inventory[]
   stockMovements StockMovement[]
+  stockTransfers StockTransfer[]
 }
 
 model Branch {
@@ -46,6 +47,8 @@ model Branch {
   purchaseOrders PurchaseOrder[]
   inventories    Inventory[]
   stockMovements StockMovement[]
+  transfersFrom  StockTransfer[] @relation("TransferFromBranch")
+  transfersTo    StockTransfer[] @relation("TransferToBranch")
 
   @@unique([organizationId, code])
   @@index([organizationId])
@@ -53,21 +56,22 @@ model Branch {
 }
 
 model User {
-  id             String          @id @default(uuid())
-  organizationId String
-  branchId       String?
-  email          String          @unique
-  name           String
-  passwordHash   String
-  status         UserStatus      @default(ACTIVE)
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
-  sales          Sale[]
-  branch         Branch?         @relation(fields: [branchId], references: [id])
-  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  userRoles      UserRole[]
-  goodsReceipts  GoodsReceipt[]
-  stockMovements StockMovement[]
+  id                    String          @id @default(uuid())
+  organizationId        String
+  branchId              String?
+  email                 String          @unique
+  name                  String
+  passwordHash          String
+  status                UserStatus      @default(ACTIVE)
+  createdAt             DateTime        @default(now())
+  updatedAt             DateTime        @updatedAt
+  sales                 Sale[]
+  branch                Branch?         @relation(fields: [branchId], references: [id])
+  organization          Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userRoles             UserRole[]
+  goodsReceipts         GoodsReceipt[]
+  stockMovements        StockMovement[]
+  createdStockTransfers StockTransfer[]
 
   @@index([organizationId])
   @@index([branchId])
@@ -96,6 +100,7 @@ model Product {
   goodsReceiptItems  GoodsReceiptItem[]
   inventories        Inventory[]
   stockMovements     StockMovement[]
+  stockTransferItems StockTransferItem[]
 
   @@unique([organizationId, sku])
   @@index([organizationId])
@@ -447,6 +452,57 @@ model StockMovement {
   @@index([organizationId])
   @@index([productId, branchId])
   @@index([branchId])
+}
+
+enum StockTransferStatus {
+  DRAFT
+  APPROVED
+  DISPATCHED
+  RECEIVED
+  CANCELLED
+}
+
+model StockTransfer {
+  id                 String              @id @default(uuid())
+  organizationId     String
+  fromBranchId       String
+  toBranchId         String
+  transferNumber     String
+  status             StockTransferStatus @default(DRAFT)
+  notes              String?
+  createdByUserId    String
+  approvedByUserId   String?
+  approvedAt         DateTime?
+  dispatchedByUserId String?
+  dispatchedAt       DateTime?
+  receivedByUserId   String?
+  receivedAt         DateTime?
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+
+  organization Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  fromBranch   Branch              @relation("TransferFromBranch", fields: [fromBranchId], references: [id], onDelete: Restrict)
+  toBranch     Branch              @relation("TransferToBranch", fields: [toBranchId], references: [id], onDelete: Restrict)
+  createdBy    User                @relation(fields: [createdByUserId], references: [id], onDelete: Restrict)
+  items        StockTransferItem[]
+
+  @@unique([organizationId, transferNumber])
+  @@index([organizationId])
+  @@index([fromBranchId])
+  @@index([toBranchId])
+}
+
+model StockTransferItem {
+  id              String @id @default(uuid())
+  stockTransferId String
+  productId       String
+  quantity        Int
+
+  stockTransfer StockTransfer @relation(fields: [stockTransferId], references: [id], onDelete: Cascade)
+  product       Product       @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@index([stockTransferId])
+  @@index([productId])
 }
 
 enum UserStatus {
