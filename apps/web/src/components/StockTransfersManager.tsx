@@ -1,8 +1,10 @@
 'use client';
 import { FormEvent, useEffect, useState } from "react";
 import AppShell from "./AppShell";
+import StatusStepper from "./StatusStepper";
 import { api, ApiError } from "../lib/api";
 import { usePermissions } from "../hooks/usePermissions";
+import { usePolling } from "../hooks/usePolling";
 
 interface Ref { id: string; name: string }
 interface ProductRef { id: string; name: string; sku: string }
@@ -29,6 +31,8 @@ export default function StockTransfersManager() {
     api.get<ProductRef[]>("/products").then(setProducts).catch(() => {});
   }
   useEffect(load, []);
+  usePolling(load, 8000);
+  usePolling(() => { if (viewing) refreshViewing(viewing.id); }, 6000, !!viewing);
 
   function refreshViewing(id: string) {
     api.get<StockTransfer>(`/stock-transfers/${id}`).then(setViewing).catch(() => {});
@@ -152,13 +156,17 @@ function CreateTransferModal({ branches, products, onClose, onSaved }: { branche
 function TransferDetailModal({ transfer, canUpdate, onClose, onAction }: {
   transfer: StockTransfer; canUpdate: boolean; onClose: () => void; onAction: (action: "approve" | "dispatch" | "receive" | "cancel") => void;
 }) {
+  const steps = [{ key: "DRAFT", label: "Draft" }, { key: "APPROVED", label: "Approved" }, { key: "DISPATCHED", label: "Dispatched" }, { key: "RECEIVED", label: "Received" }];
+
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal modal-wide" onClick={e => e.stopPropagation()}>
         <button type="button" className="modal-close" onClick={onClose} aria-label="Close">&times;</button>
-        <h2>{transfer.transferNumber} <span className={`badge ${STATUS_CLASS[transfer.status] || "inactive"}`}>{transfer.status}</span></h2>
+        <h2>{transfer.transferNumber}</h2>
         <p className="muted">{transfer.fromBranch.name} → {transfer.toBranch.name}</p>
         {transfer.notes && <p className="muted">{transfer.notes}</p>}
+
+        <StatusStepper steps={steps} currentKey={transfer.status} cancelledLabel={transfer.status === "CANCELLED" ? "This transfer was cancelled" : undefined} />
 
         <div className="table-wrap" style={{ marginBottom: 16 }}>
           <table>
