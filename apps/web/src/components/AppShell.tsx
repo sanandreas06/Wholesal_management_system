@@ -19,7 +19,8 @@ const NAV = [
   { href: "/purchase-orders", label: "Purchase Orders", permission: "PURCHASING:READ" },
   { href: "/inventory", label: "Inventory", permission: "INVENTORY:READ" },
   { href: "/stock-adjustments", label: "Stock Adjustments", permission: "STOCK_ADJUSTMENTS:READ" },
-  { href: "/stock-transfers", label: "Stock Transfers", permission: "STOCK_TRANSFERS:READ" }
+  { href: "/stock-transfers", label: "Stock Transfers", permission: "STOCK_TRANSFERS:READ" },
+  { href: "/stock-counts", label: "Stock Counts", permission: "STOCK_COUNTS:READ" }
 ];
 
 export default function AppShell({ title, children }: { title: string; children: ReactNode }) {
@@ -41,13 +42,14 @@ export default function AppShell({ title, children }: { title: string; children:
     <div className="app">
       <aside className="sidebar">
         <div className="brand"><span className="mark small">W</span><span>WMS</span></div>
-        <nav>
+        <nav className="sidebar-nav-scroll">
           {visibleNav.map(item => (
             <a key={item.href} href={item.href} className={pathname === item.href ? "active" : ""}>{item.label}</a>
           ))}
         </nav>
         {user && <div className="who"><strong>{user.name}</strong><span className="muted">{user.branch || user.organization || ""}</span></div>}
       </aside>
+
       <div className="content">
         <header className="topbar">
           <h1>{title}</h1>

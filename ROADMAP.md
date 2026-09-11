@@ -138,7 +138,50 @@ Status: ✅ Complete. Verified in-browser via full workflow test.
   history, inline goods-receiving form
 
 ### Batch 6 — Inventory
-Status: 🔜 Next up.
+Status: 🟡 In progress — 3 of 4 sub-features complete.
+
+**Architectural note caught before building:** Batch 6 explicitly called for
+"branch-level inventory," but `Product.stockQuantity` was a single global
+number. Introduced a proper `Inventory` table (product + branch + quantity)
+before building anything else, and retrofitted Batch 5's Goods Receiving
+(which had been silently adding to one global number regardless of which
+branch actually received the delivery). Existing seeded stock was split
+evenly across the 3 branches via a one-time migration (verified by hand —
+every product's per-branch split sums back to its original total, remainder
+units correctly distributed rather than lost to rounding).
+
+**6.1 — Inventory foundation** ✅
+- `Inventory` (per-branch stock) and `StockMovement` (append-only ledger)
+  models
+- `InventoryService.adjustStock()` — the single reusable path every
+  stock-changing feature goes through: updates branch inventory, writes a
+  ledger entry, keeps `Product.stockQuantity` as a maintained aggregate so
+  the existing Products page needed zero changes
+- Goods Receiving retrofitted to update the correct branch instead of a
+  global number
+- UI: Stock Levels (per-branch, filterable, low-stock highlighting) and
+  Movement Ledger views
+
+**6.2 — Stock Adjustments** ✅
+- Manual corrections (damage, loss, miscounts) with a **required** reason —
+  no unexplained stock changes allowed
+- Protected against pushing stock negative — rejects with a clear message
+  showing exactly how much is actually available
+- UI: increase/decrease direction picker (avoids asking users to type
+  negative numbers) plus full history
+
+**6.3 — Stock Transfers** ✅
+- Full workflow: `DRAFT → APPROVED → DISPATCHED → RECEIVED` (or `CANCELLED`,
+  blocked once dispatched since stock is genuinely in transit by then)
+- Stock actually **leaves the source branch at dispatch** (validated against
+  real availability first) and **arrives at the destination at receive** —
+  during that window it's correctly absent from both branches, matching how
+  a physical delivery actually works. Verified by hand: checked inventory
+  mid-transfer and confirmed stock was genuinely "missing" from both
+  locations until the receive step completed.
+- Both legs (`TRANSFER_OUT` / `TRANSFER_IN`) write to the same ledger
+
+**6.4 — Stock Counts** 🔲 Not started — the last piece of Batch 6.
 
 ### Batch 7 — Sales
 Status: Not started.

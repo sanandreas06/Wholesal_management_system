@@ -20,6 +20,7 @@ import { PurchaseOrdersModule } from "./purchase-orders/purchase-orders.module";
 import { InventoryModule } from "./inventory/inventory.module";
 import { StockAdjustmentsModule } from "./stock-adjustments/stock-adjustments.module";
 import { StockTransfersModule } from "./stock-transfers/stock-transfers.module";
+import { StockCountsModule } from "./stock-counts/stock-counts.module";
 
 @Module({
   imports: [
@@ -41,7 +42,8 @@ import { StockTransfersModule } from "./stock-transfers/stock-transfers.module";
     PurchaseOrdersModule,
     InventoryModule,
     StockAdjustmentsModule,
-    StockTransfersModule
+    StockTransfersModule,
+    StockCountsModule
   ],
   controllers: [HealthController, DashboardController],
   providers: [DashboardService]

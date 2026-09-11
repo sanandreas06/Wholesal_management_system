@@ -214,6 +214,7 @@ async function main() {
 
     ["STOCK_COUNTS", PermissionAction.READ],
     ["STOCK_COUNTS", PermissionAction.CREATE],
+    ["STOCK_COUNTS", PermissionAction.UPDATE],
 
     ["STOCK_TRANSFERS", PermissionAction.READ],
     ["STOCK_TRANSFERS", PermissionAction.CREATE],

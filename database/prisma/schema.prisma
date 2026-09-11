@@ -29,6 +29,7 @@ model Organization {
   inventories    Inventory[]
   stockMovements StockMovement[]
   stockTransfers StockTransfer[]
+  stockCounts    StockCount[]
 }
 
 model Branch {
@@ -49,6 +50,7 @@ model Branch {
   stockMovements StockMovement[]
   transfersFrom  StockTransfer[] @relation("TransferFromBranch")
   transfersTo    StockTransfer[] @relation("TransferToBranch")
+  stockCounts    StockCount[]
 
   @@unique([organizationId, code])
   @@index([organizationId])
@@ -72,6 +74,7 @@ model User {
   goodsReceipts         GoodsReceipt[]
   stockMovements        StockMovement[]
   createdStockTransfers StockTransfer[]
+  createdStockCounts    StockCount[]
 
   @@index([organizationId])
   @@index([branchId])
@@ -101,6 +104,7 @@ model Product {
   inventories        Inventory[]
   stockMovements     StockMovement[]
   stockTransferItems StockTransferItem[]
+  stockCountItems    StockCountItem[]
 
   @@unique([organizationId, sku])
   @@index([organizationId])
@@ -428,6 +432,7 @@ enum StockMovementType {
   TRANSFER_OUT
   SALE
   INITIAL
+  COUNT_VARIANCE
 }
 
 model StockMovement {
@@ -460,6 +465,48 @@ enum StockTransferStatus {
   DISPATCHED
   RECEIVED
   CANCELLED
+}
+
+enum StockCountStatus {
+  DRAFT
+  COMPLETED
+  CANCELLED
+}
+
+model StockCount {
+  id                String           @id @default(uuid())
+  organizationId    String
+  branchId          String
+  countNumber       String
+  status            StockCountStatus @default(DRAFT)
+  notes             String?
+  createdByUserId   String
+  completedByUserId String?
+  completedAt       DateTime?
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  createdBy         User             @relation(fields: [createdByUserId], references: [id], onDelete: Restrict)
+  organization      Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branch            Branch           @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  items             StockCountItem[]
+
+  @@unique([organizationId, countNumber])
+  @@index([organizationId])
+  @@index([branchId])
+}
+
+model StockCountItem {
+  id              String @id @default(uuid())
+  stockCountId    String
+  productId       String
+  systemQuantity  Int
+  countedQuantity Int?
+
+  stockCount StockCount @relation(fields: [stockCountId], references: [id], onDelete: Cascade)
+  product    Product    @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@index([stockCountId])
+  @@index([productId])
 }
 
 model StockTransfer {
