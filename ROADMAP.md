@@ -181,10 +181,46 @@ units correctly distributed rather than lost to rounding).
   locations until the receive step completed.
 - Both legs (`TRANSFER_OUT` / `TRANSFER_IN`) write to the same ledger
 
-**6.4 — Stock Counts** 🔲 Not started — the last piece of Batch 6.
+**6.4 — Stock Counts** ✅ Complete. Verified in-browser end-to-end.
+- Creating a count auto-snapshots the current system quantity for every
+  product at the chosen branch — that snapshot becomes the baseline to
+  reconcile against
+- Cannot complete a count until every single item has a counted quantity
+  entered — no accidentally finalizing a half-finished physical count
+- Completing applies every variance as a `COUNT_VARIANCE` ledger entry;
+  exact matches (system == counted) are skipped entirely, so the ledger
+  only ever shows genuine discrepancies
+- Caught and fixed a real schema bug during testing: the `createdBy`
+  relation field was missing from `StockCount` (only the raw
+  `createdByUserId` column existed), causing every list/create call to
+  fail with a Prisma validation error — fixed by adding the proper
+  relation
+
+**Also shipped alongside closing out Batch 6:**
+- **Sidebar overflow fix** — as more pages were added the nav list grew
+  past the visible viewport height with no scroll, causing the dark
+  sidebar background to visually "run out" before the links did.
+  Restructured so the logo and user profile stay pinned in place while
+  only the middle nav list scrolls internally.
+- **Live status tracking** — added a reusable visual step-progress
+  component (checkmarks for completed stages, highlighted current stage,
+  a red banner instead of steps for cancelled records) to Purchase Orders
+  and Stock Transfers, replacing the plain text badge. Paired with
+  polling-based auto-refresh (list view every 8s, open detail view every
+  6s, automatically paused when the browser tab isn't visible) so status
+  changes appear without a manual page reload — deferred a full
+  WebSocket-based live system as unnecessary complexity for the current
+  stage.
+
+**Batch 6 is now fully complete: per-branch inventory, the full audit
+ledger, adjustments, transfers, and physical counts — all built, tested,
+and pushed.**
 
 ### Batch 7 — Sales
-Status: Not started.
+Status: 🔜 Next up. This is the batch the original product vision most
+depends on — branches keying in sales data is the raw signal everything
+downstream (AI investment recommendations, financial reporting) will be
+built from.
 
 ### Batch 8 — Finance & Reconciliation
 Status: Not started.

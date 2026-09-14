@@ -165,7 +165,7 @@ function CountDetailModal({ count, canUpdate, onClose, onRefresh, onCompleted }:
                         ? <input type="number" min="0" style={{ width: 100 }} value={counted[item.id] ?? ""} onChange={e => setCounted(prev => ({ ...prev, [item.id]: e.target.value }))} />
                         : (item.countedQuantity ?? "—")}
                     </td>
-                    <td style={{ color: variance == null || variance === 0 ? undefined : variance > 0 ? "#067647" : "#b42318", fontWeight: 700 }}>
+                    <td className={variance == null || variance === 0 ? "neutral" : variance > 0 ? "positive" : "negative"}>
                       {variance == null ? "—" : variance === 0 ? "0" : (variance > 0 ? `+${variance}` : variance)}
                     </td>
                   </tr>

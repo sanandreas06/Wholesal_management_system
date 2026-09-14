@@ -44,7 +44,7 @@ export default function StockAdjustmentsManager() {
                   <td>{new Date(a.createdAt).toLocaleString()}</td>
                   <td>{a.product.name} <span className="muted">({a.product.sku})</span></td>
                   <td>{a.branch.name}</td>
-                  <td style={{ color: a.quantityDelta >= 0 ? "#067647" : "#b42318", fontWeight: 700 }}>
+                  <td className={a.quantityDelta >= 0 ? "positive" : "negative"}>
                     {a.quantityDelta >= 0 ? "+" : ""}{a.quantityDelta}
                   </td>
                   <td>{a.resultingQuantity}</td>

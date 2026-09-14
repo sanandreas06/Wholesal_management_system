@@ -260,7 +260,7 @@ function ReceiveGoodsForm({ po, onCancel, onSaved }: { po: PurchaseOrder; onCanc
   }
 
   return (
-    <form onSubmit={submit} style={{ borderTop: "1px solid #e5e7eb", paddingTop: 16, marginTop: 8 }}>
+    <form onSubmit={submit} style={{ borderTop: "1px solid var(--border)", paddingTop: 16, marginTop: 8 }}>
       <p className="field-hint" style={{ marginBottom: 8 }}>Enter quantity received for each item (leave blank for items not in this shipment)</p>
       {receivable.map(item => {
         const remaining = item.quantityOrdered - item.quantityReceived;

@@ -1,0 +1,163 @@
+diff --git a/apps/web/src/app/globals.css b/apps/web/src/app/globals.css
+index 0b3a0f4..5753fd4 100644
+--- a/apps/web/src/app/globals.css
++++ b/apps/web/src/app/globals.css
+@@ -1,4 +1,4 @@
+ *{box-sizing:border-box}body{margin:0;background:#f5f7fb;color:#152033;font-family:Inter,system-ui,sans-serif}.auth{min-height:100vh;display:grid;place-items:center;padding:24px}.card{width:min(440px,100%);background:white;border:1px solid #e5e7eb;border-radius:20px;padding:40px;box-shadow:0 20px 60px rgba(15,23,42,.08)}.mark{width:48px;height:48px;display:grid;place-items:center;border-radius:12px;background:#1f5eff;color:white;font-size:24px;font-weight:800}.eyebrow{color:#1f5eff;font-size:11px;letter-spacing:.12em;font-weight:800;margin:18px 0 6px}.muted{color:#6b7280}form{display:grid;gap:18px;margin-top:28px}label{display:grid;gap:8px;font-size:14px;font-weight:650}input{padding:13px;border:1px solid #e5e7eb;border-radius:10px}button{border:0;border-radius:10px;padding:13px 16px;background:#1f5eff;color:white;font-weight:700;cursor:pointer}.secondary{background:white;color:#152033;border:1px solid #e5e7eb}.error{padding:12px;border-radius:10px;background:#fef3f2;color:#b42318}.shell{max-width:1440px;margin:auto;padding:32px}.shell header{display:flex;justify-content:space-between;align-items:center;margin-bottom:28px}.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:18px;margin-bottom:18px}.kpi,.panel{background:white;border:1px solid #e5e7eb;border-radius:16px;padding:22px}.kpi p{color:#6b7280;font-size:13px}.kpi strong{font-size:26px}.charts{display:grid;grid-template-columns:2fr 1fr;gap:18px}.chart{height:330px;margin-top:18px}@media(max-width:900px){.kpis,.charts{grid-template-columns:1fr 1fr}}@media(max-width:620px){.shell{padding:18px}.kpis,.charts{grid-template-columns:1fr}.shell header{align-items:flex-start;gap:16px}}.app{display:flex;min-height:100vh}.sidebar{width:220px;background:#101728;color:#fff;padding:24px 18px;display:flex;flex-direction:column;gap:22px;position:sticky;top:0;height:100vh}.brand{display:flex;align-items:center;gap:10px;font-weight:800;letter-spacing:.04em}.mark.small{width:32px;height:32px;font-size:16px}.sidebar nav{display:flex;flex-direction:column;gap:4px}.sidebar a{color:#c7cedd;text-decoration:none;padding:10px 12px;border-radius:8px;font-size:14px;font-weight:600}.sidebar a.active,.sidebar a:hover{background:#1f5eff;color:#fff}.who{margin-top:auto;padding-top:16px;border-top:1px solid rgba(255,255,255,.1);display:flex;flex-direction:column;gap:2px;font-size:13px}.who .muted{color:#8891a5}.content{flex:1;padding:32px;max-width:1200px}.topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px}.topbar h1{font-size:22px;margin:0}.toolbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;gap:12px}.table-wrap{background:#fff;border:1px solid #e5e7eb;border-radius:16px;overflow:hidden}table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:12px 16px;font-size:14px;border-bottom:1px solid #eef0f4}th{color:#6b7280;font-weight:650;font-size:12px;text-transform:uppercase;letter-spacing:.04em;background:#fafbfc}tr:last-child td{border-bottom:none}.badge{display:inline-block;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:650}.badge.active{background:#ecfdf3;color:#067647}.badge.inactive{background:#f2f4f7;color:#667085}.row-actions{display:flex;gap:8px}.row-actions button{padding:6px 12px;font-size:13px}.modal-backdrop{position:fixed;inset:0;background:rgba(15,23,42,.4);display:flex;align-items:flex-start;justify-content:center;padding:40px 24px;overflow-y:auto;z-index:10}.modal{width:min(480px,100%);background:#fff;border-radius:16px;padding:28px;max-height:calc(100vh - 80px);overflow-y:auto;position:relative}.modal-close{position:absolute;top:20px;right:20px;width:32px;height:32px;padding:0;border-radius:8px;background:#f2f4f7;color:#152033;font-size:16px;line-height:1;display:grid;place-items:center}.modal-close:hover{background:#e5e7eb}.modal h2{margin-top:0;padding-right:36px}.modal form{display:grid;gap:16px;margin-top:8px}.modal-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:8px}.field-hint{color:#9ca3af;font-size:12px;font-weight:500;margin-top:-4px}.empty{padding:40px;text-align:center;color:#6b7280}
+ select{padding:13px;border:1px solid #e5e7eb;border-radius:10px;font-family:inherit;font-size:14px;background:#fff}
+ .org-form{display:grid;gap:16px;max-width:420px}
+-.checkbox-list{display:flex;flex-direction:column;gap:8px;max-height:220px;overflow-y:auto;border:1px solid #e5e7eb;border-radius:10px;padding:12px;font-weight:400}.checkbox-row{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:500;color:#1f2937}.checkbox-row input{width:auto}.modal-wide{width:min(680px,100%)}.permission-groups{display:flex;flex-direction:column;gap:14px;max-height:420px;overflow-y:auto}.permission-group{border:1px solid #e5e7eb;border-radius:10px;padding:12px 14px}.permission-group-title{margin:0 0 8px;font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#6b7280}.checkbox-list-inline{flex-direction:row;flex-wrap:wrap;max-height:none;border:none;padding:0;gap:14px}
+\ No newline at end of file
++.checkbox-list{display:flex;flex-direction:column;gap:8px;max-height:220px;overflow-y:auto;border:1px solid #e5e7eb;border-radius:10px;padding:12px;font-weight:400}.checkbox-row{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:500;color:#1f2937}.checkbox-row input{width:auto}.modal-wide{width:min(680px,100%)}.permission-groups{display:flex;flex-direction:column;gap:14px;max-height:420px;overflow-y:auto}.permission-group{border:1px solid #e5e7eb;border-radius:10px;padding:12px 14px}.permission-group-title{margin:0 0 8px;font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#6b7280}.checkbox-list-inline{flex-direction:row;flex-wrap:wrap;max-height:none;border:none;padding:0;gap:14px}.stepper{display:flex;align-items:flex-start;margin:8px 0 20px;padding:8px 4px}.stepper-step{display:flex;flex-direction:column;align-items:center;flex:1;min-width:0}.stepper-node-row{display:flex;align-items:center;width:100%}.stepper-node{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;font-size:13px;font-weight:700;flex-shrink:0;transition:all .2s}.stepper-node.done{background:#1f5eff;color:#fff}.stepper-node.current{background:#fff;color:#1f5eff;border:2px solid #1f5eff;box-shadow:0 0 0 4px rgba(31,94,255,.15)}.stepper-node.upcoming{background:#f2f4f7;color:#9ca3af;border:2px solid #e5e7eb}.stepper-line{flex:1;height:2px;background:#e5e7eb;margin:0 4px}.stepper-line.done{background:#1f5eff}.stepper-label{margin:8px 0 0;font-size:12px;font-weight:600;text-align:center;color:#9ca3af}.stepper-label.current{color:#1f5eff}.stepper-label.done{color:#152033}.stepper-cancelled{padding:12px 16px;border-radius:10px;background:#fef3f2;color:#b42318;font-weight:650;font-size:14px;margin:8px 0 20px}
+diff --git a/apps/web/src/components/PurchaseOrdersManager.tsx b/apps/web/src/components/PurchaseOrdersManager.tsx
+index c65e37d..fed67ef 100644
+--- a/apps/web/src/components/PurchaseOrdersManager.tsx
++++ b/apps/web/src/components/PurchaseOrdersManager.tsx
+@@ -1,8 +1,10 @@
+ 'use client';
+ import { FormEvent, useEffect, useState } from "react";
+ import AppShell from "./AppShell";
++import StatusStepper from "./StatusStepper";
+ import { api, ApiError } from "../lib/api";
+ import { usePermissions } from "../hooks/usePermissions";
++import { usePolling } from "../hooks/usePolling";
+ 
+ interface Ref { id: string; name: string }
+ interface ProductRef { id: string; name: string; sku: string }
+@@ -33,6 +35,7 @@ export default function PurchaseOrdersManager() {
+     api.get<ProductRef[]>("/products").then(setProducts).catch(() => {});
+   }
+   useEffect(load, []);
++  usePolling(load, 8000);
+ 
+   async function send(po: PurchaseOrder) {
+     try { await api.patch(`/purchase-orders/${po.id}/send`); load(); }
+@@ -169,14 +172,22 @@ function CreatePOModal({ suppliers, branches, products, onClose, onSaved }: {
+ function PODetailModal({ po, onClose, onChanged }: { po: PurchaseOrder; onClose: () => void; onChanged: () => void }) {
+   const [receiving, setReceiving] = useState(false);
+   const canReceive = po.status === "SENT" || po.status === "PARTIALLY_RECEIVED";
++  usePolling(onChanged, 6000, !receiving); // pause polling while actively filling out the receive form
++
++  const steps = [{ key: "DRAFT", label: "Draft" }, { key: "SENT", label: "Sent" }, { key: "RECEIVED", label: "Received" }, { key: "CLOSED", label: "Closed" }];
++  const stepKey = po.status === "PARTIALLY_RECEIVED" ? "RECEIVED" : po.status;
+ 
+   return (
+     <div className="modal-backdrop" onClick={onClose}>
+       <div className="modal modal-wide" onClick={e => e.stopPropagation()}>
+         <button type="button" className="modal-close" onClick={onClose} aria-label="Close">&times;</button>
+-        <h2>{po.orderNumber} <span className={`badge ${STATUS_CLASS[po.status] || "inactive"}`}>{po.status.replace("_", " ")}</span></h2>
++        <h2>{po.orderNumber}</h2>
+         <p className="muted">{po.supplier.name} — {po.branch.name}</p>
+ 
++        <StatusStepper steps={steps} currentKey={stepKey} cancelledLabel={po.status === "CANCELLED" ? "This order was cancelled" : undefined} />
++        {po.status === "PARTIALLY_RECEIVED" && <p className="field-hint" style={{ marginTop: -12, marginBottom: 16 }}>Partially received — some items are still awaiting delivery.</p>}
++
++
+         <div className="table-wrap" style={{ marginBottom: 16 }}>
+           <table>
+             <thead><tr><th>Product</th><th>Ordered</th><th>Received</th><th>Unit Cost</th></tr></thead>
+diff --git a/apps/web/src/components/StatusStepper.tsx b/apps/web/src/components/StatusStepper.tsx
+new file mode 100644
+index 0000000..38a0c2e
+--- /dev/null
++++ b/apps/web/src/components/StatusStepper.tsx
+@@ -0,0 +1,30 @@
++'use client';
++
++interface Step { key: string; label: string }
++
++export default function StatusStepper({ steps, currentKey, cancelledLabel }: {
++  steps: Step[]; currentKey: string; cancelledLabel?: string;
++}) {
++  if (cancelledLabel) {
++    return <div className="stepper-cancelled">{cancelledLabel}</div>;
++  }
++
++  const currentIndex = steps.findIndex(s => s.key === currentKey);
++
++  return (
++    <div className="stepper">
++      {steps.map((step, i) => {
++        const state = i < currentIndex ? "done" : i === currentIndex ? "current" : "upcoming";
++        return (
++          <div className="stepper-step" key={step.key}>
++            <div className="stepper-node-row">
++              <div className={`stepper-node ${state}`}>{state === "done" ? "✓" : i + 1}</div>
++              {i < steps.length - 1 && <div className={`stepper-line ${i < currentIndex ? "done" : ""}`} />}
++            </div>
++            <p className={`stepper-label ${state}`}>{step.label}</p>
++          </div>
++        );
++      })}
++    </div>
++  );
++}
+diff --git a/apps/web/src/components/StockTransfersManager.tsx b/apps/web/src/components/StockTransfersManager.tsx
+index fa989d5..fc46d66 100644
+--- a/apps/web/src/components/StockTransfersManager.tsx
++++ b/apps/web/src/components/StockTransfersManager.tsx
+@@ -1,8 +1,10 @@
+ 'use client';
+ import { FormEvent, useEffect, useState } from "react";
+ import AppShell from "./AppShell";
++import StatusStepper from "./StatusStepper";
+ import { api, ApiError } from "../lib/api";
+ import { usePermissions } from "../hooks/usePermissions";
++import { usePolling } from "../hooks/usePolling";
+ 
+ interface Ref { id: string; name: string }
+ interface ProductRef { id: string; name: string; sku: string }
+@@ -29,6 +31,8 @@ export default function StockTransfersManager() {
+     api.get<ProductRef[]>("/products").then(setProducts).catch(() => {});
+   }
+   useEffect(load, []);
++  usePolling(load, 8000);
++  usePolling(() => { if (viewing) refreshViewing(viewing.id); }, 6000, !!viewing);
+ 
+   function refreshViewing(id: string) {
+     api.get<StockTransfer>(`/stock-transfers/${id}`).then(setViewing).catch(() => {});
+@@ -152,14 +156,18 @@ function CreateTransferModal({ branches, products, onClose, onSaved }: { branche
+ function TransferDetailModal({ transfer, canUpdate, onClose, onAction }: {
+   transfer: StockTransfer; canUpdate: boolean; onClose: () => void; onAction: (action: "approve" | "dispatch" | "receive" | "cancel") => void;
+ }) {
++  const steps = [{ key: "DRAFT", label: "Draft" }, { key: "APPROVED", label: "Approved" }, { key: "DISPATCHED", label: "Dispatched" }, { key: "RECEIVED", label: "Received" }];
++
+   return (
+     <div className="modal-backdrop" onClick={onClose}>
+       <div className="modal modal-wide" onClick={e => e.stopPropagation()}>
+         <button type="button" className="modal-close" onClick={onClose} aria-label="Close">&times;</button>
+-        <h2>{transfer.transferNumber} <span className={`badge ${STATUS_CLASS[transfer.status] || "inactive"}`}>{transfer.status}</span></h2>
++        <h2>{transfer.transferNumber}</h2>
+         <p className="muted">{transfer.fromBranch.name} → {transfer.toBranch.name}</p>
+         {transfer.notes && <p className="muted">{transfer.notes}</p>}
+ 
++        <StatusStepper steps={steps} currentKey={transfer.status} cancelledLabel={transfer.status === "CANCELLED" ? "This transfer was cancelled" : undefined} />
++
+         <div className="table-wrap" style={{ marginBottom: 16 }}>
+           <table>
+             <thead><tr><th>Product</th><th>Quantity</th></tr></thead>
+diff --git a/apps/web/src/hooks/usePolling.ts b/apps/web/src/hooks/usePolling.ts
+new file mode 100644
+index 0000000..133da74
+--- /dev/null
++++ b/apps/web/src/hooks/usePolling.ts
+@@ -0,0 +1,19 @@
++'use client';
++import { useEffect, useRef } from "react";
++
++/**
++ * Calls `callback` immediately, then repeatedly every `intervalMs`.
++ * Pauses automatically when the browser tab isn't visible, so it
++ * doesn't keep polling in the background wasting requests.
++ */
++export function usePolling(callback: () => void, intervalMs: number, enabled: boolean = true) {
++  const savedCallback = useRef(callback);
++  savedCallback.current = callback;
++
++  useEffect(() => {
++    if (!enabled) return;
++    const tick = () => { if (document.visibilityState === "visible") savedCallback.current(); };
++    const id = setInterval(tick, intervalMs);
++    return () => clearInterval(id);
++  }, [intervalMs, enabled]);
++}

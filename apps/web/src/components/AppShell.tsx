@@ -2,6 +2,7 @@
 import { ReactNode, useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { clearSession, getSessionUser, SessionUser } from "../lib/session";
+import { useTheme } from "../hooks/useTheme";
 
 const NAV = [
   { href: "/dashboard", label: "Dashboard", permission: null },
@@ -20,13 +21,15 @@ const NAV = [
   { href: "/inventory", label: "Inventory", permission: "INVENTORY:READ" },
   { href: "/stock-adjustments", label: "Stock Adjustments", permission: "STOCK_ADJUSTMENTS:READ" },
   { href: "/stock-transfers", label: "Stock Transfers", permission: "STOCK_TRANSFERS:READ" },
-  { href: "/stock-counts", label: "Stock Counts", permission: "STOCK_COUNTS:READ" }
+  { href: "/stock-counts", label: "Stock Counts", permission: "STOCK_COUNTS:READ" },
+  { href: "/audit", label: "Audit & Fraud Signals", permission: "AUDIT:READ" }
 ];
 
 export default function AppShell({ title, children }: { title: string; children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const [user, setUser] = useState<SessionUser | null>(null);
+  const { theme, toggle } = useTheme();
 
   useEffect(() => {
     const u = getSessionUser();
@@ -53,7 +56,12 @@ export default function AppShell({ title, children }: { title: string; children:
       <div className="content">
         <header className="topbar">
           <h1>{title}</h1>
-          <button className="secondary" onClick={signOut}>Sign out</button>
+          <div className="topbar-actions">
+            <button className="theme-toggle" onClick={toggle} aria-label="Toggle dark mode" title={theme === "light" ? "Switch to dark mode" : "Switch to light mode"}>
+              {theme === "light" ? "🌙" : "☀️"}
+            </button>
+            <button className="secondary" onClick={signOut}>Sign out</button>
+          </div>
         </header>
         {children}
       </div>

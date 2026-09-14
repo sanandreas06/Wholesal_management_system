@@ -226,6 +226,8 @@ async function main() {
 
     ["REPORTS", PermissionAction.READ],
     ["REPORTS", PermissionAction.EXPORT],
+
+    ["AUDIT", PermissionAction.READ],
   ] as const;
 
   const permissions = [];

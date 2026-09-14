@@ -98,7 +98,7 @@ export default function InventoryManager() {
                     <td>{m.product.name} <span className="muted">({m.product.sku})</span></td>
                     <td>{m.branch.name}</td>
                     <td>{TYPE_LABEL[m.type] || m.type}</td>
-                    <td style={{ color: m.quantityDelta >= 0 ? "#067647" : "#b42318", fontWeight: 700 }}>
+                    <td className={m.quantityDelta >= 0 ? "positive" : "negative"}>
                       {m.quantityDelta >= 0 ? "+" : ""}{m.quantityDelta}
                     </td>
                     <td>{m.resultingQuantity}</td>

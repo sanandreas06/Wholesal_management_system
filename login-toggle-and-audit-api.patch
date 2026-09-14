@@ -1,0 +1,245 @@
+diff --git a/apps/api/src/app.module.ts b/apps/api/src/app.module.ts
+index b5473d0..fb75b72 100644
+--- a/apps/api/src/app.module.ts
++++ b/apps/api/src/app.module.ts
+@@ -21,6 +21,7 @@ import { InventoryModule } from "./inventory/inventory.module";
+ import { StockAdjustmentsModule } from "./stock-adjustments/stock-adjustments.module";
+ import { StockTransfersModule } from "./stock-transfers/stock-transfers.module";
+ import { StockCountsModule } from "./stock-counts/stock-counts.module";
++import { AuditModule } from "./audit/audit.module";
+ 
+ @Module({
+   imports: [
+@@ -43,7 +44,8 @@ import { StockCountsModule } from "./stock-counts/stock-counts.module";
+     InventoryModule,
+     StockAdjustmentsModule,
+     StockTransfersModule,
+-    StockCountsModule
++    StockCountsModule,
++    AuditModule
+   ],
+   controllers: [HealthController, DashboardController],
+   providers: [DashboardService]
+diff --git a/apps/api/src/audit/audit.controller.ts b/apps/api/src/audit/audit.controller.ts
+new file mode 100644
+index 0000000..c962023
+--- /dev/null
++++ b/apps/api/src/audit/audit.controller.ts
+@@ -0,0 +1,17 @@
++import { Controller, Get, UseGuards } from "@nestjs/common";
++import { JwtAuthGuard } from "../common/guards/jwt-auth.guard";
++import { PermissionsGuard } from "../common/guards/permissions.guard";
++import { RequirePermissions } from "../common/decorators/permissions.decorator";
++import { CurrentUser } from "../common/decorators/current-user.decorator";
++import { AuthUser } from "../common/types/auth-user.type";
++import { AuditService } from "./audit.service";
++
++@UseGuards(JwtAuthGuard, PermissionsGuard)
++@Controller("audit")
++export class AuditController {
++  constructor(private readonly audit: AuditService) {}
++
++  @Get("flags")
++  @RequirePermissions("AUDIT:READ")
++  getFlags(@CurrentUser() user: AuthUser) { return this.audit.getFlags(user.organizationId); }
++}
+diff --git a/apps/api/src/audit/audit.module.ts b/apps/api/src/audit/audit.module.ts
+new file mode 100644
+index 0000000..a5a8b7f
+--- /dev/null
++++ b/apps/api/src/audit/audit.module.ts
+@@ -0,0 +1,9 @@
++import { Module } from "@nestjs/common";
++import { AuditController } from "./audit.controller";
++import { AuditService } from "./audit.service";
++
++@Module({
++  controllers:[AuditController],
++  providers:[AuditService]
++})
++export class AuditModule {}
+diff --git a/apps/api/src/audit/audit.service.ts b/apps/api/src/audit/audit.service.ts
+new file mode 100644
+index 0000000..45ce5c7
+--- /dev/null
++++ b/apps/api/src/audit/audit.service.ts
+@@ -0,0 +1,161 @@
++import { Injectable } from "@nestjs/common";
++import { PrismaService } from "../prisma/prisma.service";
++
++export interface AuditFlag {
++  id: string;
++  severity: "high" | "medium" | "low";
++  type: string;
++  title: string;
++  description: string;
++  branchName?: string;
++  userName?: string;
++  productName?: string;
++  occurredAt: Date;
++}
++
++const LARGE_REDUCTION_RATIO = 0.4; // a single adjustment removing 40%+ of stock in one go
++const LARGE_REDUCTION_ABSOLUTE = 50; // or removing 50+ units outright, regardless of ratio
++const FREQUENT_ADJUSTMENTS_THRESHOLD = 3; // same user, negative adjustments, within the window
++const FREQUENT_ADJUSTMENTS_WINDOW_DAYS = 7;
++const RECURRING_SHORTAGE_WINDOW_DAYS = 30;
++const RECURRING_SHORTAGE_MIN_COUNTS = 2; // separate stock counts showing a shortage at the same branch
++const OFF_HOURS_START = 22; // 10pm
++const OFF_HOURS_END = 5; // 5am
++
++@Injectable()
++export class AuditService {
++  constructor(private readonly prisma: PrismaService) {}
++
++  async getFlags(organizationId: string): Promise<AuditFlag[]> {
++    const [largeReductions, frequentAdjusters, recurringShortages, offHours] = await Promise.all([
++      this.detectLargeReductions(organizationId),
++      this.detectFrequentAdjusters(organizationId),
++      this.detectRecurringShortages(organizationId),
++      this.detectOffHoursActivity(organizationId),
++    ]);
++
++    const all = [...largeReductions, ...frequentAdjusters, ...recurringShortages, ...offHours];
++    const severityRank = { high: 0, medium: 1, low: 2 };
++    return all.sort((a, b) => severityRank[a.severity] - severityRank[b.severity] || b.occurredAt.getTime() - a.occurredAt.getTime()).slice(0, 50);
++  }
++
++  private async detectLargeReductions(organizationId: string): Promise<AuditFlag[]> {
++    const movements = await this.prisma.stockMovement.findMany({
++      where: { organizationId, type: "ADJUSTMENT", quantityDelta: { lt: 0 } },
++      include: { product: { select: { name: true } }, branch: { select: { name: true } }, user: { select: { name: true } } },
++      orderBy: { createdAt: "desc" },
++      take: 500,
++    });
++
++    const flags: AuditFlag[] = [];
++    for (const m of movements) {
++      const previousQty = m.resultingQuantity - m.quantityDelta;
++      const removed = Math.abs(m.quantityDelta);
++      const ratio = previousQty > 0 ? removed / previousQty : 0;
++      if (removed >= LARGE_REDUCTION_ABSOLUTE || ratio >= LARGE_REDUCTION_RATIO) {
++        flags.push({
++          id: `large-reduction-${m.id}`,
++          severity: removed >= LARGE_REDUCTION_ABSOLUTE * 2 || ratio >= 0.7 ? "high" : "medium",
++          type: "LARGE_REDUCTION",
++          title: "Large single stock reduction",
++          description: `${m.user?.name ?? "Someone"} reduced "${m.product.name}" at ${m.branch.name} by ${removed} units in one adjustment (${previousQty > 0 ? Math.round(ratio * 100) : "?"}% of stock on hand).`,
++          branchName: m.branch.name, userName: m.user?.name, productName: m.product.name,
++          occurredAt: m.createdAt,
++        });
++      }
++    }
++    return flags;
++  }
++
++  private async detectFrequentAdjusters(organizationId: string): Promise<AuditFlag[]> {
++    const since = new Date(Date.now() - FREQUENT_ADJUSTMENTS_WINDOW_DAYS * 24 * 60 * 60 * 1000);
++    const movements = await this.prisma.stockMovement.findMany({
++      where: { organizationId, type: "ADJUSTMENT", quantityDelta: { lt: 0 }, userId: { not: null }, createdAt: { gte: since } },
++      include: { user: { select: { name: true } }, branch: { select: { name: true } } },
++    });
++
++    const byUser = new Map<string, { name: string; count: number; branches: Set<string>; latest: Date }>();
++    for (const m of movements) {
++      if (!m.userId) continue;
++      const entry = byUser.get(m.userId) ?? { name: m.user?.name ?? "Unknown user", count: 0, branches: new Set(), latest: m.createdAt };
++      entry.count += 1;
++      entry.branches.add(m.branch.name);
++      if (m.createdAt > entry.latest) entry.latest = m.createdAt;
++      byUser.set(m.userId, entry);
++    }
++
++    const flags: AuditFlag[] = [];
++    for (const [userId, entry] of byUser) {
++      if (entry.count >= FREQUENT_ADJUSTMENTS_THRESHOLD) {
++        flags.push({
++          id: `frequent-adjuster-${userId}`,
++          severity: entry.count >= FREQUENT_ADJUSTMENTS_THRESHOLD * 2 ? "high" : "medium",
++          type: "FREQUENT_REDUCTIONS",
++          title: "Frequent stock reductions by one user",
++          description: `${entry.name} recorded ${entry.count} separate stock reductions across ${entry.branches.size} branch(es) in the last ${FREQUENT_ADJUSTMENTS_WINDOW_DAYS} days.`,
++          userName: entry.name,
++          occurredAt: entry.latest,
++        });
++      }
++    }
++    return flags;
++  }
++
++  private async detectRecurringShortages(organizationId: string): Promise<AuditFlag[]> {
++    const since = new Date(Date.now() - RECURRING_SHORTAGE_WINDOW_DAYS * 24 * 60 * 60 * 1000);
++    const movements = await this.prisma.stockMovement.findMany({
++      where: { organizationId, type: "COUNT_VARIANCE", quantityDelta: { lt: 0 }, createdAt: { gte: since } },
++      include: { branch: { select: { name: true } } },
++    });
++
++    const byBranch = new Map<string, { name: string; referenceIds: Set<string>; latest: Date }>();
++    for (const m of movements) {
++      const entry = byBranch.get(m.branchId) ?? { name: m.branch.name, referenceIds: new Set(), latest: m.createdAt };
++      if (m.referenceId) entry.referenceIds.add(m.referenceId);
++      if (m.createdAt > entry.latest) entry.latest = m.createdAt;
++      byBranch.set(m.branchId, entry);
++    }
++
++    const flags: AuditFlag[] = [];
++    for (const [branchId, entry] of byBranch) {
++      if (entry.referenceIds.size >= RECURRING_SHORTAGE_MIN_COUNTS) {
++        flags.push({
++          id: `recurring-shortage-${branchId}`,
++          severity: "high",
++          type: "RECURRING_SHORTAGE",
++          title: "Recurring inventory shortages at a branch",
++          description: `${entry.name} has shown a stock shortfall in ${entry.referenceIds.size} separate physical counts over the last ${RECURRING_SHORTAGE_WINDOW_DAYS} days — worth investigating for a pattern.`,
++          branchName: entry.name,
++          occurredAt: entry.latest,
++        });
++      }
++    }
++    return flags;
++  }
++
++  private async detectOffHoursActivity(organizationId: string): Promise<AuditFlag[]> {
++    const movements = await this.prisma.stockMovement.findMany({
++      where: { organizationId, type: { in: ["ADJUSTMENT", "COUNT_VARIANCE"] }, quantityDelta: { lt: 0 } },
++      include: { product: { select: { name: true } }, branch: { select: { name: true } }, user: { select: { name: true } } },
++      orderBy: { createdAt: "desc" },
++      take: 200,
++    });
++
++    const flags: AuditFlag[] = [];
++    for (const m of movements) {
++      const hour = m.createdAt.getHours();
++      if (hour >= OFF_HOURS_START || hour < OFF_HOURS_END) {
++        flags.push({
++          id: `off-hours-${m.id}`,
++          severity: "low",
++          type: "OFF_HOURS",
++          title: "Stock reduction recorded outside business hours",
++          description: `${m.user?.name ?? "Someone"} reduced "${m.product.name}" at ${m.branch.name} at ${m.createdAt.toLocaleTimeString()} — outside typical working hours.`,
++          branchName: m.branch.name, userName: m.user?.name, productName: m.product.name,
++          occurredAt: m.createdAt,
++        });
++      }
++    }
++    return flags;
++  }
++}
+diff --git a/apps/web/src/components/LoginForm.tsx b/apps/web/src/components/LoginForm.tsx
+index 8ae3552..ecc3cb6 100644
+--- a/apps/web/src/components/LoginForm.tsx
++++ b/apps/web/src/components/LoginForm.tsx
+@@ -2,9 +2,11 @@
+ import {FormEvent,useState} from "react";
+ import {useRouter} from "next/navigation";
+ import {saveSession} from "../lib/session";
++import {useTheme} from "../hooks/useTheme";
+ const API=process.env.NEXT_PUBLIC_API_URL||"http://localhost:4000/api";
+ export default function LoginForm(){
+  const router=useRouter(); const [email,setEmail]=useState("admin@wholesale.local"); const [password,setPassword]=useState("Admin@12345"); const [error,setError]=useState(""); const [loading,setLoading]=useState(false);
++ const {theme,toggle}=useTheme();
+  async function submit(e:FormEvent){e.preventDefault();setLoading(true);setError("");try{const r=await fetch(`${API}/auth/login`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email,password})});const d=await r.json();if(!r.ok)throw new Error(d.message||"Login failed");saveSession(d.accessToken,d.user);router.push("/dashboard");}catch(e){setError(e instanceof Error?e.message:"Login failed")}finally{setLoading(false)}}
+- return <main className="auth"><section className="card"><div className="mark">W</div><p className="eyebrow">WHOLESALE MANAGEMENT SYSTEM</p><h1>Welcome back</h1><p className="muted">Phase 1 administration dashboard.</p><form onSubmit={submit}><label>Email<input value={email} onChange={e=>setEmail(e.target.value)} type="email" required/></label><label>Password<input value={password} onChange={e=>setPassword(e.target.value)} type="password" required/></label>{error&&<div className="error">{error}</div>}<button disabled={loading}>{loading?"Signing in...":"Sign in"}</button></form><small>Demo: admin@wholesale.local / Admin@12345</small></section></main>
++ return <main className="auth"><button className="theme-toggle" onClick={toggle} aria-label="Toggle dark mode" style={{position:"fixed",top:24,right:24}}>{theme==="light"?"🌙":"☀️"}</button><section className="card"><div className="mark">W</div><p className="eyebrow">WHOLESALE MANAGEMENT SYSTEM</p><h1>Welcome back</h1><p className="muted">Phase 1 administration dashboard.</p><form onSubmit={submit}><label>Email<input value={email} onChange={e=>setEmail(e.target.value)} type="email" required/></label><label>Password<input value={password} onChange={e=>setPassword(e.target.value)} type="password" required/></label>{error&&<div className="error">{error}</div>}<button disabled={loading}>{loading?"Signing in...":"Sign in"}</button></form><small>Demo: admin@wholesale.local / Admin@12345</small></section></main>
+ }
+\ No newline at end of file
