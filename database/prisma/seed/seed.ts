@@ -374,7 +374,6 @@ async function main() {
   "PURCHASING",
   "GOODS_RECEIVING",
   "STOCK_ADJUSTMENTS",
-  "STOCK_TRANSFERS", 
   "STOCK_COUNTS", 
   "STOCK_TRANSFERS",
   "AUDIT",
