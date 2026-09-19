@@ -377,6 +377,7 @@ async function main() {
   "STOCK_TRANSFERS", 
   "STOCK_COUNTS", 
   "STOCK_TRANSFERS",
+  "AUDIT",
 ];
 
   for (const permission of permissions) {
