@@ -245,6 +245,9 @@ async function main() {
     ["BRANCH_CLOSING", PermissionAction.READ],
     ["BRANCH_CLOSING", PermissionAction.CREATE],
 
+    ["EXCEL_IMPORT", PermissionAction.READ],
+    ["EXCEL_IMPORT", PermissionAction.CREATE],
+
     ["REPORTS", PermissionAction.READ],
     ["REPORTS", PermissionAction.EXPORT],
 
@@ -406,6 +409,7 @@ async function main() {
   "RECONCILIATION",
   "VARIANCE_CASES",
   "BRANCH_CLOSING",
+  "EXCEL_IMPORT",
 ];
 
   for (const permission of permissions) {

@@ -24,6 +24,7 @@ const NAV = [
   { href: "/stock-counts", label: "Stock Counts", permission: "STOCK_COUNTS:READ" },
   { href: "/sales", label: "Sales", permission: "SALES:READ" },
   { href: "/finance", label: "Finance", permission: "RECONCILIATION:READ|EXPENSES:READ|DEPOSITS:READ|VARIANCE_CASES:READ|BRANCH_CLOSING:READ" },
+  { href: "/imports", label: "Excel Import", permission: "EXCEL_IMPORT:READ" },
   { href: "/audit", label: "Audit & Fraud Signals", permission: "AUDIT:READ" }
 ];
 

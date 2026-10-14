@@ -126,14 +126,27 @@ Status: 🔲 Not started. **This is next.**
 Expenses, Deposits, Branch reconciliation, Variance cases, Branch closing.
 
 ### Batch 9 — Excel Integration
-Status: 🔲 Not started.
-Excel upload, Validation, Import, Weekly sales storage,
-Excel → database synchronization. Will need background job processing
-(revisit the Redis/BullMQ tooling decision above when this batch starts)
-and the Product Aliases gap from Batch 3 becomes directly relevant here.
+Status: ✅ Built; page verified in-browser, confirm a full import with the template before relying on it.
+- ✅ Upload `.xlsx` / `.csv` per branch and period (5 MB / 5,000 rows limit),
+  with a downloadable template
+- ✅ Validation — required columns, readable dates inside the chosen period,
+  whole-number quantities, numeric prices, product matched by SKU then exact
+  name; every rejected row stored with row number, reason and row data
+- ✅ Idempotent import — each row gets a fingerprint (branch, date, product,
+  quantity, price, reference, occurrence); re-uploading the same rows is
+  skipped and counted as duplicates
+- ✅ Weekly sales storage — kept in `WeeklySale`, separate from live Sales,
+  and does not change stock; each import keeps the source file, uploader,
+  period and counts (`ImportBatch`)
+- ✅ Import history, per-import detail, and a 30-day imported-sales summary
+  per branch
+- 🔲 Gaps: product aliases (non-matching names are rejected until the
+  product exists under that SKU/name); OneDrive/SharePoint + Microsoft Graph
+  sync; background processing for very large files; downloading the original
+  file back from the UI; custom column mapping per branch.
 
 ### Batch 10 — Dashboard & Analytics
-Status: 🟡 In progress.
+Status: 🟡 In progress. **This is next.**
 - ✅ Basic dashboard exists (KPIs, sales trend, branch performance)
 - 🟡 **Currently mid-redesign**: full visual overhaul (light/dark theme
   toggle, Zoho-inspired layout — white sidebar with teal active state,
