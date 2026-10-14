@@ -22,6 +22,7 @@ const NAV = [
   { href: "/stock-adjustments", label: "Stock Adjustments", permission: "STOCK_ADJUSTMENTS:READ" },
   { href: "/stock-transfers", label: "Stock Transfers", permission: "STOCK_TRANSFERS:READ" },
   { href: "/stock-counts", label: "Stock Counts", permission: "STOCK_COUNTS:READ" },
+  { href: "/sales", label: "Sales", permission: "SALES:READ" },
   { href: "/audit", label: "Audit & Fraud Signals", permission: "AUDIT:READ" }
 ];
 

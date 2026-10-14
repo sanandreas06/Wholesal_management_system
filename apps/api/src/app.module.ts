@@ -22,6 +22,7 @@ import { StockAdjustmentsModule } from "./stock-adjustments/stock-adjustments.mo
 import { StockTransfersModule } from "./stock-transfers/stock-transfers.module";
 import { StockCountsModule } from "./stock-counts/stock-counts.module";
 import { AuditModule } from "./audit/audit.module";
+import { SalesModule } from "./sales/sales.module";
 
 @Module({
   imports: [
@@ -45,7 +46,8 @@ import { AuditModule } from "./audit/audit.module";
     StockAdjustmentsModule,
     StockTransfersModule,
     StockCountsModule,
-    AuditModule
+    AuditModule,
+    SalesModule
   ],
   controllers: [HealthController, DashboardController],
   providers: [DashboardService]

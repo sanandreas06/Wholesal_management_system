@@ -30,6 +30,8 @@ model Organization {
   stockMovements StockMovement[]
   stockTransfers StockTransfer[]
   stockCounts    StockCount[]
+  payments       Payment[]
+  saleReturns    SaleReturn[]
 }
 
 model Branch {
@@ -75,6 +77,10 @@ model User {
   stockMovements        StockMovement[]
   createdStockTransfers StockTransfer[]
   createdStockCounts    StockCount[]
+  payments              Payment[]
+  paymentsReceived      Payment[]       @relation("PaymentsReceived")
+  saleReturnsCreated    SaleReturn[]    @relation("SaleReturnsCreated")
+  saleReturns           SaleReturn[]
 
   @@index([organizationId])
   @@index([branchId])
@@ -118,6 +124,7 @@ model Sale {
   organizationId String
   branchId       String
   userId         String
+  customerId     String?
   invoiceNumber  String       @unique
   status         SaleStatus   @default(COMPLETED)
   totalAmount    Decimal      @db.Decimal(14, 2)
@@ -126,21 +133,25 @@ model Sale {
   branch         Branch       @relation(fields: [branchId], references: [id])
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   user           User         @relation(fields: [userId], references: [id])
+  customer       Customer?    @relation(fields: [customerId], references: [id], onDelete: SetNull)
   items          SaleItem[]
+  payments       Payment[]
+  returns        SaleReturn[]
 
   @@index([organizationId, soldAt])
   @@index([branchId, soldAt])
 }
 
 model SaleItem {
-  id        String  @id @default(uuid())
-  saleId    String
-  productId String
-  quantity  Int
-  unitPrice Decimal @db.Decimal(14, 2)
-  lineTotal Decimal @db.Decimal(14, 2)
-  product   Product @relation(fields: [productId], references: [id])
-  sale      Sale    @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  id          String           @id @default(uuid())
+  saleId      String
+  productId   String
+  quantity    Int
+  unitPrice   Decimal          @db.Decimal(14, 2)
+  lineTotal   Decimal          @db.Decimal(14, 2)
+  product     Product          @relation(fields: [productId], references: [id])
+  sale        Sale             @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  returnItems SaleReturnItem[]
 
   @@index([saleId])
   @@index([productId])
@@ -284,21 +295,21 @@ model Supplier {
 }
 
 model Customer {
-  id             String     @id @default(uuid())
+  id             String       @id @default(uuid())
   organizationId String
   name           String
   code           String
   phone          String?
   email          String?
   address        String?
-  creditLimit    Decimal?   @db.Decimal(14, 2)
+  creditLimit    Decimal?     @db.Decimal(14, 2)
   creditDays     Int?
-  status         RoleStatus @default(ACTIVE)
-  createdAt      DateTime   @default(now())
-  updatedAt      DateTime   @updatedAt
-
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  contacts     Contact[]
+  status         RoleStatus   @default(ACTIVE)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  sales          Sale[]
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  contacts       Contact[]
 
   @@unique([organizationId, code])
   @@index([organizationId])
@@ -433,6 +444,7 @@ enum StockMovementType {
   SALE
   INITIAL
   COUNT_VARIANCE
+  RETURN
 }
 
 model StockMovement {
@@ -550,6 +562,66 @@ model StockTransferItem {
 
   @@index([stockTransferId])
   @@index([productId])
+}
+
+enum PaymentMethod {
+  CASH
+  BANK
+  MOBILE_MONEY
+  CREDIT
+}
+
+model Payment {
+  id               String        @id @default(uuid())
+  organizationId   String
+  saleId           String
+  method           PaymentMethod
+  amount           Decimal       @db.Decimal(14, 2)
+  reference        String?
+  receivedByUserId String
+  receivedAt       DateTime      @default(now())
+  createdAt        DateTime      @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  sale         Sale         @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  receivedBy   User         @relation("PaymentsReceived", fields: [receivedByUserId], references: [id], onDelete: Restrict)
+  user         User?        @relation(fields: [userId], references: [id])
+  userId       String?
+
+  @@index([saleId])
+  @@index([organizationId])
+}
+
+model SaleReturn {
+  id              String   @id @default(uuid())
+  organizationId  String
+  saleId          String
+  reason          String
+  createdByUserId String
+  createdAt       DateTime @default(now())
+
+  organization Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  sale         Sale             @relation(fields: [saleId], references: [id], onDelete: Restrict)
+  createdBy    User             @relation("SaleReturnsCreated", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  items        SaleReturnItem[]
+  user         User?            @relation(fields: [userId], references: [id])
+  userId       String?
+
+  @@index([saleId])
+  @@index([organizationId])
+}
+
+model SaleReturnItem {
+  id           String @id @default(uuid())
+  saleReturnId String
+  saleItemId   String
+  quantity     Int
+
+  saleReturn SaleReturn @relation(fields: [saleReturnId], references: [id], onDelete: Cascade)
+  saleItem   SaleItem   @relation(fields: [saleItemId], references: [id], onDelete: Restrict)
+
+  @@index([saleReturnId])
+  @@index([saleItemId])
 }
 
 enum UserStatus {
