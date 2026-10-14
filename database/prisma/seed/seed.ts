@@ -230,6 +230,21 @@ async function main() {
     ["SALES", PermissionAction.CREATE],
     ["SALES", PermissionAction.UPDATE],
 
+    ["EXPENSES", PermissionAction.READ],
+    ["EXPENSES", PermissionAction.CREATE],
+    ["EXPENSES", PermissionAction.APPROVE],
+
+    ["DEPOSITS", PermissionAction.READ],
+    ["DEPOSITS", PermissionAction.CREATE],
+
+    ["RECONCILIATION", PermissionAction.READ],
+
+    ["VARIANCE_CASES", PermissionAction.READ],
+    ["VARIANCE_CASES", PermissionAction.UPDATE],
+
+    ["BRANCH_CLOSING", PermissionAction.READ],
+    ["BRANCH_CLOSING", PermissionAction.CREATE],
+
     ["REPORTS", PermissionAction.READ],
     ["REPORTS", PermissionAction.EXPORT],
 
@@ -386,6 +401,11 @@ async function main() {
   "PAYMENTS", 
   "RETURNS",
   "REPORTS",
+  "EXPENSES",
+  "DEPOSITS",
+  "RECONCILIATION",
+  "VARIANCE_CASES",
+  "BRANCH_CLOSING",
 ];
 
   for (const permission of permissions) {

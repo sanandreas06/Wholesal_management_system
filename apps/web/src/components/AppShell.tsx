@@ -23,6 +23,7 @@ const NAV = [
   { href: "/stock-transfers", label: "Stock Transfers", permission: "STOCK_TRANSFERS:READ" },
   { href: "/stock-counts", label: "Stock Counts", permission: "STOCK_COUNTS:READ" },
   { href: "/sales", label: "Sales", permission: "SALES:READ" },
+  { href: "/finance", label: "Finance", permission: "RECONCILIATION:READ|EXPENSES:READ|DEPOSITS:READ|VARIANCE_CASES:READ|BRANCH_CLOSING:READ" },
   { href: "/audit", label: "Audit & Fraud Signals", permission: "AUDIT:READ" }
 ];
 
@@ -40,7 +41,7 @@ export default function AppShell({ title, children }: { title: string; children:
 
   function signOut() { clearSession(); router.replace("/login"); }
 
-  const visibleNav = NAV.filter(item => !item.permission || user?.permissions.includes(item.permission));
+  const visibleNav = NAV.filter(item => !item.permission || item.permission.split("|").some(p => user?.permissions.includes(p)));
 
   return (
     <div className="app">

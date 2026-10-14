@@ -32,6 +32,11 @@ model Organization {
   stockCounts    StockCount[]
   payments       Payment[]
   saleReturns    SaleReturn[]
+  expenseCategories ExpenseCategory[]
+  expenses       Expense[]
+  deposits       Deposit[]
+  varianceCases  VarianceCase[]
+  branchClosings BranchClosing[]
 }
 
 model Branch {
@@ -53,6 +58,10 @@ model Branch {
   transfersFrom  StockTransfer[] @relation("TransferFromBranch")
   transfersTo    StockTransfer[] @relation("TransferToBranch")
   stockCounts    StockCount[]
+  expenses       Expense[]
+  deposits       Deposit[]
+  varianceCases  VarianceCase[]
+  branchClosings BranchClosing[]
 
   @@unique([organizationId, code])
   @@index([organizationId])
@@ -80,6 +89,11 @@ model User {
   payments              Payment[]
   paymentsReceived      Payment[]       @relation("PaymentsReceived")
   saleReturnsCreated    SaleReturn[]    @relation("SaleReturnsCreated")
+  expensesCreated       Expense[]       @relation("ExpensesCreated")
+  expensesReviewed      Expense[]       @relation("ExpensesReviewed")
+  depositsCreated       Deposit[]       @relation("DepositsCreated")
+  varianceCasesResolved VarianceCase[]  @relation("VarianceResolved")
+  closingsDone          BranchClosing[] @relation("ClosingsDone")
   saleReturns           SaleReturn[]
 
   @@index([organizationId])
@@ -682,4 +696,127 @@ enum PermissionResource {
   AUDIT
   SETTINGS
   PERMISSIONS
+}
+
+// ============================================================
+// BATCH 8 — FINANCE & RECONCILIATION
+// ============================================================
+
+enum ExpenseStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum VarianceStatus {
+  OPEN
+  INVESTIGATING
+  RESOLVED
+}
+
+model ExpenseCategory {
+  id             String       @id @default(uuid())
+  organizationId String
+  name           String
+  createdAt      DateTime     @default(now())
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  expenses       Expense[]
+
+  @@unique([organizationId, name])
+}
+
+model Expense {
+  id               String          @id @default(uuid())
+  organizationId   String
+  branchId         String
+  categoryId       String
+  amount           Decimal         @db.Decimal(14, 2)
+  description      String
+  expenseDate      DateTime
+  status           ExpenseStatus   @default(PENDING)
+  createdByUserId  String
+  reviewedByUserId String?
+  reviewedAt       DateTime?
+  reviewNote       String?
+  createdAt        DateTime        @default(now())
+  organization     Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branch           Branch          @relation(fields: [branchId], references: [id])
+  category         ExpenseCategory @relation(fields: [categoryId], references: [id])
+  createdBy        User            @relation("ExpensesCreated", fields: [createdByUserId], references: [id])
+  reviewedBy       User?           @relation("ExpensesReviewed", fields: [reviewedByUserId], references: [id])
+
+  @@index([organizationId, expenseDate])
+  @@index([branchId, expenseDate])
+}
+
+// Money a branch actually banked / sent to the owner. Compared against
+// the payments recorded on sales to find shortfalls.
+model Deposit {
+  id              String        @id @default(uuid())
+  organizationId  String
+  branchId        String
+  method          PaymentMethod
+  amount          Decimal       @db.Decimal(14, 2)
+  reference       String?
+  depositDate     DateTime
+  createdByUserId String
+  createdAt       DateTime      @default(now())
+  organization    Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branch          Branch        @relation(fields: [branchId], references: [id])
+  createdBy       User          @relation("DepositsCreated", fields: [createdByUserId], references: [id])
+
+  @@index([organizationId, depositDate])
+  @@index([branchId, depositDate])
+}
+
+// Opened automatically when a branch closing finds a material gap
+// between expected collections and actual deposits for a payment method.
+model VarianceCase {
+  id               String         @id @default(uuid())
+  organizationId   String
+  branchId         String
+  closingId        String?
+  method           PaymentMethod
+  periodStart      DateTime
+  periodEnd        DateTime
+  expectedAmount   Decimal        @db.Decimal(14, 2)
+  actualAmount     Decimal        @db.Decimal(14, 2)
+  difference       Decimal        @db.Decimal(14, 2)
+  status           VarianceStatus @default(OPEN)
+  explanation      String?
+  resolution       String?
+  resolvedByUserId String?
+  resolvedAt       DateTime?
+  createdAt        DateTime       @default(now())
+  organization     Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branch           Branch         @relation(fields: [branchId], references: [id])
+  closing          BranchClosing? @relation(fields: [closingId], references: [id])
+  resolvedBy       User?          @relation("VarianceResolved", fields: [resolvedByUserId], references: [id])
+
+  @@index([organizationId, status])
+  @@index([branchId])
+}
+
+// A closed period for a branch. Once closed, deposits and expenses dated
+// inside it can no longer be added.
+model BranchClosing {
+  id               String         @id @default(uuid())
+  organizationId   String
+  branchId         String
+  periodStart      DateTime
+  periodEnd        DateTime
+  expectedAmount   Decimal        @db.Decimal(14, 2)
+  depositedAmount  Decimal        @db.Decimal(14, 2)
+  expensesAmount   Decimal        @db.Decimal(14, 2)
+  differenceAmount Decimal        @db.Decimal(14, 2)
+  notes            String?
+  closedByUserId   String
+  closedAt         DateTime       @default(now())
+  organization     Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  branch           Branch         @relation(fields: [branchId], references: [id])
+  closedBy         User           @relation("ClosingsDone", fields: [closedByUserId], references: [id])
+  varianceCases    VarianceCase[]
+
+  @@unique([branchId, periodStart, periodEnd])
+  @@index([organizationId, periodEnd])
 }
