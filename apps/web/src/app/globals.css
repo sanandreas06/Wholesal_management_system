@@ -155,3 +155,21 @@ td{color:var(--text)}
 .flag-title{font-weight:650;font-size:14.5px;color:var(--text)}
 .flag-description{font-size:13.5px;color:var(--text-muted);line-height:1.5;margin:0}
 .flag-time{font-size:12px;color:var(--text-faint);white-space:nowrap}
+
+/* Dashboard (Batch 10) */
+.dash-filters{display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-bottom:18px}
+.dash-filters select{width:auto;min-width:170px}
+.seg{display:inline-flex;border:1px solid var(--border-strong);border-radius:10px;overflow:hidden}
+.seg button{background:var(--surface);color:var(--text-muted);border-radius:0;padding:9px 14px;font-weight:600}
+.seg button.seg-on{background:var(--primary-tint);color:var(--primary)}
+.kpi-sub{margin-top:6px;font-size:12px;color:var(--text-muted)}
+.kpi-sub.up{color:var(--primary)}.kpi-sub.down{color:var(--danger)}
+.attention{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:18px}
+.attention a{background:var(--accent-amber-tint);color:var(--accent-amber);border-radius:10px;padding:9px 14px;font-size:13px;font-weight:600;text-decoration:none}
+.dash-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px}
+.dash-grid th.num,.dash-grid td.num{text-align:right;font-variant-numeric:tabular-nums}
+.small{font-size:12px}
+.feed{list-style:none;margin:0;padding:0}
+.feed li{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;padding:10px 0;border-bottom:1px solid var(--border)}
+.feed li:last-child{border-bottom:0}
+@media(max-width:900px){.dash-grid{grid-template-columns:1fr}}

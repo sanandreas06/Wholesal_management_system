@@ -146,15 +146,19 @@ Status: ✅ Built; page verified in-browser, confirm a full import with the temp
   file back from the UI; custom column mapping per branch.
 
 ### Batch 10 — Dashboard & Analytics
-Status: 🟡 In progress. **This is next.**
-- ✅ Basic dashboard exists (KPIs, sales trend, branch performance)
-- 🟡 **Currently mid-redesign**: full visual overhaul (light/dark theme
-  toggle, Zoho-inspired layout — white sidebar with teal active state,
-  soft tinted icon-badge KPI cards, tabular numerals) approved and largely
-  built; richer dashboard content (Top Products, Recent Activity feed) still
-  in progress
-- Full drill-down (Branch → Transaction → Product → User → Audit Record) —
-  depends on Batch 8 existing (Batch 7 is done)
+Status: 🟡 Dashboard built; drill-down still open. **This is next.**
+- ✅ Dashboard with 7/30/90-day and branch filters
+- ✅ Sales with change vs previous period, net of returns, invoice count and
+  average, stock value
+- ✅ Sales trend (zero-filled), branch performance, top products, low stock,
+  recent stock activity, attention links (pending expenses, open variance
+  cases), approved expenses and imported weekly sales (permission-gated)
+- ✅ Light/dark theme, Zoho-inspired layout
+- 🔲 Full drill-down (Branch → Transaction → Product → User → Audit Record):
+  KPI cards and table rows are not yet clickable
+- 🔲 Gaps: stock value is at selling price (no cost price yet), so no profit
+  or margin; low stock is organization-wide, not per branch; branch users
+  can still pick any branch; no export of dashboard figures
 
 ---
 
