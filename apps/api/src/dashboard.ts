@@ -31,7 +31,7 @@ export class DashboardService {
     const branchFilter = branchId ? { branchId } : {};
     const saleWhere = { organizationId: orgId, status: "COMPLETED" as const, ...branchFilter };
 
-    const [sales, prevAgg, branches, products, topGroups, returnItems, movements] = await Promise.all([
+    const [sales, prevAgg, branches, products, topGroups, returnItems, movements, recentSalesRaw] = await Promise.all([
       this.prisma.sale.findMany({
         where: { ...saleWhere, soldAt: { gte: from, lt: to } },
         select: { id: true, branchId: true, totalAmount: true, soldAt: true },
@@ -43,7 +43,7 @@ export class DashboardService {
       this.prisma.branch.findMany({ where: { organizationId: orgId }, select: { id: true, name: true } }),
       this.prisma.product.findMany({
         where: { organizationId: orgId },
-        select: { id: true, sku: true, name: true, unitPrice: true, stockQuantity: true, reorderLevel: true },
+        select: { id: true, sku: true, name: true, category: true, unitPrice: true, stockQuantity: true, reorderLevel: true, categoryRef: { select: { name: true } } },
       }),
       this.prisma.saleItem.groupBy({
         by: ["productId"],
@@ -66,6 +66,17 @@ export class DashboardService {
           product: { select: { name: true, sku: true } },
           branch: { select: { name: true } },
           user: { select: { email: true } },
+        },
+      }),
+      this.prisma.sale.findMany({
+        where: { organizationId: orgId, ...branchFilter },
+        orderBy: { soldAt: "desc" },
+        take: 5,
+        select: {
+          id: true, invoiceNumber: true, status: true, totalAmount: true, soldAt: true,
+          customer: { select: { name: true } },
+          branch: { select: { name: true } },
+          payments: { select: { amount: true } },
         },
       }),
     ]);
@@ -125,9 +136,45 @@ export class DashboardService {
       notes: m.notes,
     }));
 
+    // ---- inventory by category (top 4 + others)
+    const catTotals = new Map<string, number>();
+    for (const p of products) {
+      const name = p.categoryRef?.name ?? p.category ?? "Uncategorised";
+      catTotals.set(name, (catTotals.get(name) ?? 0) + num(p.unitPrice) * p.stockQuantity);
+    }
+    const catSorted = [...catTotals.entries()].sort((a, b) => b[1] - a[1]);
+    const inventoryByCategory = catSorted.slice(0, 4).map(([name, value]) => ({ name, value: round2(value) }));
+    const othersValue = catSorted.slice(4).reduce((s2, [, v]) => s2 + v, 0);
+    if (othersValue > 0) inventoryByCategory.push({ name: "Others", value: round2(othersValue) });
+
+    // ---- recent sales
+    const recentSales = recentSalesRaw.map((r) => {
+      const paid = r.payments.reduce((s2, x) => s2 + num(x.amount), 0);
+      const total = num(r.totalAmount);
+      const payment = r.status === "VOIDED" ? "Voided" : paid >= total - 0.005 ? "Paid" : paid > 0 ? "Partial" : "Unpaid";
+      return {
+        id: r.id, invoiceNumber: r.invoiceNumber, customer: r.customer?.name ?? "Walk-in",
+        branch: r.branch.name, amount: round2(total), soldAt: r.soldAt, payment,
+      };
+    });
+
+    // ---- stock alerts (out of stock first, then lowest)
+    const stockAlerts = products
+      .filter((p) => p.stockQuantity <= p.reorderLevel)
+      .sort((a, b) => a.stockQuantity - b.stockQuantity)
+      .slice(0, 5)
+      .map((p) => ({
+        name: p.name, sku: p.sku, stock: p.stockQuantity, reorderLevel: p.reorderLevel,
+        level: p.stockQuantity === 0 ? "out" : "low",
+      }));
+
     // ---- sections that depend on what the viewer is allowed to see
     const attention: { pendingExpenses?: number; openVarianceCases?: number; importedSales?: number } = {};
     let approvedExpenses: number | null = null;
+    let prevExpenses: number | null = null;
+    let deposits: number | null = null;
+    let prevDeposits: number | null = null;
+    let outstanding: number | null = null;
 
     const extras: Promise<void>[] = [];
     if (can("EXPENSES:READ")) {
@@ -139,8 +186,33 @@ export class DashboardService {
           })
           .then((r) => { approvedExpenses = round2(num(r._sum.amount)); }),
         this.prisma.expense
+          .aggregate({
+            where: { organizationId: orgId, ...branchFilter, status: "APPROVED", expenseDate: { gte: prevFrom, lt: from } },
+            _sum: { amount: true },
+          })
+          .then((r) => { prevExpenses = round2(num(r._sum.amount)); }),
+        this.prisma.expense
           .count({ where: { organizationId: orgId, ...branchFilter, status: "PENDING" } })
           .then((n) => { attention.pendingExpenses = n; }),
+      );
+    }
+    if (can("DEPOSITS:READ")) {
+      extras.push(
+        this.prisma.deposit
+          .aggregate({ where: { organizationId: orgId, ...branchFilter, depositDate: { gte: from, lt: to } }, _sum: { amount: true } })
+          .then((r) => { deposits = round2(num(r._sum.amount)); }),
+        this.prisma.deposit
+          .aggregate({ where: { organizationId: orgId, ...branchFilter, depositDate: { gte: prevFrom, lt: from } }, _sum: { amount: true } })
+          .then((r) => { prevDeposits = round2(num(r._sum.amount)); }),
+      );
+    }
+    if (can("SALES:READ")) {
+      extras.push(
+        this.prisma.sale
+          .findMany({ where: saleWhere, select: { totalAmount: true, payments: { select: { amount: true } } } })
+          .then((rows) => {
+            outstanding = round2(rows.reduce((t, r) => t + Math.max(0, num(r.totalAmount) - r.payments.reduce((a2, x) => a2 + num(x.amount), 0)), 0));
+          }),
       );
     }
     if (can("VARIANCE_CASES:READ")) {
@@ -162,6 +234,16 @@ export class DashboardService {
     }
     await Promise.all(extras);
 
+    // ---- plain, rule-based insights (no model involved)
+    const insights: string[] = [];
+    if (changePct !== null) insights.push(`Sales are ${changePct >= 0 ? "up" : "down"} ${Math.abs(changePct)}% compared with the previous ${days} days.`);
+    if (topProducts[0]) insights.push(`${topProducts[0].name} is the top seller in this period (${topProducts[0].quantity} units).`);
+    const reorder = lowList.filter((p) => p.stockQuantity > 0).slice(0, 2).map((p) => p.name);
+    if (lowList.some((p) => p.stockQuantity === 0)) insights.push(`${lowList.filter((p) => p.stockQuantity === 0).length} item(s) are out of stock.`);
+    if (reorder.length) insights.push(`You may need to reorder ${reorder.join(" and ")}.`);
+    const last7 = salesTrend.slice(-7).reduce((t, d) => t + d.amount, 0);
+    if (last7 > 0) insights.push(`At the last 7 days' pace, the next 7 days would bring about ${Math.round(last7).toLocaleString("en-GH")} GHS (a simple average, not a forecast model).`);
+
     return {
       period: { days, from: from.toISOString().slice(0, 10), to: today.toISOString().slice(0, 10) },
       kpis: {
@@ -173,6 +255,10 @@ export class DashboardService {
         previousPeriodSales: round2(prevSales),
         changePct,
         approvedExpenses,
+        previousExpenses: prevExpenses,
+        deposits,
+        previousDeposits: prevDeposits,
+        outstanding,
         inventoryValue: round2(inventoryValue),
         products: products.length,
         lowStock: lowList.length,
@@ -182,6 +268,10 @@ export class DashboardService {
       topProducts,
       lowStockItems: lowList.slice(0, 6).map((p) => ({ name: p.name, sku: p.sku, stock: p.stockQuantity, reorderLevel: p.reorderLevel })),
       recentActivity,
+      inventoryByCategory,
+      recentSales,
+      stockAlerts,
+      insights,
       attention,
     };
   }
