@@ -8,6 +8,7 @@ import { useNotifications } from "../hooks/useNotifications";
 import CommandPalette, { Cmd } from "./CommandPalette";
 import ToastHost from "./ToastHost";
 import Avatar from "./Avatar";
+import Logo from "./Logo";
 import ProfileModal, { Profile } from "./ProfileModal";
 
 type Item = { href: string; label: string; permission: string | null };
@@ -146,7 +147,7 @@ export default function AppShell({ title, children }: { title: string; children:
     <div className="app">
       {navOpen && <div className="nav-backdrop" onClick={() => setNavOpen(false)} />}
       <aside className={"sidebar" + (navOpen ? " open" : "")}>
-        <div className="brand"><span className="mark small"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={ICONS.box} /></svg></span><span className="brand-text"><strong>WholesalePro</strong><small>Management System</small></span></div>
+        <div className="brand"><Logo size={38} /></div>
         <nav className="sidebar-nav-scroll">
           {visibleNav.map(e => {
             if (e.kind === "link") {

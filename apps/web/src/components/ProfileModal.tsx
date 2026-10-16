@@ -44,7 +44,7 @@ export default function ProfileModal({ profile, onClose, onSaved, forced = false
       <div className="modal profile-modal" onClick={e => e.stopPropagation()} role="dialog" aria-label={forced ? "Choose your password" : "My profile"}>
         {!forced && <button type="button" className="modal-close" onClick={onClose} aria-label="Close">&times;</button>}
         <h2>{forced ? "Choose your own password" : "My profile"}</h2>
-        <p className="modal-sub">{forced ? "An administrator gave you a temporary password. Enter it below as your current password, then choose one only you know. You can also update your details." : "Choose how you appear across WholesalePro and keep your details up to date."}</p>
+        <p className="modal-sub">{forced ? "An administrator gave you a temporary password. Enter it below as your current password, then choose one only you know. You can also update your details." : "Choose how you appear across WHOLESTRA and keep your details up to date."}</p>
         <form onSubmit={save}>
           <div className="pf-top">
             <Avatar avatar={avatar} name={name} size={84} />

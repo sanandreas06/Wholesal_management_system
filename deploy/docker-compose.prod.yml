@@ -1,4 +1,4 @@
-# WholesalePro on a single server. Nothing but the web address (ports 80 and 443) is open to the internet.
+# WHOLESTRA on a single server. Nothing but the web address (ports 80 and 443) is open to the internet.
 # Settings come from deploy/.env.production (copy deploy/env.production.example and fill it in).
 services:
   postgres:

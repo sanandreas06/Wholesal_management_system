@@ -1,4 +1,4 @@
-# Wholesale Management System — Roadmap
+# WHOLESTRA by BOATENG — Roadmap
 
 *Last reconciled 2026-10-16. This is the single source of truth for project
 status.*
@@ -178,7 +178,7 @@ Status: ✅ Built; page verified in-browser, confirm a full import with the temp
 
 ### Batch 10 — Dashboard & Analytics
 Status: ✅ Built (dashboard, drill-down). Cost price/profit is the main gap.
-- ✅ WholesalePro-style dashboard: sales, inventory value, expenses,
+- ✅ WHOLESTRA-style dashboard: sales, inventory value, expenses,
   deposits, outstanding collections, each vs the previous period; 7/30/90-day
   and branch filters; sales trend, sales by branch, inventory by category,
   recent sales, top products, stock alerts, quick actions, recent activity,
@@ -215,7 +215,7 @@ Status: ✅ Built (needs `db:push` + `db:seed`, then sign out/in).
 - New Sale dialog redesigned: items table with line totals, per-branch stock under each line, live summary panel (paid now, balance, credit-limit and stock warnings).
 - Product create/edit dialog redesigned: sectioned layout, live margin, read-only on-hand stock when editing.
 
-### Batches 12–25 (all built, in order)
+### Batches 12–26 (all built, in order)
 - ✅ 12 Audit log for non-inventory changes — built (Audit → Change log tab; before/after values for products, prices, customers, suppliers, users, roles, branches, settings, expense decisions). Gaps: login/logout events, sales/finance postings (they have their own trails), tamper-proofing (hash chain), export
 - ✅ 13 Product aliases + review screen — built (aliases on the product form; Excel import matches SKU, exact name, alias, then name ignoring case/punctuation; "Review unmatched products" suggests closest matches, remembers your choice and imports the held-back rows). Gaps: matching is suggestion-only (never auto-guesses), no bulk alias import
 - ✅ 14 Reorder suggestions — built (Purchases → Reorder Suggestions: per branch, from recent sales speed vs on hand and on order; editable quantities and costs; creates a DRAFT purchase order per supplier, never sends one). Gaps: lead time and cover days are global settings you adjust on the page, not per supplier/product; suggestions ignore seasonality and returns; supplier is inferred from the last purchase order
@@ -243,6 +243,7 @@ Status: ✅ Built (needs `db:push` + `db:seed`, then sign out/in).
 - ✅ 23 Expense approval limits — built (needs `db:generate` + `db:push`; restart the API): a role can have “Can approve expenses up to” (Roles → Edit; empty = any amount). Someone who may approve can approve or reject expenses up to that amount in their branch; bigger ones show “Above your limit… the owner needs to approve this one” with only a Reject button. Nobody can review an expense they entered themselves, owner included. The Expenses list tells the screen row by row whether you may review it. To use it: give the Branch Manager role the Expenses → Approve permission and set a limit. Gaps: one limit per role (not per category); the limit is checked at the moment of approval, so changing it does not affect expenses already approved
 - ✅ 24 Ready to host — built, **not yet tried on a real server** (nothing to run on your computer except applying the patch): `deploy/` has a production setup for one server (database, API, website, automatic HTTPS through Caddy, nightly backup at 02:00 kept 14 days), `update.sh` (backs up, rebuilds, applies database changes, stops if one could lose data), and `.dockerignore` so secrets and node_modules never go into an image. The API trusts the web server's forwarded address when `TRUST_PROXY=true`, so the Change log shows real visitor addresses. **Seed fix:** re-running `db:seed` no longer resets the owner's password to the starting one; a newly created owner must change the starting password at first sign-in, and `SEED_ADMIN_PASSWORD` can set it. Gaps: first run needs a throwaway server; backups sit on the same server unless the host's backup option is on; one server is one point of failure
 - ✅ 25 Free demo hosting — built, **not yet tried live** (for testing and showing mentors and investors, not for real shop data): `render.yaml` runs the API on Render's free plan (Render makes the secrets itself), the website goes on Vercel, the database on Neon (all free; see the Free demo guide page). **Security fix:** the sign-in page no longer pre-fills or prints the owner's email and starting password; an optional read-only demo account can be shown on purpose by setting `NEXT_PUBLIC_DEMO_EMAIL` and `NEXT_PUBLIC_DEMO_PASSWORD` when the site is built. The sign-in page wakes the sleeping free server as soon as it opens and explains a slow first sign-in. The API uses `PORT` when a host sets it. Hosted in Frankfurt (Render and Neon both; neither has an African region) for Ghana. Gaps: free servers sleep after ~15 minutes and take up to a minute to wake; Neon's free database has no scheduled backups (a 6-hour restore window only) and 0.5 GB of space; Vercel's free plan is for non-commercial use; move to paid hosting before real customers use it
+- ✅ 26 WHOLESTRA identity and public home page: the app is now called **WHOLESTRA by BOATENG**. Visitors land on a public home page (`/`) with the product pictures (sample data only), what it does and how it is kept safe, and one click to sign in (signed-in people see "Open dashboard"). New original logo (a gold diamond around a W with Adinkra-style dots, on forest green), favicon, and the whole app re-coloured to forest green and gold in light and dark mode. Sign-in page, sidebar and printed invoices use the new name and logo.
 
 ---
 

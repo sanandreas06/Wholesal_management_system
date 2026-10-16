@@ -1,6 +1,6 @@
-# Wholesale Management System — Phase 1 Foundation
+# WHOLESTRA by BOATENG — Phase 1 Foundation
 
-A clean, runnable foundation for the Wholesale Management System.
+WHOLESTRA is a multi-branch wholesale management system (stock, sales, purchasing, finance and a tamper-evident change log). This is its runnable foundation.
 
 ## Includes
 - pnpm monorepo
