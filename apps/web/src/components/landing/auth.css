@@ -1,10 +1,11 @@
 /* Sign-in page: top bar, picture panel on the left, sign-in box on the right. */
 .au{min-height:100vh;display:flex;flex-direction:column;background:var(--bg)}
 .au a{text-decoration:none}
-.au .lp-brand{color:var(--text)}
-.au .lp-brand{font-size:1rem}
+
+
 .au-grid{flex:1;display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr)}
 .au-art{position:relative;overflow:hidden;color:#fff;background:radial-gradient(900px 500px at 20% 0%,#1d3a82 0%,transparent 60%),#0B1B3E;--mx:0;--my:0;display:flex;align-items:center}
+.au-art .lp-field{z-index:3}
 .au-art::before{content:"";position:absolute;inset:0;background:radial-gradient(rgba(143,176,255,.14) 1.2px,transparent 1.4px) 0 0/28px 28px;pointer-events:none}
 .au-art-in{position:relative;z-index:2;padding:56px clamp(24px,5vw,72px);max-width:680px;margin:0 auto;width:100%}
 .au-eyebrow{font:700 .78rem "Plus Jakarta Sans",sans-serif;letter-spacing:.14em;text-transform:uppercase;color:#8FB0FF;margin:0 0 12px}

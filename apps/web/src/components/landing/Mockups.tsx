@@ -108,3 +108,48 @@ export function ApprovalMock() {
     </figure>
   );
 }
+
+export function SaleMock() {
+  return (
+    <figure className="lp-card-mock" aria-label="Example invoice with sample data">
+      <div className="lp-mock-head"><b>Invoice INV-00231</b><span>Accra branch</span></div>
+      <table><thead><tr><th>Item</th><th>Qty</th><th>Amount</th></tr></thead>
+        <tbody><tr><td>Cement 50kg</td><td>40</td><td>GH₵ 3,800</td></tr><tr><td>PVC pipe 4in</td><td>12</td><td>GH₵ 720</td></tr><tr><td><b>Total</b></td><td /><td><b>GH₵ 4,520</b></td></tr></tbody></table>
+      <div className="lp-rows" style={{ marginTop: 12 }}><div><span className="lp-pill ok">Paid</span>Mobile money<em>GH₵ 3,000</em></div><div><span className="lp-pill mid">Credit</span>Kwame Trading<em>GH₵ 1,520 due</em></div></div>
+      <figcaption>Sample data</figcaption>
+    </figure>
+  );
+}
+
+export function ImportMock() {
+  return (
+    <figure className="lp-card-mock" aria-label="Example Excel import with sample data">
+      <div className="lp-mock-head"><b>Weekly sales import</b><span>Kumasi · Week 41</span></div>
+      <div className="lp-exp"><div><b>kumasi-week-41.xlsx</b><small>412 rows read</small></div><strong className="lp-ok">✓ Checked</strong></div>
+      <div className="lp-rows"><div><span className="lp-pill ok">398</span>rows added<em>matched by SKU or name</em></div><div><span className="lp-pill mid">9</span>need a look<em>unknown product names</em></div><div><span className="lp-pill bad">5</span>skipped<em>already imported</em></div></div>
+      <figcaption>Sample data</figcaption>
+    </figure>
+  );
+}
+
+export function RolesMock() {
+  const roles: [string, string, string][] = [["Owner", "All branches · everything", "ok"], ["Branch Manager", "Own branch only · approves expenses up to GH₵ 500", "mid"], ["Cashier", "Own branch only · sales and customers", "mid"]];
+  return (
+    <figure className="lp-card-mock" aria-label="Example roles with sample data">
+      <div className="lp-mock-head"><b>Roles</b><span>Who sees what</span></div>
+      <ul className="lp-log">{roles.map((r) => <li key={r[0]}><span className="lp-seal">{r[0]}</span><div><small>{r[1]}</small></div></li>)}</ul>
+      <figcaption>Sample data</figcaption>
+    </figure>
+  );
+}
+
+export function InsightMock() {
+  const rows: [string, string, string][] = [["Cement 50kg", "Sells 18 a week · 6 on hand", "Order 60"], ["Roofing nails 3in", "Sells 9 a week · 12 on hand", "Order 20"], ["Rice 25kg", "Sells 14 a week · 40 on hand", "Enough"]];
+  return (
+    <figure className="lp-card-mock" aria-label="Example reorder suggestions with sample data">
+      <div className="lp-mock-head"><b>Reorder suggestions</b><span>Tema branch</span></div>
+      <ul className="lp-log">{rows.map((r) => <li key={r[0]}><span className="lp-seal">{r[2]}</span><div><b>{r[0]}</b><small>{r[1]}</small></div></li>)}</ul>
+      <figcaption>Sample data</figcaption>
+    </figure>
+  );
+}

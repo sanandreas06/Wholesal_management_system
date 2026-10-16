@@ -4,7 +4,7 @@ import {useRouter} from "next/navigation";
 import {saveSession} from "../lib/session";
 import {useTheme} from "../hooks/useTheme";
 import Link from "next/link";
-import PublicNav from "./landing/PublicNav";
+import SiteHeader from "./landing/SiteHeader";
 import FloatField, {type FloatItem} from "./landing/FloatField";
 import {WarehouseScene} from "./landing/InventoryArt";
 import "./landing/landing.css";
@@ -21,7 +21,7 @@ export default function LoginForm(){
  useEffect(()=>{if(!loading){setSlow(false);return}const t=setTimeout(()=>setSlow(true),4000);return()=>clearTimeout(t)},[loading]);
  async function submit(e:FormEvent){e.preventDefault();setLoading(true);setError("");try{const r=await fetch(`${API}/auth/login`,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email,password})});const d=await r.json();if(!r.ok)throw new Error(d.message||"Login failed");saveSession(d.accessToken,d.user);router.push("/dashboard");}catch(e){setError(e instanceof Error?e.message:"Login failed")}finally{setLoading(false)}}
  return <div className="au">
-  <PublicNav variant="light" signIn={false}/>
+  <SiteHeader/>
   <div className="au-grid">
    <aside className="au-art" aria-label="About WHOLESTRA">
     <FloatField items={ART_ITEMS}/>
