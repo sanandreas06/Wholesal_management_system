@@ -1,0 +1,10 @@
+# One public address. HTTPS certificates are fetched and renewed automatically.
+{$DOMAIN} {
+	encode gzip
+	handle /api/* {
+		reverse_proxy api:4000
+	}
+	handle {
+		reverse_proxy web:3000
+	}
+}

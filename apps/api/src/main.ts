@@ -6,6 +6,8 @@ import { checkSecrets } from "./common/secrets-check";
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  // behind the web server (Caddy) the visitor's real address arrives in a header; only believe it when told we are behind one
+  if (process.env.TRUST_PROXY === "true") (app.getHttpAdapter().getInstance() as { set: (k: string, v: unknown) => void }).set("trust proxy", 1);
   const config = app.get(ConfigService);
   // a weak or placeholder secret stops a real (production) server from starting; on a dev machine it only warns
   const secrets = checkSecrets(process.env);

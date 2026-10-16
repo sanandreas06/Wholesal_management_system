@@ -1,9 +1,10 @@
-import { IsBoolean, IsIn, IsOptional, IsString, MaxLength, MinLength } from "class-validator";
+import { Min, IsNumber, IsBoolean, IsIn, IsOptional, IsString, MaxLength, MinLength } from "class-validator";
 
 export class UpdateRoleDto {
   @IsOptional() @IsString() @MinLength(2) @MaxLength(120) name?: string;
   @IsOptional() @IsString() @MinLength(1) @MaxLength(20) code?: string;
   @IsOptional() @IsString() @MaxLength(500) description?: string;
   @IsOptional() @IsBoolean() branchRestricted?: boolean;
+  @IsOptional() @IsNumber({ maxDecimalPlaces: 2 }) @Min(0) expenseApprovalLimit?: number | null;
   @IsOptional() @IsIn(["ACTIVE","INACTIVE"]) status?: "ACTIVE"|"INACTIVE";
 }

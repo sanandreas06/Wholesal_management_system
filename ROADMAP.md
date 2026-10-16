@@ -30,9 +30,8 @@ What a pilot can rely on today:
 3. Back up nightly and copy the file off the computer
 4. Push to GitHub after every batch
 
-**Next candidates** (not started, in rough order): a pilot at one real branch
-and a list of what people trip over; hosting plan (secret store, HTTPS,
-automatic backups); expense approval for branch managers; the unscoped items
+**Next candidates** (not started, in rough order): a first run on a throwaway server, then a pilot at one real branch
+(the plan and walk-through checklists exist); the unscoped items
 at the bottom of this file.
 
 ## A note on numbering (2026-09-11)
@@ -216,7 +215,7 @@ Status: ✅ Built (needs `db:push` + `db:seed`, then sign out/in).
 - New Sale dialog redesigned: items table with line totals, per-branch stock under each line, live summary panel (paid now, balance, credit-limit and stock warnings).
 - Product create/edit dialog redesigned: sectioned layout, live margin, read-only on-hand stock when editing.
 
-### Batches 12–22 (all built, in order)
+### Batches 12–24 (all built, in order)
 - ✅ 12 Audit log for non-inventory changes — built (Audit → Change log tab; before/after values for products, prices, customers, suppliers, users, roles, branches, settings, expense decisions). Gaps: login/logout events, sales/finance postings (they have their own trails), tamper-proofing (hash chain), export
 - ✅ 13 Product aliases + review screen — built (aliases on the product form; Excel import matches SKU, exact name, alias, then name ignoring case/punctuation; "Review unmatched products" suggests closest matches, remembers your choice and imports the held-back rows). Gaps: matching is suggestion-only (never auto-guesses), no bulk alias import
 - ✅ 14 Reorder suggestions — built (Purchases → Reorder Suggestions: per branch, from recent sales speed vs on hand and on order; editable quantities and costs; creates a DRAFT purchase order per supplier, never sends one). Gaps: lead time and cover days are global settings you adjust on the page, not per supplier/product; suggestions ignore seasonality and returns; supplier is inferred from the last purchase order
@@ -241,6 +240,8 @@ Status: ✅ Built (needs `db:push` + `db:seed`, then sign out/in).
   - Gaps: customers and suppliers are shared across branches by design; the audit log and Fraud signals are organization-wide (give AUDIT only to owners); a person's role change takes effect when they sign in again; branch managers can't approve expenses (owner does)
 - ✅ 21 Real secrets — built (API stopped, then `pnpm secrets:set`, then `pnpm audit:rotate-key`): `secrets:set` makes a long random `JWT_SECRET` and `AUDIT_SEAL_KEY` on your own computer (never shown), backs up `.env` first and remembers the old key; `audit:rotate-key` checks every Change-log entry under the old key, re-seals the whole log under the new one in a single all-or-nothing step, adds a “SEAL KEY CHANGED” entry and removes the old key from `.env`. It refuses (changing nothing) if any entry fails the old-key check. The API now reads the main `.env` no matter where it starts, warns about weak/placeholder secrets and refuses to start with them when `NODE_ENV=production`. Everyone is signed out once. Gaps: secrets still live in a plain `.env` file (use the host's secret store when deployed); changing `JWT_SECRET` later signs everyone out again; `AUDIT_SEAL_KEY` must never be changed by hand
 - ✅ 22 Plain-words sign-in details — built: in Audit → Change log, “Details” on a sign-in no longer shows raw code. It shows “Device: Chrome on Windows” and “Connected from: The computer that runs the system / Inside your own network / Outside your network” (the technical address sits underneath in small grey), plus a one-line hint to change the password if the device or place is unfamiliar. Other entries with extra information show labelled lines instead of code. Gaps: “inside/outside your network” is a guess from the address, and behind a web proxy every visitor may look like the proxy
+- ✅ 23 Expense approval limits — built (needs `db:generate` + `db:push`; restart the API): a role can have “Can approve expenses up to” (Roles → Edit; empty = any amount). Someone who may approve can approve or reject expenses up to that amount in their branch; bigger ones show “Above your limit… the owner needs to approve this one” with only a Reject button. Nobody can review an expense they entered themselves, owner included. The Expenses list tells the screen row by row whether you may review it. To use it: give the Branch Manager role the Expenses → Approve permission and set a limit. Gaps: one limit per role (not per category); the limit is checked at the moment of approval, so changing it does not affect expenses already approved
+- ✅ 24 Ready to host — built, **not yet tried on a real server** (nothing to run on your computer except applying the patch): `deploy/` has a production setup for one server (database, API, website, automatic HTTPS through Caddy, nightly backup at 02:00 kept 14 days), `update.sh` (backs up, rebuilds, applies database changes, stops if one could lose data), and `.dockerignore` so secrets and node_modules never go into an image. The API trusts the web server's forwarded address when `TRUST_PROXY=true`, so the Change log shows real visitor addresses. **Seed fix:** re-running `db:seed` no longer resets the owner's password to the starting one; a newly created owner must change the starting password at first sign-in, and `SEED_ADMIN_PASSWORD` can set it. Gaps: first run needs a throwaway server; backups sit on the same server unless the host's backup option is on; one server is one point of failure
 
 ---
 

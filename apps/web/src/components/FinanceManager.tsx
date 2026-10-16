@@ -8,7 +8,7 @@ import { usePermissions } from "../hooks/usePermissions";
 
 interface Ref { id: string; name: string }
 interface Category { id: string; name: string }
-interface Expense { id: string; amount: string; description: string; expenseDate: string; status: string; reviewNote: string | null; branch: Ref; category: Ref; createdBy: Ref; reviewedBy: Ref | null }
+interface Expense { id: string; amount: string; description: string; expenseDate: string; status: string; reviewNote: string | null; branch: Ref; category: Ref; createdBy: Ref; reviewedBy: Ref | null; canReview?: boolean; reviewBlock?: string | null }
 interface Deposit { id: string; method: string; amount: string; reference: string | null; depositDate: string; branch: Ref; createdBy: Ref }
 interface VarianceCase { id: string; method: string; periodStart: string; periodEnd: string; expectedAmount: string; actualAmount: string; difference: string; status: string; explanation: string | null; resolution: string | null; branch: Ref; resolvedBy: Ref | null }
 interface Closing { id: string; periodStart: string; periodEnd: string; expectedAmount: string; depositedAmount: string; expensesAmount: string; differenceAmount: string; notes: string | null; closedAt: string; branch: Ref; closedBy: Ref; varianceCases: { id: string; status: string }[] }
@@ -209,7 +209,7 @@ function ExpensesTab({ branches, canCreate, canApprove, initial }: { branches: R
         <tbody>{rows.map(x => (
           <tr key={x.id}><td>{day(x.expenseDate)}</td><td>{x.branch.name}</td><td>{x.category.name}</td><td>{x.description}</td><td>{money(x.amount)}</td><td>{x.createdBy.name}</td>
             <td><span className={`badge ${STATUS_CLASS[x.status]}`}>{x.status}</span>{x.reviewNote && <div className="muted">{x.reviewNote}</div>}</td>
-            <td className="row-actions">{canApprove && x.status === "PENDING" && <><button className="secondary" onClick={() => review(x.id, "approve")}>Approve</button><button className="secondary" onClick={() => review(x.id, "reject")}>Reject</button></>}</td></tr>
+            <td className="row-actions">{canApprove && x.status === "PENDING" && x.canReview !== false && <><button className="secondary" onClick={() => review(x.id, "approve")}>Approve</button><button className="secondary" onClick={() => review(x.id, "reject")}>Reject</button></>}{canApprove && x.status === "PENDING" && x.canReview === false && <div className="muted" style={{ maxWidth: 240 }}>{x.reviewBlock}{x.reviewBlock && <> </>}{x.reviewBlock?.startsWith("Above") && <button className="secondary" onClick={() => review(x.id, "reject")}>Reject</button>}</div>}</td></tr>
         ))}</tbody></table>}
     </div>
     {adding && <ExpenseModal branches={branches} cats={cats} onClose={() => setAdding(false)} onSaved={() => { setAdding(false); load(); }} />}

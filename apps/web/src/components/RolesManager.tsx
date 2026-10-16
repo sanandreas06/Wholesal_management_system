@@ -6,7 +6,7 @@ import { toast } from "../lib/toast";
 import { usePermissions } from "../hooks/usePermissions";
 
 interface PermissionRef { id: string; resource: string; action: string }
-interface Role { id: string; name: string; code: string; description: string | null; branchRestricted?: boolean; status: "ACTIVE" | "INACTIVE"; permissions: { permission: PermissionRef }[]; _count: { userRoles: number } }
+interface Role { id: string; name: string; code: string; description: string | null; branchRestricted?: boolean; expenseApprovalLimit?: string | null; status: "ACTIVE" | "INACTIVE"; permissions: { permission: PermissionRef }[]; _count: { userRoles: number } }
 
 export default function RolesManager() {
   const [roles, setRoles] = useState<Role[] | null>(null);
@@ -72,14 +72,15 @@ function RoleModal({ role, onClose, onSaved }: { role: Role | null; onClose: () 
   const [code, setCode] = useState(role?.code || "");
   const [description, setDescription] = useState(role?.description || "");
   const [branchRestricted, setBranchRestricted] = useState(!!role?.branchRestricted);
+  const [limit, setLimit] = useState(role?.expenseApprovalLimit ? String(Number(role.expenseApprovalLimit)) : "");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
 
   async function submit(e: FormEvent) {
     e.preventDefault(); setSaving(true); setError("");
     try {
-      if (role) await api.put(`/roles/${role.id}`, { name, code, description, branchRestricted });
-      else await api.post("/roles", { name, code, description, branchRestricted });
+      if (role) await api.put(`/roles/${role.id}`, { name, code, description, branchRestricted, expenseApprovalLimit: limit.trim() === "" ? null : Number(limit) });
+      else await api.post("/roles", { name, code, description, branchRestricted, expenseApprovalLimit: limit.trim() === "" ? null : Number(limit) });
       onSaved();
     } catch (e) { setError(e instanceof ApiError ? e.message : "Save failed"); }
     finally { setSaving(false); }
@@ -95,6 +96,7 @@ function RoleModal({ role, onClose, onSaved }: { role: Role | null; onClose: () 
           <label>Code<input value={code} onChange={e => setCode(e.target.value.toUpperCase())} required /></label>
           <label>Description<input value={description} onChange={e => setDescription(e.target.value)} /></label>
           <label className="checkbox-row" style={{ gridColumn: "1 / -1" }}><input type="checkbox" checked={branchRestricted} onChange={e => setBranchRestricted(e.target.checked)} />Limit to the person's own branch <span className="muted">(they will only see and work with their branch. People with this role need a branch set on their user.)</span></label>
+          <label style={{ gridColumn: "1 / -1" }}>Can approve expenses up to <span className="muted">(leave empty for any amount; only used if this role may approve expenses; larger ones wait for the owner)</span><input type="number" min="0" step="0.01" value={limit} onChange={e => setLimit(e.target.value)} placeholder="Any amount" /></label>
           {error && <div className="error">{error}</div>}
           <div className="modal-actions">
             <button type="button" className="secondary" onClick={onClose}>Cancel</button>

@@ -1,0 +1,14 @@
+# Keep secrets, the other computer's packages and build leftovers out of the images
+**/node_modules
+.git
+.env
+.env.*
+!.env.example
+deploy/.env.production
+deploy/backups
+backups
+**/dist
+**/.next
+*.patch
+*.log
+.vscode

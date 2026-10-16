@@ -5,6 +5,9 @@ import { ReconciliationService } from "./reconciliation.service";
 import { CreateExpenseCategoryDto } from "./dto/create-expense-category.dto";
 import { CreateExpenseDto } from "./dto/create-expense.dto";
 import { ReviewExpenseDto } from "./dto/review-expense.dto";
+import { ApproverRole, limitFor, mayReview } from "./approval-limit";
+
+const money = (n: number) => n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 const include = {
   branch: { select: { id: true, name: true } },
@@ -36,10 +39,30 @@ export class ExpensesService {
     };
   }
 
-  list(organizationId: string, branchId?: string, status?: string, f: { from?: string; to?: string; categoryId?: string } = {}) {
-    return this.prisma.expense.findMany({
+  /** What this person may approve: undefined = nothing, null = any amount, a number = up to that amount. Read fresh from their roles, never from the sign-in token. */
+  async approvalLimit(userId: string): Promise<number | null | undefined> {
+    const links: { role: { status: string; expenseApprovalLimit: unknown; permissions: { permission: { resource: string; action: string } }[] } }[] = await this.prisma.userRole.findMany({
+      where: { userId }, select: { role: { select: { status: true, expenseApprovalLimit: true, permissions: { select: { permission: { select: { resource: true, action: true } } } } } } }
+    });
+    const roles: ApproverRole[] = links.filter((l) => l.role.status === "ACTIVE").map((l) => ({
+      canApprove: l.role.permissions.some((p) => p.permission.resource === "EXPENSES" && p.permission.action === "APPROVE"),
+      limit: l.role.expenseApprovalLimit === null || l.role.expenseApprovalLimit === undefined ? null : Number(l.role.expenseApprovalLimit),
+    }));
+    return limitFor(roles);
+  }
+
+  async list(organizationId: string, branchId?: string, status?: string, f: { from?: string; to?: string; categoryId?: string } = {}, viewerId?: string) {
+    const rows = await this.prisma.expense.findMany({
       where: this.where(organizationId, branchId, status, f),
       include, orderBy: [{ expenseDate: "desc" }, { createdAt: "desc" }], take: 500
+    });
+    if (!viewerId) return rows;
+    // tell the screen, row by row, whether this person may review it and (if not) why, so it can show a reason instead of a button
+    const limit = await this.approvalLimit(viewerId);
+    return rows.map((e: any) => {
+      if (e.status !== "PENDING") return { ...e, canReview: false, reviewBlock: null };
+      const c = mayReview({ amount: Number(e.amount), createdByUserId: e.createdBy.id }, viewerId, limit, money);
+      return { ...e, canReview: c.ok, reviewBlock: c.ok || limit === undefined ? null : c.reason };
     });
   }
 
@@ -85,7 +108,9 @@ export class ExpensesService {
     const e = await this.prisma.expense.findFirst({ where: { id, organizationId } });
     if (!e) throw new NotFoundException("Expense not found");
     if (e.status !== "PENDING") throw new BadRequestException(`Expense is already ${e.status.toLowerCase()}`);
-    if (e.createdByUserId === userId) throw new ForbiddenException("You cannot review an expense you entered yourself");
+    // rejecting is never limited by amount; approving is
+    const check = mayReview({ amount: Number(e.amount), createdByUserId: e.createdByUserId }, userId, status === "REJECTED" ? null : await this.approvalLimit(userId), money);
+    if (!check.ok) throw new ForbiddenException(check.reason);
     await this.recon.assertPeriodOpen(organizationId, e.branchId, e.expenseDate);
     return this.prisma.expense.update({ where: { id }, data: { status, reviewedByUserId: userId, reviewedAt: new Date(), reviewNote: dto.note ?? null }, include });
   }

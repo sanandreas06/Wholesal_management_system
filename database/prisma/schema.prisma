@@ -213,6 +213,8 @@ model Role {
   description    String?
   /// People with this role only see and work with the branch they belong to. Off = every branch.
   branchRestricted Boolean        @default(false)
+  /// Largest expense this role may approve. Empty = any amount. Only matters for roles that have the Expenses "Approve" permission.
+  expenseApprovalLimit Decimal?   @db.Decimal(14, 2)
   status         RoleStatus       @default(ACTIVE)
   createdAt      DateTime         @default(now())
   updatedAt      DateTime         @updatedAt

@@ -4,7 +4,7 @@ import * as bcrypt from "bcryptjs";
 const prisma = new PrismaClient();
 
 async function main() {
-  const passwordHash = await bcrypt.hash("Admin@12345", 12);
+  const passwordHash = await bcrypt.hash(process.env.SEED_ADMIN_PASSWORD || "Admin@12345", 12);
 
   // ============================================================
   // ORGANIZATION
@@ -441,8 +441,8 @@ async function main() {
     where: {
       email: "admin@wholesale.local",
     },
+    // re-running the seed must never put the owner's password back to the starting one
     update: {
-      passwordHash,
       organizationId: organization.id,
       branchId: branches[0].id,
     },
@@ -452,6 +452,7 @@ async function main() {
       email: "admin@wholesale.local",
       name: "System Administrator",
       passwordHash,
+      mustChangePassword: true,
     },
   });
 

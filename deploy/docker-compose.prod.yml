@@ -1,0 +1,72 @@
+# WholesalePro on a single server. Nothing but the web address (ports 80 and 443) is open to the internet.
+# Settings come from deploy/.env.production (copy deploy/env.production.example and fill it in).
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: wholesale
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in deploy/.env.production}
+      POSTGRES_DB: wholesale_management
+    volumes:
+      - wms_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U wholesale -d wholesale_management"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build: { context: .., dockerfile: deploy/Dockerfile.api }
+    restart: unless-stopped
+    depends_on: { postgres: { condition: service_healthy } }
+    environment:
+      NODE_ENV: production
+      API_PORT: 4000
+      TRUST_PROXY: "true"
+      DATABASE_URL: postgresql://wholesale:${POSTGRES_PASSWORD}@postgres:5432/wholesale_management?schema=public
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in deploy/.env.production}
+      AUDIT_SEAL_KEY: ${AUDIT_SEAL_KEY:?set AUDIT_SEAL_KEY in deploy/.env.production}
+      JWT_EXPIRES_IN: 1d
+
+  web:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.web
+      args: { NEXT_PUBLIC_API_URL: "https://${DOMAIN:?set DOMAIN in deploy/.env.production}/api" }
+    restart: unless-stopped
+    depends_on: [api]
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports: ["80:80", "443:443"]
+    environment:
+      DOMAIN: ${DOMAIN}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+    depends_on: [web, api]
+
+  # A copy of the whole database every night at 02:00 (server time, UTC), kept for 14 days, in the "backups" folder next to this file.
+  backup:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    depends_on: { postgres: { condition: service_healthy } }
+    environment:
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - ./backups:/backups
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        while true; do
+          sleep $$(( (86400 + 7200 - $$(date +%s) % 86400) % 86400 + 1 ))
+          f=/backups/wholesale_$$(date +%Y-%m-%d_%H%M).dump
+          if pg_dump -h postgres -U wholesale -d wholesale_management -Fc -f "$$f"; then echo "backup ok: $$f"; else echo "BACKUP FAILED"; rm -f "$$f"; fi
+          find /backups -name 'wholesale_*.dump' -mtime +14 -delete
+        done
+
+volumes:
+  wms_postgres_data:
+  caddy_data:

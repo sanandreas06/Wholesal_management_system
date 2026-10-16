@@ -12,3 +12,5 @@ coverage/
 !.vscode/settings.json
 backups/
 *.patch
+deploy/.env.production
+deploy/backups/

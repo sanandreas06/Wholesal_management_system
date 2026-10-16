@@ -30,7 +30,7 @@ export class ExpenseCategoriesController {
 export class ExpensesController {
   constructor(private readonly expenses: ExpensesService, private readonly scope: BranchScopeService) {}
   @Get() @RequirePermissions("EXPENSES:READ")
-  list(@CurrentUser() u: AuthUser, @Query("branchId") branchId?: string, @Query("status") status?: string, @Query("from") from?: string, @Query("to") to?: string, @Query("categoryId") categoryId?: string) { return this.expenses.list(u.organizationId, this.scope.limit(u, branchId), status, { from, to, categoryId }); }
+  list(@CurrentUser() u: AuthUser, @Query("branchId") branchId?: string, @Query("status") status?: string, @Query("from") from?: string, @Query("to") to?: string, @Query("categoryId") categoryId?: string) { return this.expenses.list(u.organizationId, this.scope.limit(u, branchId), status, { from, to, categoryId }, u.sub); }
   @Get("summary") @RequirePermissions("EXPENSES:READ")
   summary(@CurrentUser() u: AuthUser, @Query("branchId") branchId?: string, @Query("status") status?: string, @Query("from") from?: string, @Query("to") to?: string, @Query("categoryId") categoryId?: string) { return this.expenses.summary(u.organizationId, this.scope.limit(u, branchId), status, { from, to, categoryId }); }
   @Post() @RequirePermissions("EXPENSES:CREATE")
