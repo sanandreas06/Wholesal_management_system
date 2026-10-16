@@ -1,4 +1,4 @@
-# WHOLESTRA by BOATENG — Phase 1 Foundation
+# WHOLESTRA — Phase 1 Foundation
 
 WHOLESTRA is a multi-branch wholesale management system (stock, sales, purchasing, finance and a tamper-evident change log). This is its runnable foundation.
 

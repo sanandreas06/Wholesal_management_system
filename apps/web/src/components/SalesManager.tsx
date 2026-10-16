@@ -329,8 +329,8 @@ function SaleDetailModal({ sale, canUpdate, canPay, canReturn, onClose, onUpdate
     const pays = sale.payments.map(p => `<tr><td>${new Date(p.receivedAt).toLocaleDateString()}</td><td>${esc(p.method.replace("_", " "))}</td><td class="r">${money(p.amount)}</td></tr>`).join("");
     w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${esc(sale.invoiceNumber)}</title><style>
       @page{margin:16mm}*{box-sizing:border-box}body{font-family:'Segoe UI',Arial,sans-serif;color:#1a2332;margin:0;padding:8px;font-size:13px}
-      .top{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #0F6B4F;padding-bottom:14px}
-      .brand{font-size:22px;font-weight:800;letter-spacing:.12em;color:#0F6B4F}.brand small{display:block;font-size:11px;color:#6b7280;font-weight:500}
+      .top{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #2563eb;padding-bottom:14px}
+      .brand{font-size:22px;font-weight:800;letter-spacing:.12em;color:#2563eb}.brand small{display:block;font-size:11px;color:#6b7280;font-weight:500}
       h1{margin:0;font-size:26px;text-align:right}.top .r small{display:block;color:#6b7280;font-weight:500}
       .void{color:#b42318;border:2px solid #b42318;display:inline-block;padding:2px 10px;font-weight:800;margin-top:6px;transform:rotate(-4deg)}
       .meta{display:grid;grid-template-columns:1fr 1fr;gap:6px 30px;margin:18px 0}.meta b{display:block;font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:#6b7280}
@@ -342,7 +342,7 @@ function SaleDetailModal({ sale, canUpdate, canPay, canReturn, onClose, onUpdate
       .hint{background:#eff6ff;color:#1e40af;padding:8px 12px;border-radius:8px;margin-bottom:14px;font-size:12px}@media print{.hint{display:none}}
     </style></head><body>
       <div class="hint">To save as a PDF, choose <b>Save as PDF</b> as the printer in the window that opens.</div>
-      <div class="top"><div class="brand">WHOLESTRA<small>by BOATENG</small></div><div class="r"><h1>INVOICE</h1><small>${esc(sale.invoiceNumber)}</small>${voided ? '<div class="void">VOIDED</div>' : ""}</div></div>
+      <div class="top"><div class="brand">WHOLESTRA<small>Wholesale management</small></div><div class="r"><h1>INVOICE</h1><small>${esc(sale.invoiceNumber)}</small>${voided ? '<div class="void">VOIDED</div>' : ""}</div></div>
       <div class="meta"><div><b>Billed to</b>${esc(sale.customer?.name || "Walk-in customer")}</div><div><b>Date</b>${new Date(sale.soldAt).toLocaleString()}</div>
       <div><b>Branch</b>${esc(sale.branch.name)}</div><div><b>Served by</b>${esc(sale.user.name)}</div></div>
       <table><thead><tr><th>Item</th><th class="r">Qty</th><th class="r">Price</th><th class="r">Amount</th></tr></thead><tbody>${rows}</tbody></table>

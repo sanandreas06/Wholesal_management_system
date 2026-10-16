@@ -1,32 +1,32 @@
 :root{
-  --bg:#F3F5F0;--surface:#FFFFFF;--border:#ECEFE9;--border-strong:#E2E5EA;
+  --bg:#F3F6FB;--surface:#FFFFFF;--border:#EEF0F3;--border-strong:#E2E5EA;
   --text:#1A2332;--text-muted:#6B7280;--text-faint:#9CA3AF;
-  --primary:#0F6B4F;--primary-tint:#E3F2EA;--primary-contrast:#FFFFFF;
+  --primary:#2563EB;--primary-tint:#EAF1FF;--primary-contrast:#FFFFFF;
   --accent-amber:#C97A2E;--accent-amber-tint:#FFF4E5;
   --accent-blue:#2F5D9E;--accent-blue-tint:#EAF1FE;
   --success:#16A34A;--success-tint:#E7F7EC;
   --danger:#B23B3B;--danger-tint:#FDEDEB;
-  --sidebar-bg:#0C241C;--sidebar-border:#1E4A38;--sidebar-text:#B9CBC1;
-  --sidebar-active-bg:#E0AE3B;--sidebar-active-text:#0C241C;
+  --sidebar-bg:#0B1B3E;--sidebar-border:#1C2D57;--sidebar-text:#B4C0DC;
+  --sidebar-active-bg:#2563EB;--sidebar-active-text:#FFFFFF;
   --shadow-card:0 1px 3px rgba(16,24,40,.05);
-  --c1:#0F6B4F;--c2:#2563EB;--c3:#F59E0B;--c4:#8B5CF6;--c5:#06B6D4;
+  --c1:#2563EB;--c2:#16A34A;--c3:#F59E0B;--c4:#8B5CF6;--c5:#06B6D4;
   --modal-backdrop:rgba(15,23,42,.4);
   --scrollbar-track:#f1f1f1;--scrollbar-thumb:#c7cbd1;
 }
 [data-theme="dark"]{
-  --bg:#0A1510;--surface:#12211A;--border:#243830;--border-strong:#2F4A3E;
+  --bg:#0C1220;--surface:#1A2130;--border:#2A3242;--border-strong:#38414F;
   --text:#E8EAED;--text-muted:#9AA3B2;--text-faint:#6B7484;
-  --primary:#E0AE3B;--primary-tint:#2E2810;--primary-contrast:#0C241C;
+  --primary:#6B9BFF;--primary-tint:#16264A;--primary-contrast:#0B1220;
   --accent-amber:#E8A03D;--accent-amber-tint:#3A2C15;
   --accent-blue:#6FA0E6;--accent-blue-tint:#182A42;
   --success:#4ADE80;--success-tint:#12301F;
   --danger:#E5605C;--danger-tint:#3A1A19;
-  --sidebar-bg:#07170F;--sidebar-border:#1B3A2C;--sidebar-text:#A8BDB2;
-  --sidebar-active-bg:#E0AE3B;--sidebar-active-text:#0C241C;
+  --sidebar-bg:#08142F;--sidebar-border:#172649;--sidebar-text:#A3AEC4;
+  --sidebar-active-bg:#2563EB;--sidebar-active-text:#FFFFFF;
   --shadow-card:0 1px 3px rgba(0,0,0,.35);
-  --c1:#E0AE3B;--c2:#6B9BFF;--c3:#FBBF24;--c4:#A78BFA;--c5:#22D3EE;
+  --c1:#6B9BFF;--c2:#4ADE80;--c3:#FBBF24;--c4:#A78BFA;--c5:#22D3EE;
   --modal-backdrop:rgba(0,0,0,.6);
-  --scrollbar-track:#12211A;--scrollbar-thumb:#2F4A3E;
+  --scrollbar-track:#1A2130;--scrollbar-thumb:#38414F;
 }
 
 *{box-sizing:border-box}
@@ -172,7 +172,7 @@ td{color:var(--text)}
 
 /* Layout */
 body{font-size:13.5px}
-.sidebar{width:224px;padding:16px 12px;gap:10px;background:linear-gradient(180deg,var(--sidebar-bg),#081A13)}
+.sidebar{width:224px;padding:16px 12px;gap:10px;background:linear-gradient(180deg,var(--sidebar-bg),#0A1733)}
 .brand{gap:10px;padding:2px 6px 14px}
 .brand .wl-mark{width:38px;height:38px;flex:none}
 .brand-text{display:flex;flex-direction:column;line-height:1.15}
@@ -642,11 +642,5 @@ tr.row-bad td{background:color-mix(in srgb,var(--danger-tint) 55%,transparent)}
 /* WHOLESTRA logo (components/Logo.tsx) */
 .wl-logo{display:inline-flex;align-items:center;gap:12px;color:inherit}
 .wl-mark{display:block;flex:none}
-.wl-word{display:flex;flex-direction:column;line-height:1}
-.wl-word strong{font-family:"Bricolage Grotesque",var(--font-display);font-weight:800;font-size:1.15em;letter-spacing:.14em}
-.wl-word small{font-size:.5em;letter-spacing:.32em;font-weight:700;margin-top:.55em;color:#E0AE3B}
+.wl-word strong{font-family:var(--font-display);font-weight:800;font-size:1.15em;letter-spacing:.14em}
 .brand .wl-logo{font-size:15px}
-.brand .wl-word small{color:#E0AE3B}
-.auth-logo{text-decoration:none;display:flex;flex-direction:column;align-items:center;gap:10px;margin-bottom:6px;color:var(--text);font-size:19px}
-.auth-logo .wl-word small{color:#8A5F00}
-[data-theme="dark"] .auth-logo .wl-word small{color:#E0AE3B}

@@ -1,5 +1,5 @@
 import "./globals.css";
-export const metadata={title:"WHOLESTRA — wholesale management for every branch",description:"WHOLESTRA by BOATENG: stock, sales, purchasing, finance and a tamper-evident change log for multi-branch wholesale businesses."};
+export const metadata={title:"WHOLESTRA — wholesale management for every branch",description:"WHOLESTRA: stock, sales, purchasing, finance and a tamper-evident change log for multi-branch wholesale businesses."};
 export default function RootLayout({children}:{children:React.ReactNode}){return (
   <html lang="en">
     <head>

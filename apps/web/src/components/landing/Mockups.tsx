@@ -1,3 +1,5 @@
+'use client';
+import { useEffect, useState } from "react";
 import { LogoMark } from "../Logo";
 
 /** Small pictures of the real screens, drawn in HTML so they stay sharp and follow the theme. All figures are sample data and are labelled as such. */
@@ -11,8 +13,24 @@ function trend(w: number, h: number) {
   return { line, area: `${line} L${w} ${h} L0 ${h} Z`, last: pts[pts.length - 1] };
 }
 
+const fmt = (n: number) => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+
+/** Counts up to a number once, unless the visitor prefers less motion. */
+function useCountUp(to: number, ms = 1400) {
+  const [v, setV] = useState(to);
+  useEffect(() => {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    let raf = 0; const t0 = performance.now(); setV(0);
+    const step = (t: number) => { const k = Math.min(1, (t - t0) / ms); setV(Math.round(to * (1 - Math.pow(1 - k, 3)))); if (k < 1) raf = requestAnimationFrame(step); };
+    raf = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf);
+  }, [to, ms]);
+  return v;
+}
+
 export function HeroMock() {
   const W = 420, H = 130, t = trend(W, H);
+  const sales = useCountUp(48260), profit = useCountUp(9140);
   return (
     <figure className="lp-window" aria-label="Example of the WHOLESTRA dashboard, with sample data">
       <div className="lp-window-bar"><i /><i /><i /><span>Dashboard</span></div>
@@ -23,8 +41,8 @@ export function HeroMock() {
         </aside>
         <div className="lp-main">
           <div className="lp-kpis">
-            <div><small>Sales today</small><strong>GH₵ 48,260</strong><em className="up">▲ 12% vs yesterday</em></div>
-            <div><small>Gross profit</small><strong>GH₵ 9,140</strong><em className="up">▲ 4% margin</em></div>
+            <div><small>Sales today</small><strong>GH₵ {fmt(sales)}</strong><em className="up">▲ 12% vs yesterday</em></div>
+            <div><small>Gross profit</small><strong>GH₵ {fmt(profit)}</strong><em className="up">▲ 4% margin</em></div>
             <div><small>Needs attention</small><strong>7 items</strong><em className="warn">3 out of stock</em></div>
           </div>
           <div className="lp-chart">
