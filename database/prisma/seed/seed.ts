@@ -248,6 +248,8 @@ async function main() {
     ["EXCEL_IMPORT", PermissionAction.READ],
     ["EXCEL_IMPORT", PermissionAction.CREATE],
 
+    ["PROFIT", PermissionAction.READ],
+
     ["REPORTS", PermissionAction.READ],
     ["REPORTS", PermissionAction.EXPORT],
 
@@ -410,6 +412,7 @@ async function main() {
   "VARIANCE_CASES",
   "BRANCH_CLOSING",
   "EXCEL_IMPORT",
+  "PROFIT",
 ];
 
   for (const permission of permissions) {

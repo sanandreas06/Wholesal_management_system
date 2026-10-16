@@ -5,7 +5,7 @@ import { UpdateRoleDto } from "./dto/update-role.dto";
 import { AssignPermissionsDto } from "./dto/assign-permissions.dto";
 
 const roleSelect = {
-  id:true,name:true,code:true,description:true,status:true,createdAt:true,updatedAt:true,
+  id:true,name:true,code:true,description:true,branchRestricted:true,status:true,createdAt:true,updatedAt:true,
   permissions:{select:{permission:{select:{id:true,resource:true,action:true}}}},
   _count:{select:{userRoles:true}}
 };

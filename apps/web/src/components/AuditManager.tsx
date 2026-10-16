@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import AppShell from "./AppShell";
 import { api } from "../lib/api";
 import { usePolling } from "../hooks/usePolling";
+import ChangeLog from "./ChangeLog";
 
 interface AuditFlag {
   id: string;
@@ -32,6 +33,7 @@ export default function AuditManager() {
   const [flags, setFlags] = useState<AuditFlag[] | null>(null);
   const [error, setError] = useState("");
   const [filter, setFilter] = useState<"all" | "high" | "medium" | "low">("all");
+  const [tab, setTab] = useState<"signals" | "log">("signals");
 
   function load() { api.get<AuditFlag[]>("/audit/flags").then(setFlags).catch(e => setError(e.message)); }
   useEffect(load, []);
@@ -45,7 +47,12 @@ export default function AuditManager() {
   };
 
   return (
-    <AppShell title="Audit & Fraud Signals">
+    <AppShell title="Audit">
+      <div className="seg" style={{ marginBottom: 16 }}>
+        <button type="button" className={tab === "signals" ? "seg-on" : ""} onClick={() => setTab("signals")}>Fraud signals</button>
+        <button type="button" className={tab === "log" ? "seg-on" : ""} onClick={() => setTab("log")}>Change log</button>
+      </div>
+      {tab === "log" ? <ChangeLog /> : <>
       {error && <div className="error">{error}</div>}
       <p className="muted" style={{ marginBottom: 16 }}>
         Automated, rule-based patterns worth a closer look — not accusations. Every flag is generated from your actual stock movement history and links back to real records for you to verify.
@@ -81,6 +88,7 @@ export default function AuditManager() {
           </div>
         ))}
       </div>
+      </>}
     </AppShell>
   );
 }

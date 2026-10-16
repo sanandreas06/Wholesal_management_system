@@ -7,6 +7,7 @@ export class CreateProductDto {
   @IsOptional() @IsUUID() brandId?: string;
   @IsOptional() @IsUUID() unitId?: string;
   @IsNumber() @Min(0) unitPrice!: number;
+  @IsOptional() @IsNumber() @Min(0) costPrice?: number;
   @IsOptional() @IsInt() @Min(0) stockQuantity?: number;
   @IsOptional() @IsInt() @Min(0) reorderLevel?: number;
 }

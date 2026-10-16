@@ -46,7 +46,7 @@ export class UsersService {
     const passwordHash = await bcrypt.hash(dto.password, 10);
     const user = await this.prisma.user.create({
       data:{
-        organizationId, email:dto.email, name:dto.name, passwordHash, branchId:dto.branchId,
+        organizationId, email:dto.email, name:dto.name, passwordHash, branchId:dto.branchId, mustChangePassword:true,
         userRoles:{ create: roleIds.map(roleId=>({roleId})) }
       },
       select:userSelect
@@ -68,6 +68,13 @@ export class UsersService {
       this.prisma.userRole.createMany({ data: dto.roleIds.map(roleId=>({userId:id,roleId})) })
     ]);
     return this.get(organizationId, id);
+  }
+
+  /** Sets a temporary password; the person has to replace it when they next sign in. */
+  async resetPassword(organizationId: string, id: string, password: string) {
+    await this.get(organizationId, id);
+    await this.prisma.user.update({ where:{id}, data:{ passwordHash: await bcrypt.hash(password, 10), mustChangePassword:true } });
+    return { ok: true };
   }
 
   async setStatus(organizationId: string, id: string, status: "ACTIVE"|"INACTIVE"|"SUSPENDED") {

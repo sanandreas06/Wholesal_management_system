@@ -2,6 +2,8 @@
 import { FormEvent, useEffect, useState } from "react";
 import AppShell from "./AppShell";
 import { api, ApiError } from "../lib/api";
+import { toast } from "../lib/toast";
+import { exportCsv } from "../lib/exportCsv";
 import { usePermissions } from "../hooks/usePermissions";
 import { ContactsModal } from "./SuppliersManager";
 
@@ -26,7 +28,7 @@ export default function CustomersManager() {
   async function remove(item: Customer) {
     if (!confirm(`Delete customer "${item.name}"?`)) return;
     try { await api.delete(`/customers/${item.id}`); load(); }
-    catch (e) { alert(e instanceof ApiError ? e.message : "Delete failed"); }
+    catch (e) { toast.error(e instanceof ApiError ? e.message : "Delete failed"); }
   }
 
   return (
@@ -34,7 +36,13 @@ export default function CustomersManager() {
       {error && <div className="error">{error}</div>}
       <div className="toolbar">
         <p className="muted">{items ? `${items.length} customer${items.length === 1 ? "" : "s"}` : "Loading..."}</p>
-        {canCreate && <button onClick={() => setEditing("new")}>+ New Customer</button>}
+        <div className="toolbar-right">
+          <button type="button" className="secondary" disabled={!items?.length} onClick={() => exportCsv("customers", [
+            { header: "Name", value: (c: Customer) => c.name }, { header: "Code", value: c => c.code }, { header: "Phone", value: c => c.phone }, { header: "Email", value: c => c.email },
+            { header: "Address", value: c => c.address }, { header: "Credit limit", value: c => (c.creditLimit == null ? "" : Number(c.creditLimit)) }, { header: "Credit days", value: c => c.creditDays }, { header: "Status", value: c => c.status },
+          ], items ?? [])}>Export CSV</button>
+          {canCreate && <button onClick={() => setEditing("new")}>+ New Customer</button>}
+        </div>
       </div>
       <div className="table-wrap">
         {items && items.length === 0 && <div className="empty">No customers yet.</div>}

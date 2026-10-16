@@ -5,6 +5,7 @@ import { RequirePermissions } from "../common/decorators/permissions.decorator";
 import { CurrentUser } from "../common/decorators/current-user.decorator";
 import { AuthUser } from "../common/types/auth-user.type";
 import { UsersService } from "./users.service";
+import { ResetPasswordDto } from "./dto/reset-password.dto";
 import { CreateUserDto } from "./dto/create-user.dto";
 import { UpdateUserDto } from "./dto/update-user.dto";
 import { AssignRolesDto } from "./dto/assign-roles.dto";
@@ -33,6 +34,10 @@ export class UsersController {
   @Put(":id/roles")
   @RequirePermissions("USERS:UPDATE")
   assignRoles(@CurrentUser() user: AuthUser, @Param("id") id: string, @Body() dto: AssignRolesDto) { return this.users.assignRoles(user.organizationId, id, dto); }
+
+  @Put(":id/password")
+  @RequirePermissions("USERS:UPDATE")
+  resetPassword(@CurrentUser() user: AuthUser, @Param("id") id: string, @Body() dto: ResetPasswordDto) { return this.users.resetPassword(user.organizationId, id, dto.password); }
 
   @Patch(":id/activate")
   @RequirePermissions("USERS:UPDATE")

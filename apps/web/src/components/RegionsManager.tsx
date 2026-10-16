@@ -2,6 +2,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import AppShell from "./AppShell";
 import { api, ApiError } from "../lib/api";
+import { toast } from "../lib/toast";
 import { usePermissions } from "../hooks/usePermissions";
 
 interface Region { id: string; name: string; code: string; description: string | null; status: "ACTIVE" | "INACTIVE"; _count?: { branches: number } }
@@ -19,7 +20,7 @@ export default function RegionsManager() {
   async function remove(region: Region) {
     if (!confirm(`Delete region "${region.name}"?`)) return;
     try { await api.delete(`/regions/${region.id}`); load(); }
-    catch (e) { alert(e instanceof ApiError ? e.message : "Delete failed"); }
+    catch (e) { toast.error(e instanceof ApiError ? e.message : "Delete failed"); }
   }
 
   return (

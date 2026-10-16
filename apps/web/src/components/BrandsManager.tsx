@@ -2,6 +2,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import AppShell from "./AppShell";
 import { api, ApiError } from "../lib/api";
+import { toast } from "../lib/toast";
 import { usePermissions } from "../hooks/usePermissions";
 
 interface Brand { id: string; name: string; code: string; _count?: { products: number } }
@@ -18,7 +19,7 @@ export default function BrandsManager() {
   async function remove(item: Brand) {
     if (!confirm(`Delete brand "${item.name}"?`)) return;
     try { await api.delete(`/brands/${item.id}`); load(); }
-    catch (e) { alert(e instanceof ApiError ? e.message : "Delete failed"); }
+    catch (e) { toast.error(e instanceof ApiError ? e.message : "Delete failed"); }
   }
 
   return (

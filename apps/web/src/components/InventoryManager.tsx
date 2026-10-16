@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import AppShell from "./AppShell";
 import { api } from "../lib/api";
+import { exportCsv } from "../lib/exportCsv";
 
 interface Ref { id: string; name: string }
 interface InventoryRow { id: string; quantity: number; product: { id: string; name: string; sku: string; reorderLevel: number }; branch: Ref }
@@ -24,7 +25,7 @@ export default function InventoryManager() {
   const [view, setView] = useState<"stock" | "ledger">("stock");
   const [error, setError] = useState("");
 
-  useEffect(() => { api.get<Ref[]>("/branches").then(setBranches).catch(() => {}); }, []);
+  useEffect(() => { api.get<Ref[]>("/branches?own=1").then(setBranches).catch(() => {}); }, []);
 
   function load() {
     const branchParam = branchId ? `?branchId=${branchId}` : "";
@@ -56,6 +57,17 @@ export default function InventoryManager() {
             <option value="">All Branches</option>
             {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
           </select>
+          <button type="button" className="secondary" disabled={view === "stock" ? !rows?.length : !movements?.length} onClick={() => {
+            if (view === "stock") exportCsv("stock-levels", [
+              { header: "Product", value: (r: InventoryRow) => r.product.name }, { header: "SKU", value: r => r.product.sku }, { header: "Branch", value: r => r.branch.name },
+              { header: "Quantity", value: r => r.quantity }, { header: "Reorder level", value: r => r.product.reorderLevel }, { header: "Status", value: r => (r.quantity <= r.product.reorderLevel ? "Low stock" : "OK") },
+            ], rows ?? []);
+            else exportCsv("stock-movements", [
+              { header: "When", value: (m: Movement) => new Date(m.createdAt).toLocaleString() }, { header: "Type", value: m => TYPE_LABEL[m.type] ?? m.type },
+              { header: "Product", value: m => m.product.name }, { header: "SKU", value: m => m.product.sku }, { header: "Branch", value: m => m.branch.name },
+              { header: "Change", value: m => m.quantityDelta }, { header: "Quantity after", value: m => m.resultingQuantity }, { header: "By", value: m => m.user?.name }, { header: "Notes", value: m => m.notes },
+            ], movements ?? []);
+          }}>Export CSV</button>
         </div>
       </div>
 

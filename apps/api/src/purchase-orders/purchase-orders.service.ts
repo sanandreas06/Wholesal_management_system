@@ -16,8 +16,8 @@ const poInclude = {
 export class PurchaseOrdersService {
   constructor(private readonly prisma: PrismaService, private readonly inventory: InventoryService) {}
 
-  list(organizationId: string) {
-    return this.prisma.purchaseOrder.findMany({ where:{organizationId}, orderBy:{orderDate:"desc"}, include:poInclude });
+  list(organizationId: string, branchId?: string) {
+    return this.prisma.purchaseOrder.findMany({ where:{organizationId, ...(branchId ? {branchId} : {})}, orderBy:{orderDate:"desc"}, include:poInclude });
   }
 
   async get(organizationId: string, id: string) {
@@ -129,6 +129,14 @@ export class PurchaseOrdersService {
       for(const line of dto.items) {
         const poItem = poItemsById.get(line.purchaseOrderItemId)!;
         await tx.purchaseOrderItem.update({ where:{id:line.purchaseOrderItemId}, data:{ quantityReceived:{increment:line.quantityReceived} } });
+        // keep a weighted-average cost so margin reflects what stock actually cost
+        const prod = await tx.product.findUniqueOrThrow({ where:{id:poItem.productId}, select:{ stockQuantity:true, costPrice:true } });
+        const paid = Number(line.unitCost ?? poItem.unitCost);
+        const held = Math.max(0, prod.stockQuantity);
+        const newCost = prod.costPrice !== null && held > 0
+          ? (held * Number(prod.costPrice) + line.quantityReceived * paid) / (held + line.quantityReceived)
+          : paid;
+        await tx.product.update({ where:{id:poItem.productId}, data:{ costPrice: Math.round(newCost * 100) / 100 } });
         await this.inventory.adjustStock(tx, {
           organizationId, productId: poItem.productId, branchId: po.branch.id,
           type: "RECEIPT", quantityDelta: line.quantityReceived,

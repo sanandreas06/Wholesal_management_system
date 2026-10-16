@@ -6,19 +6,21 @@ import { CurrentUser } from "../common/decorators/current-user.decorator";
 import { AuthUser } from "../common/types/auth-user.type";
 import { StockAdjustmentsService } from "./stock-adjustments.service";
 import { CreateStockAdjustmentDto } from "./dto/create-stock-adjustment.dto";
+import { BranchScopeService } from "../common/branch/branch-scope";
 
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 @Controller("stock-adjustments")
 export class StockAdjustmentsController {
-  constructor(private readonly stockAdjustments: StockAdjustmentsService) {}
+  constructor(private readonly stockAdjustments: StockAdjustmentsService, private readonly scope: BranchScopeService) {}
 
   @Get()
   @RequirePermissions("STOCK_ADJUSTMENTS:READ")
-  list(@CurrentUser() user: AuthUser) { return this.stockAdjustments.list(user.organizationId); }
+  list(@CurrentUser() user: AuthUser) { return this.stockAdjustments.list(user.organizationId, this.scope.scope(user) ?? undefined); }
 
   @Post()
   @RequirePermissions("STOCK_ADJUSTMENTS:CREATE")
   create(@CurrentUser() user: AuthUser, @Body() dto: CreateStockAdjustmentDto) {
+    this.scope.assert(user, dto.branchId);
     return this.stockAdjustments.create(user.organizationId, user.sub, dto);
   }
 }

@@ -1,9 +1,10 @@
-import { Body, Controller, Delete, Get, Param, Post, Put, UseGuards } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, Post, Put, Query, UseGuards } from "@nestjs/common";
 import { JwtAuthGuard } from "../common/guards/jwt-auth.guard";
 import { PermissionsGuard } from "../common/guards/permissions.guard";
 import { RequirePermissions } from "../common/decorators/permissions.decorator";
 import { CurrentUser } from "../common/decorators/current-user.decorator";
 import { AuthUser } from "../common/types/auth-user.type";
+import { scopeOf } from "../common/branch/branch-scope";
 import { BranchesService } from "./branches.service";
 import { CreateBranchDto } from "./dto/create-branch.dto";
 import { UpdateBranchDto } from "./dto/update-branch.dto";
@@ -15,7 +16,12 @@ export class BranchesController {
 
   @Get()
   @RequirePermissions("BRANCHES:READ")
-  list(@CurrentUser() user: AuthUser) { return this.branches.list(user.organizationId); }
+  /** `?own=1` is for pickers that should only offer the branches a person may work with (their own, when limited). */
+  async list(@CurrentUser() user: AuthUser, @Query("own") own?: string) {
+    const all = await this.branches.list(user.organizationId);
+    const mine = scopeOf(user);
+    return own && mine ? (all as { id: string }[]).filter(b => b.id === mine) : all;
+  }
 
   @Get(":id")
   @RequirePermissions("BRANCHES:READ")

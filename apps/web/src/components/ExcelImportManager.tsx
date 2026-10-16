@@ -7,7 +7,7 @@ import { usePermissions } from "../hooks/usePermissions";
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api";
 
 interface Ref { id: string; name: string }
-interface RowError { id: string; rowNumber: number; message: string; rawData: string | null }
+interface RowError { id: string; rowNumber: number; message: string; rawData: string | null; unmatchedText?: string | null }
 interface Batch {
   id: string; fileName: string; periodStart: string; periodEnd: string; status: string; totalRows: number; importedRows: number; duplicateRows: number; errorRows: number;
   createdAt: string; branch: Ref; uploadedBy: Ref; errors?: RowError[];
@@ -39,12 +39,13 @@ export default function ExcelImportManager() {
   const [error, setError] = useState("");
   const [result, setResult] = useState<Batch | null>(null);
   const [viewing, setViewing] = useState<Batch | null>(null);
+  const [reviewing, setReviewing] = useState<Batch | null>(null);
 
   function load() {
     api.get<Batch[]>("/imports").then(setBatches).catch(e => setError(e.message));
     api.get<Summary[]>(`/imports/summary?from=${daysAgo(30)}&to=${today()}`).then(setSummary).catch(() => {});
   }
-  useEffect(() => { load(); api.get<Ref[]>("/branches").then(setBranches).catch(() => {}); }, []);
+  useEffect(() => { load(); api.get<Ref[]>("/branches?own=1").then(setBranches).catch(() => {}); }, []);
 
   async function downloadTemplate() {
     const res = await authFetch("/imports/template");
@@ -92,6 +93,7 @@ export default function ExcelImportManager() {
         <div className="panel" style={{ marginBottom: 18 }}>
           <h3 style={{ marginTop: 0 }}>{result.fileName} <span className={`badge ${STATUS[result.status]?.[1]}`}>{STATUS[result.status]?.[0]}</span></h3>
           <p>{result.totalRows} rows read · <strong>{result.importedRows} imported</strong> · {result.duplicateRows} already imported (skipped) · <strong style={{ color: result.errorRows ? "var(--danger)" : undefined }}>{result.errorRows} rejected</strong></p>
+          {(result.errors || []).some(e => e.unmatchedText) && canCreate && <p><button type="button" onClick={() => setReviewing(result)}>Review unmatched products</button></p>}
           <ErrorTable errors={result.errors || []} />
         </div>
       )}
@@ -126,9 +128,12 @@ export default function ExcelImportManager() {
           <h2>{viewing.fileName}</h2>
           <p className="muted">{viewing.branch.name} · {day(viewing.periodStart)} → {day(viewing.periodEnd)} · uploaded by {viewing.uploadedBy.name}</p>
           <p>{viewing.totalRows} rows · {viewing.importedRows} imported · {viewing.duplicateRows} duplicates · {viewing.errorRows} rejected</p>
+          {(viewing.errors || []).some(e => e.unmatchedText) && canCreate && <p><button type="button" onClick={() => { setReviewing(viewing); setViewing(null); }}>Review unmatched products</button></p>}
           <ErrorTable errors={viewing.errors || []} />
         </div></div>
       )}
+      {reviewing && <ReviewModal batch={reviewing} onClose={() => setReviewing(null)}
+        onDone={b => { setReviewing(null); setResult(b); setViewing(null); load(); }} />}
     </AppShell>
   );
 }
@@ -140,5 +145,68 @@ function ErrorTable({ errors }: { errors: RowError[] }) {
       <table><thead><tr><th>Row</th><th>Problem</th><th>Row data</th></tr></thead>
         <tbody>{errors.map(e => <tr key={e.id}><td>{e.rowNumber}</td><td>{e.message}</td><td className="muted">{e.rawData}</td></tr>)}</tbody></table>
     </div>
+  );
+}
+
+interface Group { text: string; rowCount: number; suggestions: { productId: string; sku: string; name: string; score: number }[] }
+interface ProductRef { id: string; sku: string; name: string }
+
+function ReviewModal({ batch, onClose, onDone }: { batch: Batch; onClose: () => void; onDone: (b: Batch) => void }) {
+  const [groups, setGroups] = useState<Group[] | null>(null);
+  const [products, setProducts] = useState<ProductRef[]>([]);
+  const [choice, setChoice] = useState<Record<string, string>>({});
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    api.get<Group[]>(`/imports/${batch.id}/unmatched`).then(g => {
+      setGroups(g);
+      const c: Record<string, string> = {};
+      g.forEach(x => { const [top, next] = x.suggestions; if (top && top.score >= 0.8 && (!next || top.score - next.score >= 0.1)) c[x.text] = top.productId; });
+      setChoice(c);
+    }).catch(e => setError(e.message));
+    api.get<ProductRef[]>("/products").then(setProducts).catch(() => {});
+  }, [batch.id]);
+
+  const picked = Object.entries(choice).filter(([, id]) => id);
+  async function apply() {
+    setBusy(true); setError("");
+    try {
+      const b = await api.post<Batch>(`/imports/${batch.id}/resolve`, { mappings: picked.map(([text, productId]) => ({ text, productId })) });
+      onDone(b);
+    } catch (e) { setError(e instanceof Error ? e.message : "Could not apply matches"); }
+    finally { setBusy(false); }
+  }
+
+  return (
+    <div className="modal-backdrop" onClick={onClose}><div className="modal modal-wide" onClick={e => e.stopPropagation()}>
+      <button type="button" className="modal-close" onClick={onClose} aria-label="Close">&times;</button>
+      <h2>Review unmatched products</h2>
+      <p className="muted">These names in {batch.fileName} are not in your product list. Pick the product each one means. Your choice is remembered as an alias, so future imports match it automatically. Matches are only pre-selected when one product is clearly the closest; please check them.</p>
+      {error && <div className="error">{error}</div>}
+      {!groups && !error && <p className="muted">Loading...</p>}
+      {groups && groups.length === 0 && <p className="muted">Nothing left to match.</p>}
+      {groups && groups.length > 0 && (
+        <div className="table-wrap" style={{ maxHeight: 380, overflowY: "auto" }}>
+          <table><thead><tr><th>Name in file</th><th>Rows</th><th>This is…</th></tr></thead>
+            <tbody>{groups.map(g => (
+              <tr key={g.text}>
+                <td><strong>{g.text}</strong></td><td>{g.rowCount}</td>
+                <td>
+                  <select value={choice[g.text] ?? ""} onChange={e => setChoice(c => ({ ...c, [g.text]: e.target.value }))}>
+                    <option value="">Skip for now</option>
+                    {g.suggestions.length > 0 && <optgroup label="Closest matches">{g.suggestions.map(s => <option key={s.productId} value={s.productId}>{s.name} ({s.sku}), {Math.round(s.score * 100)}% alike</option>)}</optgroup>}
+                    <optgroup label="All products">{products.map(p => <option key={p.id} value={p.id}>{p.name} ({p.sku})</option>)}</optgroup>
+                  </select>
+                </td>
+              </tr>
+            ))}</tbody></table>
+        </div>
+      )}
+      <div className="modal-actions" style={{ marginTop: 14 }}>
+        <button type="button" className="secondary" onClick={onClose}>Cancel</button>
+        <button disabled={busy || picked.length === 0} onClick={apply}>{busy ? "Importing..." : `Match ${picked.length} and import rows`}</button>
+      </div>
+    </div></div>
   );
 }

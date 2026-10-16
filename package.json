@@ -10,7 +10,10 @@
     "db:push": "prisma db push --schema database/prisma/schema.prisma",
     "db:migrate": "prisma migrate dev --schema database/prisma/schema.prisma",
     "db:seed": "tsx database/prisma/seed/seed.ts",
-    "db:studio": "prisma studio --schema database/prisma/schema.prisma"
+    "db:studio": "prisma studio --schema database/prisma/schema.prisma",
+    "db:backup": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/backup-db.ps1",
+    "secrets:set": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/set-secrets.ps1",
+    "audit:rotate-key": "tsx scripts/rotate-audit-key.ts"
   },
   "devDependencies": {
     "prisma": "6.16.2",

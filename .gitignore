@@ -5,7 +5,10 @@ dist/
 coverage/
 .env
 .env.local
+.env.backup-*
 *.log
 .vscode/*
 !.vscode/extensions.json
 !.vscode/settings.json
+backups/
+*.patch

@@ -3,6 +3,7 @@ import { FormEvent, useEffect, useState } from "react";
 import AppShell from "./AppShell";
 import StatusStepper from "./StatusStepper";
 import { api, ApiError } from "../lib/api";
+import { toast } from "../lib/toast";
 import { usePermissions } from "../hooks/usePermissions";
 import { usePolling } from "../hooks/usePolling";
 
@@ -31,7 +32,7 @@ export default function PurchaseOrdersManager() {
   function load() {
     api.get<PurchaseOrder[]>("/purchase-orders").then(setOrders).catch(e => setError(e.message));
     api.get<Ref[]>("/suppliers").then(setSuppliers).catch(() => {});
-    api.get<Ref[]>("/branches").then(setBranches).catch(() => {});
+    api.get<Ref[]>("/branches?own=1").then(setBranches).catch(() => {});
     api.get<ProductRef[]>("/products").then(setProducts).catch(() => {});
   }
   useEffect(load, []);
@@ -39,19 +40,19 @@ export default function PurchaseOrdersManager() {
 
   async function send(po: PurchaseOrder) {
     try { await api.patch(`/purchase-orders/${po.id}/send`); load(); }
-    catch (e) { alert(e instanceof ApiError ? e.message : "Failed to send"); }
+    catch (e) { toast.error(e instanceof ApiError ? e.message : "Failed to send"); }
   }
 
   async function cancel(po: PurchaseOrder) {
     if (!confirm(`Cancel order ${po.orderNumber}?`)) return;
     try { await api.patch(`/purchase-orders/${po.id}/cancel`); load(); }
-    catch (e) { alert(e instanceof ApiError ? e.message : "Failed to cancel"); }
+    catch (e) { toast.error(e instanceof ApiError ? e.message : "Failed to cancel"); }
   }
 
   async function remove(po: PurchaseOrder) {
     if (!confirm(`Delete draft order ${po.orderNumber}?`)) return;
     try { await api.delete(`/purchase-orders/${po.id}`); load(); }
-    catch (e) { alert(e instanceof ApiError ? e.message : "Failed to delete"); }
+    catch (e) { toast.error(e instanceof ApiError ? e.message : "Failed to delete"); }
   }
 
   return (

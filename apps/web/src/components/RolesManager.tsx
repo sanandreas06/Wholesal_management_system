@@ -2,10 +2,11 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import AppShell from "./AppShell";
 import { api, ApiError } from "../lib/api";
+import { toast } from "../lib/toast";
 import { usePermissions } from "../hooks/usePermissions";
 
 interface PermissionRef { id: string; resource: string; action: string }
-interface Role { id: string; name: string; code: string; description: string | null; status: "ACTIVE" | "INACTIVE"; permissions: { permission: PermissionRef }[]; _count: { userRoles: number } }
+interface Role { id: string; name: string; code: string; description: string | null; branchRestricted?: boolean; status: "ACTIVE" | "INACTIVE"; permissions: { permission: PermissionRef }[]; _count: { userRoles: number } }
 
 export default function RolesManager() {
   const [roles, setRoles] = useState<Role[] | null>(null);
@@ -24,7 +25,7 @@ export default function RolesManager() {
 
   async function setStatus(role: Role, action: "activate" | "deactivate") {
     try { await api.patch(`/roles/${role.id}/${action}`); load(); }
-    catch (e) { alert(e instanceof ApiError ? e.message : "Update failed"); }
+    catch (e) { toast.error(e instanceof ApiError ? e.message : "Update failed"); }
   }
 
   return (
@@ -38,13 +39,14 @@ export default function RolesManager() {
         {roles && roles.length === 0 && <div className="empty">No roles yet.</div>}
         {roles && roles.length > 0 && (
           <table>
-            <thead><tr><th>Name</th><th>Code</th><th>Permissions</th><th>Users</th><th>Status</th><th></th></tr></thead>
+            <thead><tr><th>Name</th><th>Code</th><th>Permissions</th><th>Sees</th><th>Users</th><th>Status</th><th></th></tr></thead>
             <tbody>
               {roles.map(r => (
                 <tr key={r.id}>
                   <td>{r.name}</td>
                   <td>{r.code}</td>
                   <td>{r.permissions.length}</td>
+                  <td>{r.branchRestricted ? <span className="badge medium">Own branch only</span> : <span className="muted">All branches</span>}</td>
                   <td>{r._count.userRoles}</td>
                   <td><span className={`badge ${r.status === "ACTIVE" ? "active" : "inactive"}`}>{r.status}</span></td>
                   <td className="row-actions">
@@ -69,14 +71,15 @@ function RoleModal({ role, onClose, onSaved }: { role: Role | null; onClose: () 
   const [name, setName] = useState(role?.name || "");
   const [code, setCode] = useState(role?.code || "");
   const [description, setDescription] = useState(role?.description || "");
+  const [branchRestricted, setBranchRestricted] = useState(!!role?.branchRestricted);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
 
   async function submit(e: FormEvent) {
     e.preventDefault(); setSaving(true); setError("");
     try {
-      if (role) await api.put(`/roles/${role.id}`, { name, code, description });
-      else await api.post("/roles", { name, code, description });
+      if (role) await api.put(`/roles/${role.id}`, { name, code, description, branchRestricted });
+      else await api.post("/roles", { name, code, description, branchRestricted });
       onSaved();
     } catch (e) { setError(e instanceof ApiError ? e.message : "Save failed"); }
     finally { setSaving(false); }
@@ -91,6 +94,7 @@ function RoleModal({ role, onClose, onSaved }: { role: Role | null; onClose: () 
           <label>Name<input value={name} onChange={e => setName(e.target.value)} required /></label>
           <label>Code<input value={code} onChange={e => setCode(e.target.value.toUpperCase())} required /></label>
           <label>Description<input value={description} onChange={e => setDescription(e.target.value)} /></label>
+          <label className="checkbox-row" style={{ gridColumn: "1 / -1" }}><input type="checkbox" checked={branchRestricted} onChange={e => setBranchRestricted(e.target.checked)} />Limit to the person's own branch <span className="muted">(they will only see and work with their branch. People with this role need a branch set on their user.)</span></label>
           {error && <div className="error">{error}</div>}
           <div className="modal-actions">
             <button type="button" className="secondary" onClick={onClose}>Cancel</button>

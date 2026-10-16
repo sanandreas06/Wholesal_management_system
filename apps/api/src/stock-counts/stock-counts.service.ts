@@ -14,8 +14,8 @@ const countInclude = {
 export class StockCountsService {
   constructor(private readonly prisma: PrismaService, private readonly inventory: InventoryService) {}
 
-  list(organizationId: string) {
-    return this.prisma.stockCount.findMany({ where:{organizationId}, orderBy:{createdAt:"desc"}, include:countInclude });
+  list(organizationId: string, branchId?: string) {
+    return this.prisma.stockCount.findMany({ where:{organizationId, ...(branchId ? {branchId} : {})}, orderBy:{createdAt:"desc"}, include:countInclude });
   }
 
   async get(organizationId: string, id: string) {

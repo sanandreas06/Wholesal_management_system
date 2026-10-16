@@ -2,6 +2,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import AppShell from "./AppShell";
 import { api, ApiError } from "../lib/api";
+import { toast } from "../lib/toast";
 import { usePermissions } from "../hooks/usePermissions";
 
 interface Region { id: string; name: string; code: string }
@@ -24,7 +25,7 @@ export default function BranchesManager() {
   async function remove(branch: Branch) {
     if (!confirm(`Delete branch "${branch.name}"?`)) return;
     try { await api.delete(`/branches/${branch.id}`); load(); }
-    catch (e) { alert(e instanceof ApiError ? e.message : "Delete failed"); }
+    catch (e) { toast.error(e instanceof ApiError ? e.message : "Delete failed"); }
   }
 
   return (

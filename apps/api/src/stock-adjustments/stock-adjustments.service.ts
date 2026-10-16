@@ -7,9 +7,9 @@ import { CreateStockAdjustmentDto } from "./dto/create-stock-adjustment.dto";
 export class StockAdjustmentsService {
   constructor(private readonly prisma: PrismaService, private readonly inventory: InventoryService) {}
 
-  list(organizationId: string) {
+  list(organizationId: string, branchId?: string) {
     return this.prisma.stockMovement.findMany({
-      where:{ organizationId, type:"ADJUSTMENT" },
+      where:{ organizationId, type:"ADJUSTMENT", ...(branchId ? {branchId} : {}) },
       include:{ product:{select:{id:true,name:true,sku:true}}, branch:{select:{id:true,name:true}}, user:{select:{id:true,name:true}} },
       orderBy:{createdAt:"desc"},
       take:200

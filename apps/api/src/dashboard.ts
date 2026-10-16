@@ -3,6 +3,9 @@ import { PrismaService } from "./prisma/prisma.service";
 import { JwtAuthGuard } from "./common/guards/jwt-auth.guard";
 import { CurrentUser } from "./common/decorators/current-user.decorator";
 import { AuthUser } from "./common/types/auth-user.type";
+import { ReorderService } from "./purchase-orders/reorder";
+import { returnedLines } from "./sales/returned-lines";
+import { limitBranch } from "./common/branch/branch-scope";
 
 const ALLOWED_DAYS = [7, 30, 90];
 const DAY_MS = 86_400_000;
@@ -15,10 +18,11 @@ const round2 = (n: number) => Math.round(n * 100) / 100;
 
 @Injectable()
 export class DashboardService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService, private readonly reorder: ReorderService) {}
 
   async summary(user: AuthUser, rawDays?: string, branchId?: string) {
     const orgId = user.organizationId;
+    branchId = limitBranch(user, branchId); // someone limited to one branch only ever gets their own
     const parsed = Number(rawDays);
     const days = ALLOWED_DAYS.includes(parsed) ? parsed : 30;
     const can = (p: string) => user.permissions.includes(p);
@@ -31,7 +35,7 @@ export class DashboardService {
     const branchFilter = branchId ? { branchId } : {};
     const saleWhere = { organizationId: orgId, status: "COMPLETED" as const, ...branchFilter };
 
-    const [sales, prevAgg, branches, products, topGroups, returnItems, movements, recentSalesRaw] = await Promise.all([
+    const [sales, prevAgg, branches, productsAll, topGroups, returnItems, movements, recentSalesRaw] = await Promise.all([
       this.prisma.sale.findMany({
         where: { ...saleWhere, soldAt: { gte: from, lt: to } },
         select: { id: true, branchId: true, totalAmount: true, soldAt: true },
@@ -81,6 +85,14 @@ export class DashboardService {
       }),
     ]);
 
+    // Stock on the product row is the total across all branches; when looking at one branch, use that branch's own stock.
+    let products = productsAll;
+    if (branchId) {
+      const mine: { productId: string; quantity: number }[] = await this.prisma.inventory.findMany({ where: { organizationId: orgId, branchId }, select: { productId: true, quantity: true } });
+      const qty = new Map<string, number>(mine.map((i): [string, number] => [i.productId, i.quantity]));
+      products = productsAll.map((p) => ({ ...p, stockQuantity: qty.get(p.id) ?? 0 }));
+    }
+
     // ---- headline numbers
     const grossSales = sales.reduce((s, x) => s + num(x.totalAmount), 0);
     const returnsValue = returnItems.reduce((s, r) => s + r.quantity * num(r.saleItem.unitPrice), 0);
@@ -109,7 +121,7 @@ export class DashboardService {
       .filter((b) => !branchId || b.id === branchId)
       .map((b) => {
         const mine = sales.filter((s) => s.branchId === b.id);
-        return { branch: b.name, amount: round2(mine.reduce((a, s) => a + num(s.totalAmount), 0)), invoices: mine.length };
+        return { id: b.id, branch: b.name, amount: round2(mine.reduce((a, s) => a + num(s.totalAmount), 0)), invoices: mine.length };
       })
       .sort((a, b) => b.amount - a.amount);
 
@@ -159,14 +171,12 @@ export class DashboardService {
     });
 
     // ---- stock alerts (out of stock first, then lowest)
-    const stockAlerts = products
-      .filter((p) => p.stockQuantity <= p.reorderLevel)
-      .sort((a, b) => a.stockQuantity - b.stockQuantity)
-      .slice(0, 5)
-      .map((p) => ({
-        name: p.name, sku: p.sku, stock: p.stockQuantity, reorderLevel: p.reorderLevel,
-        level: p.stockQuantity === 0 ? "out" : "low",
-      }));
+    // same rules as the Reorder page: per branch, using stock on hand, stock on order and how fast it sells
+    const needs = await this.reorder.needs(user, branchId);
+    const stockAlerts = needs.slice(0, 5).map((n) => ({
+      name: n.name, sku: n.sku, branch: n.branch, stock: n.onHand, daysLeft: n.daysLeft, suggestedQty: n.suggestedQty,
+      level: n.onHand === 0 ? "out" : "low",
+    }));
 
     // ---- sections that depend on what the viewer is allowed to see
     const attention: { pendingExpenses?: number; openVarianceCases?: number; importedSales?: number } = {};
@@ -175,6 +185,7 @@ export class DashboardService {
     let deposits: number | null = null;
     let prevDeposits: number | null = null;
     let outstanding: number | null = null;
+    let profitInfo: { profit: number; previous: number; margin: number | null; coverage: number | null; byBranch: Map<string, number> } | null = null;
 
     const extras: Promise<void>[] = [];
     if (can("EXPENSES:READ")) {
@@ -194,6 +205,39 @@ export class DashboardService {
         this.prisma.expense
           .count({ where: { organizationId: orgId, ...branchFilter, status: "PENDING" } })
           .then((n) => { attention.pendingExpenses = n; }),
+      );
+    }
+    if (can("PROFIT:READ")) {
+      const lineSelect = { quantity: true, unitPrice: true, unitCost: true, sale: { select: { branchId: true } } };
+      const sum = (rows: { quantity: number; unitPrice: unknown; unitCost: unknown; sale: { branchId: string } }[]) => {
+        let profit = 0, knownRev = 0, totalRev = 0;
+        const byBranch = new Map<string, number>();
+        for (const r of rows) {
+          const rev = r.quantity * num(r.unitPrice);
+          totalRev += rev;
+          if (r.unitCost === null || r.unitCost === undefined) continue;
+          const p = rev - r.quantity * num(r.unitCost);
+          profit += p; knownRev += rev;
+          byBranch.set(r.sale.branchId, (byBranch.get(r.sale.branchId) ?? 0) + p);
+        }
+        return { profit, knownRev, totalRev, byBranch };
+      };
+      extras.push(
+        Promise.all([
+          this.prisma.saleItem.findMany({ where: { sale: { ...saleWhere, soldAt: { gte: from, lt: to } } }, select: lineSelect }),
+          this.prisma.saleItem.findMany({ where: { sale: { ...saleWhere, soldAt: { gte: prevFrom, lt: from } } }, select: lineSelect }),
+          returnedLines(this.prisma, orgId, from, to, branchId),
+          returnedLines(this.prisma, orgId, prevFrom, from, branchId),
+        ]).then(([cur, prev, curBack, prevBack]) => {
+          // Goods brought back in a period come off that period's profit, at the price and cost they were sold at.
+          const c = sum([...cur, ...curBack]), p = sum([...prev, ...prevBack]);
+          profitInfo = {
+            profit: round2(c.profit), previous: round2(p.profit),
+            margin: c.knownRev > 0 ? round2((c.profit / c.knownRev) * 100) : null,
+            coverage: c.totalRev > 0 ? round2((c.knownRev / c.totalRev) * 100) : null,
+            byBranch: c.byBranch,
+          };
+        }),
       );
     }
     if (can("DEPOSITS:READ")) {
@@ -259,12 +303,20 @@ export class DashboardService {
         deposits,
         previousDeposits: prevDeposits,
         outstanding,
+        grossProfit: profitInfo ? (profitInfo as { profit: number }).profit : null,
+        previousProfit: profitInfo ? (profitInfo as { previous: number }).previous : null,
+        marginPct: profitInfo ? (profitInfo as { margin: number | null }).margin : null,
+        costCoverage: profitInfo ? (profitInfo as { coverage: number | null }).coverage : null,
         inventoryValue: round2(inventoryValue),
         products: products.length,
-        lowStock: lowList.length,
+        lowStock: needs.length,
+        outOfStock: needs.filter((n) => n.onHand === 0).length,
       },
       salesTrend,
-      branchPerformance,
+      branchPerformance: branchPerformance.map((b) => ({
+        ...b,
+        profit: profitInfo ? round2((profitInfo as { byBranch: Map<string, number> }).byBranch.get(b.id) ?? 0) : null,
+      })),
       topProducts,
       lowStockItems: lowList.slice(0, 6).map((p) => ({ name: p.name, sku: p.sku, stock: p.stockQuantity, reorderLevel: p.reorderLevel })),
       recentActivity,

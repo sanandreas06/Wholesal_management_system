@@ -3,8 +3,10 @@ import { FormEvent, useEffect, useState } from "react";
 import AppShell from "./AppShell";
 import StatusStepper from "./StatusStepper";
 import { api, ApiError } from "../lib/api";
+import { toast } from "../lib/toast";
 import { usePermissions } from "../hooks/usePermissions";
 import { usePolling } from "../hooks/usePolling";
+import { getSessionUser } from "../lib/session";
 
 interface Ref { id: string; name: string }
 interface ProductRef { id: string; name: string; sku: string }
@@ -40,7 +42,7 @@ export default function StockTransfersManager() {
 
   async function runAction(id: string, action: "approve" | "dispatch" | "receive" | "cancel") {
     try { await api.patch(`/stock-transfers/${id}/${action}`); load(); if (viewing?.id === id) refreshViewing(id); }
-    catch (e) { alert(e instanceof ApiError ? e.message : `Failed to ${action}`); }
+    catch (e) { toast.error(e instanceof ApiError ? e.message : `Failed to ${action}`); }
   }
 
   return (
@@ -84,7 +86,8 @@ export default function StockTransfersManager() {
 }
 
 function CreateTransferModal({ branches, products, onClose, onSaved }: { branches: Ref[]; products: ProductRef[]; onClose: () => void; onSaved: () => void }) {
-  const [fromBranchId, setFromBranchId] = useState("");
+  const mine = getSessionUser()?.branchScope; // a person limited to one branch can only send stock out of it
+  const [fromBranchId, setFromBranchId] = useState(mine && mine !== "__none__" ? mine : "");
   const [toBranchId, setToBranchId] = useState("");
   const [notes, setNotes] = useState("");
   const [lines, setLines] = useState<{ productId: string; quantity: string }[]>([{ productId: "", quantity: "1" }]);
@@ -116,7 +119,7 @@ function CreateTransferModal({ branches, products, onClose, onSaved }: { branche
           <label>From Branch
             <select value={fromBranchId} onChange={e => setFromBranchId(e.target.value)} required>
               <option value="">Select source branch</option>
-              {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+              {branches.filter(b => !mine || b.id === mine).map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
             </select>
           </label>
           <label>To Branch

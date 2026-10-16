@@ -4,6 +4,8 @@ export interface SessionUser {
   email: string;
   organization?: string;
   branch: string | null;
+  /** set when limited to one branch */
+  branchScope?: string | null;
   roles: string[];
   permissions: string[];
 }

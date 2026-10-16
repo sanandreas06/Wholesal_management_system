@@ -2,6 +2,8 @@
 import { FormEvent, useEffect, useState } from "react";
 import AppShell from "./AppShell";
 import { api, ApiError } from "../lib/api";
+import { toast } from "../lib/toast";
+import { exportCsv } from "../lib/exportCsv";
 import { usePermissions } from "../hooks/usePermissions";
 
 interface Ref { id: string; name: string }
@@ -32,8 +34,16 @@ export default function FinanceManager() {
   const allowed = [rRead, eRead, dRead, cRead, clRead];
   const [tab, setTab] = useState<string>("");
   const [branches, setBranches] = useState<Ref[]>([]);
-  useEffect(() => { api.get<Ref[]>("/branches").then(setBranches).catch(() => {}); }, []);
-  useEffect(() => { if (!tab) { const i = allowed.findIndex(Boolean); if (i >= 0) setTab(TABS[i][0]); } }, [flags.join()]); // eslint-disable-line
+  useEffect(() => { api.get<Ref[]>("/branches?own=1").then(setBranches).catch(() => {}); }, []);
+  // Links from the dashboard and the bell arrive with a tab and filters (?tab=expenses&status=PENDING&from=2026-10-01...)
+  const [initial, setInitial] = useState<Record<string, string> | null>(null);
+  useEffect(() => { setInitial(Object.fromEntries(new URLSearchParams(window.location.search))); }, []);
+  useEffect(() => {
+    if (tab || !initial) return;
+    const want = TABS.findIndex(t => t[0] === initial.tab);
+    if (want >= 0 && allowed[want]) { setTab(TABS[want][0]); return; }
+    const i = allowed.findIndex(Boolean); if (i >= 0) setTab(TABS[i][0]);
+  }, [flags.join(), initial]); // eslint-disable-line
 
   return (
     <AppShell title="Finance & Reconciliation">
@@ -41,9 +51,9 @@ export default function FinanceManager() {
         {TABS.map((t, i) => allowed[i] && <button key={t[0]} className={tab === t[0] ? "" : "secondary"} onClick={() => setTab(t[0])}>{t[1]}</button>)}
       </div>
       {tab === "reconciliation" && <ReconTab branches={branches} canClose={clCreate} />}
-      {tab === "expenses" && <ExpensesTab branches={branches} canCreate={eCreate} canApprove={eApprove} />}
-      {tab === "deposits" && <DepositsTab branches={branches} canCreate={dCreate} />}
-      {tab === "cases" && <CasesTab canUpdate={cUpdate} />}
+      {tab === "expenses" && <ExpensesTab branches={branches} canCreate={eCreate} canApprove={eApprove} initial={initial ?? {}} />}
+      {tab === "deposits" && <DepositsTab branches={branches} canCreate={dCreate} initial={initial ?? {}} />}
+      {tab === "cases" && <CasesTab canUpdate={cUpdate} initial={initial ?? {}} />}
       {tab === "closings" && <ClosingsTab />}
     </AppShell>
   );
@@ -106,33 +116,94 @@ function ReconTab({ branches, canClose }: { branches: Ref[]; canClose: boolean }
   </>);
 }
 
-function ExpensesTab({ branches, canCreate, canApprove }: { branches: Ref[]; canCreate: boolean; canApprove: boolean }) {
+/** What the owner can narrow the Expenses and Deposits lists by. Dashboard cards and the bell link here with these set. */
+interface Range { from: string; to: string }
+const RANGE_PRESETS: [string, () => Range][] = [
+  ["Today", () => ({ from: today(), to: today() })],
+  ["This week", () => ({ from: weekStart(), to: today() })],
+  ["This month", () => ({ from: today().slice(0, 8) + "01", to: today() })],
+  ["Last 30 days", () => { const d = new Date(); d.setUTCDate(d.getUTCDate() - 29); return { from: d.toISOString().slice(0, 10), to: today() }; }],
+];
+function RangeBar({ from, to, setFrom, setTo }: { from: string; to: string; setFrom: (v: string) => void; setTo: (v: string) => void }) {
+  return (<>
+    <label className="inline-field">From <input type="date" value={from} max={to || undefined} onChange={e => setFrom(e.target.value)} /></label>
+    <label className="inline-field">To <input type="date" value={to} min={from || undefined} onChange={e => setTo(e.target.value)} /></label>
+    <span className="chips">{RANGE_PRESETS.map(([name, get]) => <button key={name} type="button" className="chip" onClick={() => { const r = get(); setFrom(r.from); setTo(r.to); }}>{name}</button>)}</span>
+  </>);
+}
+interface ExpenseSummary { count: number; total: number; byStatus: Record<string, { count: number; total: number }>; byCategory: { id: string; name: string; total: number; count: number }[] }
+interface DepositSummary { count: number; total: number; byMethod: { method: string; total: number; count: number }[] }
+
+function ExpensesTab({ branches, canCreate, canApprove, initial }: { branches: Ref[]; canCreate: boolean; canApprove: boolean; initial: Record<string, string> }) {
   const [rows, setRows] = useState<Expense[] | null>(null);
+  const [sum, setSum] = useState<ExpenseSummary | null>(null);
   const [cats, setCats] = useState<Category[]>([]);
-  const [status, setStatus] = useState("");
+  const [status, setStatus] = useState(initial.status ?? "");
+  const [branchId, setBranchId] = useState(initial.branchId ?? "");
+  const [categoryId, setCategoryId] = useState(initial.categoryId ?? "");
+  const [from, setFrom] = useState(initial.from ?? "");
+  const [to, setTo] = useState(initial.to ?? "");
   const [adding, setAdding] = useState(false);
   const [error, setError] = useState("");
 
+  const filtered = !!(status || branchId || categoryId || from || to);
   function load() {
-    api.get<Expense[]>(`/expenses${status ? `?status=${status}` : ""}`).then(setRows).catch(e => setError(err(e, "Failed to load")));
-    api.get<Category[]>("/expense-categories").then(setCats).catch(() => {});
+    const q = new URLSearchParams();
+    if (status) q.set("status", status); if (branchId) q.set("branchId", branchId); if (categoryId) q.set("categoryId", categoryId);
+    if (from) q.set("from", from); if (to) q.set("to", to);
+    const qs = q.toString() ? `?${q}` : "";
+    api.get<Expense[]>(`/expenses${qs}`).then(r => { setRows(r); setError(""); }).catch(e => setError(err(e, "Failed to load")));
+    api.get<ExpenseSummary>(`/expenses/summary${qs}`).then(setSum).catch(() => setSum(null));
   }
-  useEffect(load, [status]); // eslint-disable-line
+  useEffect(() => { api.get<Category[]>("/expense-categories").then(setCats).catch(() => {}); }, []);
+  useEffect(load, [status, branchId, categoryId, from, to]); // eslint-disable-line
 
   async function review(id: string, action: "approve" | "reject") {
     const note = action === "reject" ? prompt("Reason for rejecting (optional):") : "";
     if (note === null) return;
-    try { await api.patch(`/expenses/${id}/${action}`, { note: note || undefined }); load(); } catch (e) { alert(err(e, "Failed")); }
+    try { await api.patch(`/expenses/${id}/${action}`, { note: note || undefined }); load(); } catch (e) { toast.error(err(e, "Failed")); }
   }
+  const clear = () => { setStatus(""); setBranchId(""); setCategoryId(""); setFrom(""); setTo(""); };
+  const top = sum?.byCategory[0]?.total ?? 0;
 
   return (<>
     {error && <div className="error">{error}</div>}
-    <div className="toolbar">
-      <select value={status} onChange={e => setStatus(e.target.value)}><option value="">All statuses</option><option value="PENDING">Pending</option><option value="APPROVED">Approved</option><option value="REJECTED">Rejected</option></select>
+    <div className="toolbar" style={{ flexWrap: "wrap", gap: 10, justifyContent: "flex-start" }}>
+      <select value={status} onChange={e => setStatus(e.target.value)} aria-label="Status"><option value="">All statuses</option><option value="PENDING">Pending</option><option value="APPROVED">Approved</option><option value="REJECTED">Rejected</option></select>
+      <select value={branchId} onChange={e => setBranchId(e.target.value)} aria-label="Branch"><option value="">All branches</option>{branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}</select>
+      <select value={categoryId} onChange={e => setCategoryId(e.target.value)} aria-label="Category"><option value="">All categories</option>{cats.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select>
+      <RangeBar from={from} to={to} setFrom={setFrom} setTo={setTo} />
+      {filtered && <button type="button" className="secondary" onClick={clear}>Clear</button>}
+      <span style={{ flex: 1 }} />
+      <button type="button" className="secondary" disabled={!rows?.length} onClick={() => exportCsv("expenses", [
+        { header: "Date", value: (x: Expense) => day(x.expenseDate) }, { header: "Branch", value: x => x.branch.name }, { header: "Category", value: x => x.category.name }, { header: "Description", value: x => x.description },
+        { header: "Amount", value: x => Number(x.amount) }, { header: "Status", value: x => x.status }, { header: "Entered by", value: x => x.createdBy.name }, { header: "Reviewed by", value: x => x.reviewedBy?.name }, { header: "Review note", value: x => x.reviewNote },
+      ], rows ?? [])}>Export CSV</button>
       {canCreate && <button onClick={() => setAdding(true)}>+ New Expense</button>}
     </div>
+    {sum && (
+      <div className="fin-sum">
+        <div className="fin-total"><span>{status ? `${status.charAt(0)}${status.slice(1).toLowerCase()} expenses` : "All expenses"}{filtered && !status ? " in this view" : ""}</span><strong>{money(sum.total)}</strong><small>{sum.count} item{sum.count === 1 ? "" : "s"}{rows && sum.count > rows.length ? ` (list shows the latest ${rows.length}; export or narrow the dates for the rest)` : ""}</small></div>
+        <div className="fin-status">
+          {(["APPROVED", "PENDING", "REJECTED"] as const).map(st => (
+            <button type="button" key={st} className={"fin-pill " + (status === st ? "on" : "")} onClick={() => setStatus(status === st ? "" : st)}>
+              <span className={`badge ${STATUS_CLASS[st]}`}>{st}</span><strong>{money(sum.byStatus[st]?.total ?? 0)}</strong><small>{sum.byStatus[st]?.count ?? 0}</small>
+            </button>
+          ))}
+        </div>
+        {sum.byCategory.length > 0 && (
+          <div className="fin-cats" aria-label="Where it went">
+            {sum.byCategory.slice(0, 8).map(c => (
+              <button type="button" key={c.id} className={"fin-cat " + (categoryId === c.id ? "on" : "")} onClick={() => setCategoryId(categoryId === c.id ? "" : c.id)} title={`${c.count} expense${c.count === 1 ? "" : "s"}`}>
+                <span>{c.name}</span><i style={{ width: `${Math.max(3, (c.total / (top || 1)) * 100)}%` }} /><strong>{money(c.total)}</strong>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    )}
     <div className="table-wrap">
-      {rows && rows.length === 0 && <div className="empty">No expenses.</div>}
+      {rows && rows.length === 0 && <div className="empty">{filtered ? "No expenses match these filters." : "No expenses."}</div>}
       {rows && rows.length > 0 && <table>
         <thead><tr><th>Date</th><th>Branch</th><th>Category</th><th>Description</th><th>Amount</th><th>By</th><th>Status</th><th></th></tr></thead>
         <tbody>{rows.map(x => (
@@ -179,17 +250,54 @@ function ExpenseModal({ branches, cats, onClose, onSaved }: { branches: Ref[]; c
   );
 }
 
-function DepositsTab({ branches, canCreate }: { branches: Ref[]; canCreate: boolean }) {
+function DepositsTab({ branches, canCreate, initial }: { branches: Ref[]; canCreate: boolean; initial: Record<string, string> }) {
   const [rows, setRows] = useState<Deposit[] | null>(null);
+  const [sum, setSum] = useState<DepositSummary | null>(null);
+  const [branchId, setBranchId] = useState(initial.branchId ?? "");
+  const [method, setMethod] = useState(initial.method ?? "");
+  const [from, setFrom] = useState(initial.from ?? "");
+  const [to, setTo] = useState(initial.to ?? "");
   const [adding, setAdding] = useState(false);
   const [error, setError] = useState("");
-  function load() { api.get<Deposit[]>("/deposits").then(setRows).catch(e => setError(err(e, "Failed to load"))); }
-  useEffect(load, []);
+  const filtered = !!(branchId || method || from || to);
+  function load() {
+    const q = new URLSearchParams();
+    if (branchId) q.set("branchId", branchId); if (method) q.set("method", method); if (from) q.set("from", from); if (to) q.set("to", to);
+    const qs = q.toString() ? `?${q}` : "";
+    api.get<Deposit[]>(`/deposits${qs}`).then(r => { setRows(r); setError(""); }).catch(e => setError(err(e, "Failed to load")));
+    api.get<DepositSummary>(`/deposits/summary${qs}`).then(setSum).catch(() => setSum(null));
+  }
+  useEffect(load, [branchId, method, from, to]); // eslint-disable-line
   return (<>
     {error && <div className="error">{error}</div>}
-    <div className="toolbar"><p className="muted">{rows ? `${rows.length} deposit${rows.length === 1 ? "" : "s"}` : "Loading..."}</p>{canCreate && <button onClick={() => setAdding(true)}>+ Record Deposit</button>}</div>
+    <div className="toolbar" style={{ flexWrap: "wrap", gap: 10, justifyContent: "flex-start" }}>
+      <select value={branchId} onChange={e => setBranchId(e.target.value)} aria-label="Branch"><option value="">All branches</option>{branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}</select>
+      <select value={method} onChange={e => setMethod(e.target.value)} aria-label="Method"><option value="">All methods</option><option value="CASH">Cash</option><option value="BANK">Bank</option><option value="MOBILE_MONEY">Mobile money</option></select>
+      <RangeBar from={from} to={to} setFrom={setFrom} setTo={setTo} />
+      {filtered && <button type="button" className="secondary" onClick={() => { setBranchId(""); setMethod(""); setFrom(""); setTo(""); }}>Clear</button>}
+      <span style={{ flex: 1 }} />
+      <button type="button" className="secondary" disabled={!rows?.length} onClick={() => exportCsv("deposits", [
+        { header: "Date", value: (d: Deposit) => day(d.depositDate) }, { header: "Branch", value: d => d.branch.name }, { header: "Method", value: d => METHOD(d.method) },
+        { header: "Reference", value: d => d.reference }, { header: "Amount", value: d => Number(d.amount) }, { header: "Recorded by", value: d => d.createdBy.name },
+      ], rows ?? [])}>Export CSV</button>
+      {canCreate && <button onClick={() => setAdding(true)}>+ Record Deposit</button>}
+    </div>
+    {sum && (
+      <div className="fin-sum">
+        <div className="fin-total"><span>{filtered ? "Deposits in this view" : "All deposits"}</span><strong>{money(sum.total)}</strong><small>{sum.count} deposit{sum.count === 1 ? "" : "s"}{rows && sum.count > rows.length ? ` (list shows the latest ${rows.length}; export or narrow the dates for the rest)` : ""}</small></div>
+        {sum.byMethod.length > 0 && (
+          <div className="fin-status">
+            {sum.byMethod.map(m => (
+              <button type="button" key={m.method} className={"fin-pill " + (method === m.method ? "on" : "")} onClick={() => setMethod(method === m.method ? "" : m.method)}>
+                <span className="badge">{METHOD(m.method)}</span><strong>{money(m.total)}</strong><small>{m.count}</small>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    )}
     <div className="table-wrap">
-      {rows && rows.length === 0 && <div className="empty">No deposits recorded.</div>}
+      {rows && rows.length === 0 && <div className="empty">{filtered ? "No deposits match these filters." : "No deposits recorded."}</div>}
       {rows && rows.length > 0 && <table><thead><tr><th>Date</th><th>Branch</th><th>Method</th><th>Reference</th><th>Amount</th><th>By</th></tr></thead>
         <tbody>{rows.map(d => <tr key={d.id}><td>{day(d.depositDate)}</td><td>{d.branch.name}</td><td>{METHOD(d.method)}</td><td>{d.reference || "—"}</td><td>{money(d.amount)}</td><td>{d.createdBy.name}</td></tr>)}</tbody></table>}
     </div>
@@ -223,9 +331,9 @@ function DepositModal({ branches, onClose, onSaved }: { branches: Ref[]; onClose
   );
 }
 
-function CasesTab({ canUpdate }: { canUpdate: boolean }) {
+function CasesTab({ canUpdate, initial }: { canUpdate: boolean; initial: Record<string, string> }) {
   const [rows, setRows] = useState<VarianceCase[] | null>(null);
-  const [status, setStatus] = useState("");
+  const [status, setStatus] = useState(initial.status ?? "");
   const [active, setActive] = useState<VarianceCase | null>(null);
   const [error, setError] = useState("");
   function load() { api.get<VarianceCase[]>(`/variance-cases${status ? `?status=${status}` : ""}`).then(setRows).catch(e => setError(err(e, "Failed to load"))); }

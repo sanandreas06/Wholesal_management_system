@@ -22,7 +22,7 @@ export default function StockAdjustmentsManager() {
   function load() {
     api.get<Adjustment[]>("/stock-adjustments").then(setAdjustments).catch(e => setError(e.message));
     api.get<ProductRef[]>("/products").then(setProducts).catch(() => {});
-    api.get<Ref[]>("/branches").then(setBranches).catch(() => {});
+    api.get<Ref[]>("/branches?own=1").then(setBranches).catch(() => {});
   }
   useEffect(load, []);
 

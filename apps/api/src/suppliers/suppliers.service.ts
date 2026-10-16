@@ -1,5 +1,6 @@
 import { ConflictException, Injectable, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
+import { learnedLeadTimes } from "../purchase-orders/lead-times";
 import { CreateSupplierDto } from "./dto/create-supplier.dto";
 import { UpdateSupplierDto } from "./dto/update-supplier.dto";
 import { CreateContactDto } from "./dto/create-contact.dto";
@@ -9,8 +10,13 @@ import { UpdateContactDto } from "./dto/update-contact.dto";
 export class SuppliersService {
   constructor(private readonly prisma: PrismaService) {}
 
-  list(organizationId: string) {
-    return this.prisma.supplier.findMany({ where:{organizationId}, orderBy:{name:"asc"}, include:{contacts:true} });
+  /** Suppliers, each with the delivery time their past orders actually show (when there are enough of them). */
+  async list(organizationId: string) {
+    const [rows, learned] = await Promise.all([
+      this.prisma.supplier.findMany({ where:{organizationId}, orderBy:{name:"asc"}, include:{contacts:true} }),
+      learnedLeadTimes(this.prisma, organizationId),
+    ]);
+    return rows.map((s: { id: string }) => ({ ...s, learnedLeadDays: learned.get(s.id)?.days ?? null, learnedFromOrders: learned.get(s.id)?.samples ?? 0 }));
   }
 
   async get(organizationId: string, id: string) {

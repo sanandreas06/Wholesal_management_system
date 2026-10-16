@@ -2,6 +2,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import AppShell from "./AppShell";
 import { api, ApiError } from "../lib/api";
+import { toast } from "../lib/toast";
 import { usePermissions } from "../hooks/usePermissions";
 
 interface Category { id: string; name: string; code: string; _count?: { products: number } }
@@ -18,7 +19,7 @@ export default function CategoriesManager() {
   async function remove(item: Category) {
     if (!confirm(`Delete category "${item.name}"?`)) return;
     try { await api.delete(`/categories/${item.id}`); load(); }
-    catch (e) { alert(e instanceof ApiError ? e.message : "Delete failed"); }
+    catch (e) { toast.error(e instanceof ApiError ? e.message : "Delete failed"); }
   }
 
   return (

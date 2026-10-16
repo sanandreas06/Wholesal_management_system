@@ -2,6 +2,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import AppShell from "./AppShell";
 import { api, ApiError } from "../lib/api";
+import { toast } from "../lib/toast";
 import { usePermissions } from "../hooks/usePermissions";
 
 interface Branch { id: string; name: string }
@@ -15,6 +16,7 @@ export default function UsersManager() {
   const [error, setError] = useState("");
   const [editing, setEditing] = useState<User | "new" | null>(null);
   const [assigningRoles, setAssigningRoles] = useState<User | null>(null);
+  const [resetting, setResetting] = useState<User | null>(null);
 
   const [canCreate, canUpdate] = usePermissions("USERS:CREATE", "USERS:UPDATE");
 
@@ -27,7 +29,7 @@ export default function UsersManager() {
 
   async function setStatus(user: User, action: "activate" | "deactivate") {
     try { await api.patch(`/users/${user.id}/${action}`); load(); }
-    catch (e) { alert(e instanceof ApiError ? e.message : "Update failed"); }
+    catch (e) { toast.error(e instanceof ApiError ? e.message : "Update failed"); }
   }
 
   return (
@@ -53,6 +55,7 @@ export default function UsersManager() {
                   <td className="row-actions">
                     {canUpdate && <button className="secondary" onClick={() => setEditing(u)}>Edit</button>}
                     {canUpdate && <button className="secondary" onClick={() => setAssigningRoles(u)}>Roles</button>}
+                    {canUpdate && <button className="secondary" onClick={() => setResetting(u)}>Reset password</button>}
                     {canUpdate && u.status === "ACTIVE" && <button className="secondary" onClick={() => setStatus(u, "deactivate")}>Deactivate</button>}
                     {canUpdate && u.status !== "ACTIVE" && <button className="secondary" onClick={() => setStatus(u, "activate")}>Activate</button>}
                   </td>
@@ -63,8 +66,35 @@ export default function UsersManager() {
         )}
       </div>
       {editing && <UserModal user={editing === "new" ? null : editing} branches={branches} roles={roles} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); load(); }} />}
+      {resetting && <ResetPasswordModal user={resetting} onClose={() => setResetting(null)} />}
       {assigningRoles && <RolesModal user={assigningRoles} roles={roles} onClose={() => setAssigningRoles(null)} onSaved={() => { setAssigningRoles(null); load(); }} />}
     </AppShell>
+  );
+}
+
+function ResetPasswordModal({ user, onClose }: { user: User; onClose: () => void }) {
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
+  async function submit(e: FormEvent) {
+    e.preventDefault(); setSaving(true); setError("");
+    try { await api.put(`/users/${user.id}/password`, { password }); toast.success(`Temporary password set for ${user.name}`); onClose(); }
+    catch (err) { setError(err instanceof ApiError ? err.message : "Could not reset the password"); }
+    finally { setSaving(false); }
+  }
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal" onClick={e => e.stopPropagation()}>
+        <button type="button" className="modal-close" onClick={onClose} aria-label="Close">&times;</button>
+        <h2>Reset password</h2>
+        <p className="modal-sub">Give {user.name} a temporary password. They will be asked to choose their own when they next sign in.</p>
+        <form onSubmit={submit}>
+          <label>Temporary password<input type="text" value={password} onChange={e => setPassword(e.target.value)} minLength={8} maxLength={72} required autoComplete="off" placeholder="At least 8 characters" /></label>
+          {error && <div className="error">{error}</div>}
+          <div className="modal-actions"><button type="button" className="secondary" onClick={onClose}>Cancel</button><button disabled={saving || password.length < 8}>{saving ? "Saving..." : "Set password"}</button></div>
+        </form>
+      </div>
+    </div>
   );
 }
 

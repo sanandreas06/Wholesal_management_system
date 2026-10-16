@@ -2,6 +2,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import AppShell from "./AppShell";
 import { api, ApiError } from "../lib/api";
+import { toast } from "../lib/toast";
 import { usePermissions } from "../hooks/usePermissions";
 
 interface Ref { id: string; name: string }
@@ -24,7 +25,7 @@ export default function StockCountsManager() {
 
   function load() {
     api.get<StockCount[]>("/stock-counts").then(setCounts).catch(e => setError(e.message));
-    api.get<Ref[]>("/branches").then(setBranches).catch(() => {});
+    api.get<Ref[]>("/branches?own=1").then(setBranches).catch(() => {});
   }
   useEffect(load, []);
 
@@ -33,7 +34,7 @@ export default function StockCountsManager() {
   async function cancel(sc: StockCount) {
     if (!confirm(`Cancel count ${sc.countNumber}?`)) return;
     try { await api.patch(`/stock-counts/${sc.id}/cancel`); load(); }
-    catch (e) { alert(e instanceof ApiError ? e.message : "Failed to cancel"); }
+    catch (e) { toast.error(e instanceof ApiError ? e.message : "Failed to cancel"); }
   }
 
   return (

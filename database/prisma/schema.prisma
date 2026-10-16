@@ -39,6 +39,9 @@ model Organization {
   deposits       Deposit[]
   varianceCases  VarianceCase[]
   branchClosings BranchClosing[]
+  auditLogs      AuditLog[]
+  auditChainHead AuditChainHead?
+  productAliases ProductAlias[]
 }
 
 model Branch {
@@ -79,6 +82,11 @@ model User {
   email                 String          @unique
   name                  String
   passwordHash          String
+  phone                 String?
+  avatar                String?         @db.Text
+  /// Set when an administrator created the account or reset the password: the person must choose their own at next sign-in.
+  mustChangePassword    Boolean         @default(false)
+  savedViews            SavedView[]
   status                UserStatus      @default(ACTIVE)
   createdAt             DateTime        @default(now())
   updatedAt             DateTime        @updatedAt
@@ -103,6 +111,7 @@ model User {
 
   @@index([organizationId])
   @@index([branchId])
+  auditLogs      AuditLog[]
 }
 
 model Product {
@@ -115,6 +124,7 @@ model Product {
   brandId            String?
   unitId             String?
   unitPrice          Decimal             @db.Decimal(14, 2)
+  costPrice          Decimal?            @db.Decimal(14, 2)
   stockQuantity      Int                 @default(0)
   reorderLevel       Int                 @default(10)
   createdAt          DateTime            @default(now())
@@ -137,6 +147,7 @@ model Product {
   @@index([brandId])
   @@index([unitId])
   weeklySales    WeeklySale[]
+  aliases        ProductAlias[]
 }
 
 model Sale {
@@ -168,6 +179,7 @@ model SaleItem {
   productId   String
   quantity    Int
   unitPrice   Decimal          @db.Decimal(14, 2)
+  unitCost    Decimal?         @db.Decimal(14, 2)
   lineTotal   Decimal          @db.Decimal(14, 2)
   product     Product          @relation(fields: [productId], references: [id])
   sale        Sale             @relation(fields: [saleId], references: [id], onDelete: Cascade)
@@ -199,6 +211,8 @@ model Role {
   name           String
   code           String
   description    String?
+  /// People with this role only see and work with the branch they belong to. Off = every branch.
+  branchRestricted Boolean        @default(false)
   status         RoleStatus       @default(ACTIVE)
   createdAt      DateTime         @default(now())
   updatedAt      DateTime         @updatedAt
@@ -292,6 +306,20 @@ model Unit {
   @@index([organizationId])
 }
 
+/// A named set of screen filters that belongs to one person and follows them to any browser.
+model SavedView {
+  id        String   @id @default(uuid())
+  userId    String
+  scope     String
+  name      String
+  state     Json
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, scope, name])
+  @@index([userId, scope])
+}
+
 model Supplier {
   id             String     @id @default(uuid())
   organizationId String
@@ -302,6 +330,7 @@ model Supplier {
   address        String?
   creditLimit    Decimal?   @db.Decimal(14, 2)
   creditDays     Int?
+  leadTimeDays   Int?
   status         RoleStatus @default(ACTIVE)
   createdAt      DateTime   @default(now())
   updatedAt      DateTime   @updatedAt
@@ -670,6 +699,39 @@ enum PermissionAction {
   IMPORT
 }
 
+model AuditLog {
+  id             String       @id @default(uuid())
+  organizationId String
+  userId         String?
+  userName       String?
+  action         String
+  entityType     String
+  entityId       String?
+  summary        String
+  changes        Json?
+  createdAt      DateTime     @default(now())
+  seq            Int?
+  prevHash       String?
+  hash           String?
+  sealedAt       DateTime?
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user           User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@unique([organizationId, seq])
+  @@index([organizationId, createdAt])
+  @@index([organizationId, entityType, entityId])
+  @@index([userId])
+}
+
+/// The newest seal for each organization, so removing the most recent entries from the log can be noticed.
+model AuditChainHead {
+  organizationId String       @id
+  seq            Int
+  hash           String
+  updatedAt      DateTime     @updatedAt
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+}
+
 enum PermissionResource {
   DASHBOARD
   USERS
@@ -699,6 +761,7 @@ enum PermissionResource {
   BRANCH_CLOSING
   REPORTS
   EXCEL_IMPORT
+  PROFIT
   AUDIT
   SETTINGS
   PERMISSIONS
@@ -866,12 +929,28 @@ model ImportBatch {
   @@index([branchId, periodStart])
 }
 
+model ProductAlias {
+  id              String       @id @default(uuid())
+  organizationId  String
+  productId       String
+  alias           String
+  aliasKey        String
+  createdByUserId String?
+  createdAt       DateTime     @default(now())
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  product         Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, aliasKey])
+  @@index([productId])
+}
+
 model ImportRowError {
-  id        String      @id @default(uuid())
-  batchId   String
-  rowNumber Int
-  message   String
-  rawData   String?
+  id            String      @id @default(uuid())
+  batchId       String
+  rowNumber     Int
+  message       String
+  rawData       String?
+  unmatchedText String?
   batch     ImportBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
 
   @@index([batchId])

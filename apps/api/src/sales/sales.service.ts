@@ -27,6 +27,30 @@ export class SalesService {
     });
   }
 
+  /** One chronological record of everything that happened to a sale: who, what, when. */
+  async auditTrail(organizationId: string, id: string) {
+    const sale = await this.get(organizationId, id);
+    const returnIds = sale.returns.map(r => r.id);
+    const [movements, payments, returns] = await Promise.all([
+      this.prisma.stockMovement.findMany({
+        where: { organizationId, referenceId: { in: [id, ...returnIds] }, referenceType: { in: ["Sale", "SaleReturn"] } },
+        include: { product: { select: { name: true } }, user: { select: { name: true } } },
+        orderBy: { createdAt: "asc" }
+      }),
+      this.prisma.payment.findMany({ where: { saleId: id }, include: { receivedBy: { select: { name: true } } }, orderBy: { receivedAt: "asc" } }),
+      this.prisma.saleReturn.findMany({ where: { saleId: id }, include: { createdBy: { select: { name: true } } }, orderBy: { createdAt: "asc" } })
+    ]);
+    const events = [
+      { at: sale.soldAt, kind: "SALE", text: `Invoice ${sale.invoiceNumber} created, total ${Number(sale.totalAmount).toFixed(2)}`, by: sale.user.name },
+      ...payments.map(p => ({ at: p.receivedAt, kind: "PAYMENT", text: `Payment ${Number(p.amount).toFixed(2)} by ${p.method.replace("_", " ").toLowerCase()}${p.reference ? ` (ref ${p.reference})` : ""}`, by: p.receivedBy.name })),
+      ...returns.map(r => ({ at: r.createdAt, kind: "RETURN", text: `Return recorded: ${r.reason}`, by: r.createdBy.name })),
+      ...movements.map(m => ({ at: m.createdAt, kind: "STOCK", text: `${m.product.name}: ${m.quantityDelta > 0 ? "+" : ""}${m.quantityDelta} (stock now ${m.resultingQuantity})${m.notes ? `, ${m.notes}` : ""}`, by: m.user?.name ?? "System" }))
+    ];
+    if (sale.status === "VOIDED") events.push({ at: sale.soldAt, kind: "VOID", text: "Sale is voided; stock was restored", by: "" });
+    events.sort((a, b) => new Date(a.at).getTime() - new Date(b.at).getTime());
+    return events;
+  }
+
   async get(organizationId: string, id: string) {
     const sale = await this.prisma.sale.findFirst({ where: { id, organizationId }, include: saleInclude });
     if (!sale) throw new NotFoundException("Sale not found");
@@ -91,7 +115,7 @@ export class SalesService {
           organizationId, branchId: dto.branchId, userId, invoiceNumber,
           customerId: dto.customerId ?? null,
           totalAmount: total,
-          items: { create: dto.items.map(i => ({ productId: i.productId, quantity: i.quantity, unitPrice: i.unitPrice, lineTotal: i.quantity * i.unitPrice })) }
+          items: { create: dto.items.map(i => ({ productId: i.productId, quantity: i.quantity, unitPrice: i.unitPrice, unitCost: products.find(p => p.id === i.productId)?.costPrice ?? null, lineTotal: i.quantity * i.unitPrice })) }
         }
       });
       for (const i of dto.items) {

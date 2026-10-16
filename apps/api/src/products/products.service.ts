@@ -1,4 +1,4 @@
-import { ConflictException, Injectable, NotFoundException } from "@nestjs/common";
+import { ConflictException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
 import { CreateProductDto } from "./dto/create-product.dto";
 import { UpdateProductDto } from "./dto/update-product.dto";
@@ -9,20 +9,37 @@ const productInclude = {
   unit:{select:{id:true,name:true}}
 };
 
+/** Cost is commercially sensitive: only people with PROFIT:READ ever receive it. */
+function scrub<T extends { costPrice?: unknown }>(p: T, canSeeCost: boolean): T {
+  if (canSeeCost) return p;
+  const { costPrice: _omit, ...rest } = p;
+  return rest as T;
+}
+
 @Injectable()
 export class ProductsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async list(organizationId: string, lowStockOnly?: boolean) {
-    const products = await this.prisma.product.findMany({ where:{organizationId}, orderBy:{name:"asc"}, include:productInclude });
+  /** A person limited to one branch sees that branch's stock on each product, not the total across all branches. */
+  private async atBranch<T extends { id: string; stockQuantity: number }>(organizationId: string, branchId: string, rows: T[]): Promise<T[]> {
+    const inv: { productId: string; quantity: number }[] = await this.prisma.inventory.findMany({ where:{organizationId, branchId}, select:{productId:true, quantity:true} });
+    const qty = new Map<string, number>(inv.map((i): [string, number] => [i.productId, i.quantity]));
+    return rows.map(r => ({ ...r, stockQuantity: qty.get(r.id) ?? 0 }));
+  }
+
+  async list(organizationId: string, lowStockOnly?: boolean, canSeeCost = false, branchScope: string | null = null) {
+    let all = await this.prisma.product.findMany({ where:{organizationId}, orderBy:{name:"asc"}, include:productInclude });
+    if(branchScope) all = await this.atBranch(organizationId, branchScope, all);
+    const products = all.map(p => scrub(p, canSeeCost));
     if(!lowStockOnly) return products;
     return products.filter(p => p.stockQuantity <= p.reorderLevel);
   }
 
-  async get(organizationId: string, id: string) {
-    const product = await this.prisma.product.findFirst({ where:{id,organizationId}, include:productInclude });
+  async get(organizationId: string, id: string, canSeeCost = false, branchScope: string | null = null) {
+    let product = await this.prisma.product.findFirst({ where:{id,organizationId}, include:productInclude });
     if(!product) throw new NotFoundException("Product not found");
-    return product;
+    if(branchScope) [product] = await this.atBranch(organizationId, branchScope, [product]);
+    return scrub(product, canSeeCost);
   }
 
   private async assertRefsBelongToOrg(organizationId: string, dto: { categoryId?: string; brandId?: string; unitId?: string }) {
@@ -40,21 +57,23 @@ export class ProductsService {
     }
   }
 
-  async create(organizationId: string, dto: CreateProductDto) {
+  async create(organizationId: string, dto: CreateProductDto, canSeeCost = false) {
+    if(dto.costPrice !== undefined && !canSeeCost) throw new ForbiddenException("You do not have permission to set cost prices");
     await this.assertRefsBelongToOrg(organizationId, dto);
     const existing = await this.prisma.product.findFirst({ where:{organizationId,sku:dto.sku} });
     if(existing) throw new ConflictException(`SKU "${dto.sku}" already exists`);
-    return this.prisma.product.create({ data:{ ...dto, organizationId }, include:productInclude });
+    return scrub(await this.prisma.product.create({ data:{ ...dto, organizationId }, include:productInclude }), canSeeCost);
   }
 
-  async update(organizationId: string, id: string, dto: UpdateProductDto) {
+  async update(organizationId: string, id: string, dto: UpdateProductDto, canSeeCost = false) {
+    if(dto.costPrice !== undefined && !canSeeCost) throw new ForbiddenException("You do not have permission to set cost prices");
     await this.get(organizationId, id);
     await this.assertRefsBelongToOrg(organizationId, dto);
     if(dto.sku) {
       const existing = await this.prisma.product.findFirst({ where:{organizationId,sku:dto.sku,NOT:{id}} });
       if(existing) throw new ConflictException(`SKU "${dto.sku}" already exists`);
     }
-    return this.prisma.product.update({ where:{id}, data:dto, include:productInclude });
+    return scrub(await this.prisma.product.update({ where:{id}, data:dto, include:productInclude }), canSeeCost);
   }
 
   async remove(organizationId: string, id: string) {

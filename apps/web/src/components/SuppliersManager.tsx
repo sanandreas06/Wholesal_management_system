@@ -2,12 +2,13 @@
 import { FormEvent, useEffect, useState } from "react";
 import AppShell from "./AppShell";
 import { api, ApiError } from "../lib/api";
+import { toast } from "../lib/toast";
 import { usePermissions } from "../hooks/usePermissions";
 
 interface Contact { id: string; name: string; role: string | null; phone: string | null; email: string | null }
 interface Supplier {
   id: string; name: string; code: string; phone: string | null; email: string | null; address: string | null;
-  creditLimit: string | number | null; creditDays: number | null; status: "ACTIVE" | "INACTIVE"; contacts: Contact[];
+  creditLimit: string | number | null; creditDays: number | null; leadTimeDays?: number | null; learnedLeadDays?: number | null; learnedFromOrders?: number; status: "ACTIVE" | "INACTIVE"; contacts: Contact[];
 }
 
 const money = new Intl.NumberFormat("en-GH", { style: "currency", currency: "GHS" });
@@ -25,7 +26,7 @@ export default function SuppliersManager() {
   async function remove(item: Supplier) {
     if (!confirm(`Delete supplier "${item.name}"?`)) return;
     try { await api.delete(`/suppliers/${item.id}`); load(); }
-    catch (e) { alert(e instanceof ApiError ? e.message : "Delete failed"); }
+    catch (e) { toast.error(e instanceof ApiError ? e.message : "Delete failed"); }
   }
 
   return (
@@ -39,7 +40,7 @@ export default function SuppliersManager() {
         {items && items.length === 0 && <div className="empty">No suppliers yet.</div>}
         {items && items.length > 0 && (
           <table>
-            <thead><tr><th>Name</th><th>Code</th><th>Phone</th><th>Credit Limit</th><th>Contacts</th><th>Status</th><th></th></tr></thead>
+            <thead><tr><th>Name</th><th>Code</th><th>Phone</th><th>Credit Limit</th><th title="Days from ordering to delivery, used by Reorder Suggestions">Delivery time</th><th>Contacts</th><th>Status</th><th></th></tr></thead>
             <tbody>
               {items.map(i => (
                 <tr key={i.id}>
@@ -47,6 +48,7 @@ export default function SuppliersManager() {
                   <td>{i.code}</td>
                   <td>{i.phone || "—"}</td>
                   <td>{i.creditLimit != null ? money.format(Number(i.creditLimit)) : "—"}</td>
+                  <td>{i.leadTimeDays ? `${i.leadTimeDays} days` : i.learnedLeadDays ? <span title={`Worked out from ${i.learnedFromOrders} delivered orders`}>~{i.learnedLeadDays} days <span className="muted">(learned)</span></span> : <span className="muted">not known yet</span>}</td>
                   <td>{i.contacts.length}</td>
                   <td><span className={`badge ${i.status === "ACTIVE" ? "active" : "inactive"}`}>{i.status}</span></td>
                   <td className="row-actions">
@@ -74,6 +76,7 @@ function SupplierModal({ item, onClose, onSaved }: { item: Supplier | null; onCl
   const [address, setAddress] = useState(item?.address || "");
   const [creditLimit, setCreditLimit] = useState(item?.creditLimit != null ? String(item.creditLimit) : "");
   const [creditDays, setCreditDays] = useState(item?.creditDays != null ? String(item.creditDays) : "");
+  const [leadTime, setLeadTime] = useState(item?.leadTimeDays != null ? String(item.leadTimeDays) : "");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -81,7 +84,8 @@ function SupplierModal({ item, onClose, onSaved }: { item: Supplier | null; onCl
     e.preventDefault(); setSaving(true); setError("");
     const payload = {
       name, code, phone: phone || undefined, email: email || undefined, address: address || undefined,
-      creditLimit: creditLimit ? Number(creditLimit) : undefined, creditDays: creditDays ? Number(creditDays) : undefined
+      creditLimit: creditLimit ? Number(creditLimit) : undefined, creditDays: creditDays ? Number(creditDays) : undefined,
+      leadTimeDays: leadTime ? Math.round(Number(leadTime)) : (item ? null : undefined)
     };
     try {
       if (item) await api.put(`/suppliers/${item.id}`, payload);
@@ -104,6 +108,7 @@ function SupplierModal({ item, onClose, onSaved }: { item: Supplier | null; onCl
           <label>Address<input value={address} onChange={e => setAddress(e.target.value)} placeholder="e.g. Industrial Area, Kumasi" /></label>
           <label>Credit Limit (GHS)<input type="number" step="0.01" min="0" value={creditLimit} onChange={e => setCreditLimit(e.target.value)} placeholder="e.g. 50000" /></label>
           <label>Credit Days<input type="number" min="0" value={creditDays} onChange={e => setCreditDays(e.target.value)} placeholder="e.g. 30" /></label>
+          <label>Delivery time (days)<input type="number" min="1" max="180" value={leadTime} onChange={e => setLeadTime(e.target.value)} placeholder={item?.learnedLeadDays ? `learned: about ${item.learnedLeadDays}` : "e.g. 5, or leave empty to learn it"} /></label>
           {error && <div className="error">{error}</div>}
           <div className="modal-actions">
             <button type="button" className="secondary" onClick={onClose}>Cancel</button>
@@ -141,7 +146,7 @@ export function ContactsModal({ parentType, parent, onClose, onSaved }: {
   async function removeContact(contactId: string) {
     if (!confirm("Remove this contact?")) return;
     try { await api.delete(`/${parentType}/${parent.id}/contacts/${contactId}`); setContacts(prev => prev.filter(c => c.id !== contactId)); }
-    catch (e) { alert(e instanceof ApiError ? e.message : "Remove failed"); }
+    catch (e) { toast.error(e instanceof ApiError ? e.message : "Remove failed"); }
   }
 
   return (

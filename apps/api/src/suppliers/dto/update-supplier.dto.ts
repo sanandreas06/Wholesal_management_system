@@ -1,4 +1,4 @@
-import { IsEmail, IsIn, IsNumber, IsInt, IsOptional, IsString, Matches, Min, MaxLength, MinLength } from "class-validator";
+import { IsEmail, IsIn, IsNumber, IsInt, IsOptional, IsString, Matches, Min, Max, MaxLength, MinLength } from "class-validator";
 
 const PHONE_PATTERN = /^[0-9+()\-\s]{7,20}$/;
 
@@ -10,5 +10,6 @@ export class UpdateSupplierDto {
   @IsOptional() @IsString() @MaxLength(255) address?: string;
   @IsOptional() @IsNumber() @Min(0) creditLimit?: number;
   @IsOptional() @IsInt() @Min(0) creditDays?: number;
+  @IsOptional() @IsInt() @Min(1) @Max(180) leadTimeDays?: number | null;
   @IsOptional() @IsIn(["ACTIVE","INACTIVE"]) status?: "ACTIVE"|"INACTIVE";
 }

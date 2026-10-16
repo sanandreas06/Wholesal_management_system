@@ -26,6 +26,22 @@ const OFF_HOURS_END = 5; // 5am
 export class AuditService {
   constructor(private readonly prisma: PrismaService) {}
 
+  /** Change log: who changed what, with before/after values. Newest first. */
+  async getLog(organizationId: string, f: { entityType?: string; entityId?: string; userId?: string; days: number }) {
+    const days = Math.min(Math.max(f.days, 1), 365);
+    const since = new Date(Date.now() - days * 86_400_000);
+    return this.prisma.auditLog.findMany({
+      where: {
+        organizationId, createdAt: { gte: since },
+        ...(f.entityType ? { entityType: f.entityType } : {}),
+        ...(f.entityId ? { entityId: f.entityId } : {}),
+        ...(f.userId ? { userId: f.userId } : {}),
+      },
+      orderBy: { createdAt: "desc" },
+      take: 300,
+    });
+  }
+
   async getFlags(organizationId: string): Promise<AuditFlag[]> {
     const [largeReductions, frequentAdjusters, recurringShortages, offHours] = await Promise.all([
       this.detectLargeReductions(organizationId),

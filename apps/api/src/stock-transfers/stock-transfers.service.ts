@@ -14,8 +14,8 @@ const transferInclude = {
 export class StockTransfersService {
   constructor(private readonly prisma: PrismaService, private readonly inventory: InventoryService) {}
 
-  list(organizationId: string) {
-    return this.prisma.stockTransfer.findMany({ where:{organizationId}, orderBy:{createdAt:"desc"}, include:transferInclude });
+  list(organizationId: string, branchId?: string) {
+    return this.prisma.stockTransfer.findMany({ where:{organizationId, ...(branchId ? {OR:[{fromBranchId:branchId},{toBranchId:branchId}]} : {})}, orderBy:{createdAt:"desc"}, include:transferInclude });
   }
 
   async get(organizationId: string, id: string) {

@@ -26,11 +26,43 @@ export class ExpensesService {
     return this.prisma.expenseCategory.create({ data: { organizationId, name } });
   }
 
-  list(organizationId: string, branchId?: string, status?: string) {
+  /** `from` and `to` are whole days (YYYY-MM-DD), both included. Bad or missing dates are ignored. */
+  private where(organizationId: string, branchId?: string, status?: string, f: { from?: string; to?: string; categoryId?: string } = {}) {
+    const day = (v: string | undefined, end: boolean) => { if (!v || !/^\d{4}-\d{2}-\d{2}$/.test(v)) return undefined; try { return parseDay(v, end); } catch { return undefined; } };
+    const gte = day(f.from, false), lte = day(f.to, true);
+    return {
+      organizationId, ...(branchId ? { branchId } : {}), ...(status ? { status: status as any } : {}), ...(f.categoryId ? { categoryId: f.categoryId } : {}),
+      ...(gte || lte ? { expenseDate: { ...(gte ? { gte } : {}), ...(lte ? { lte } : {}) } } : {}),
+    };
+  }
+
+  list(organizationId: string, branchId?: string, status?: string, f: { from?: string; to?: string; categoryId?: string } = {}) {
     return this.prisma.expense.findMany({
-      where: { organizationId, ...(branchId ? { branchId } : {}), ...(status ? { status: status as any } : {}) },
-      include, orderBy: [{ expenseDate: "desc" }, { createdAt: "desc" }], take: 200
+      where: this.where(organizationId, branchId, status, f),
+      include, orderBy: [{ expenseDate: "desc" }, { createdAt: "desc" }], take: 500
     });
+  }
+
+  /** Totals for exactly what the list shows (not just the first 500 rows): by status, and by category for the chosen status. */
+  async summary(organizationId: string, branchId?: string, status?: string, f: { from?: string; to?: string; categoryId?: string } = {}) {
+    const rows: { amount: unknown; status: string; category: { id: string; name: string } }[] = await this.prisma.expense.findMany({
+      where: this.where(organizationId, branchId, undefined, f), select: { amount: true, status: true, category: { select: { id: true, name: true } } }, take: 50000
+    });
+    const r2 = (n: number) => Math.round(n * 100) / 100;
+    const byStatus: Record<string, { count: number; total: number }> = {};
+    const cats = new Map<string, { id: string; name: string; total: number; count: number }>();
+    for (const x of rows) {
+      const s = (byStatus[x.status] ??= { count: 0, total: 0 }); s.count++; s.total += Number(x.amount);
+      if (status && x.status !== status) continue;
+      const c = cats.get(x.category.id) ?? { id: x.category.id, name: x.category.name, total: 0, count: 0 };
+      c.total += Number(x.amount); c.count++; cats.set(x.category.id, c);
+    }
+    const shown = status ? byStatus[status] ?? { count: 0, total: 0 } : { count: rows.length, total: rows.reduce((t, x) => t + Number(x.amount), 0) };
+    return {
+      count: shown.count, total: r2(shown.total),
+      byStatus: Object.fromEntries(Object.entries(byStatus).map(([k, v]) => [k, { count: v.count, total: r2(v.total) }])),
+      byCategory: [...cats.values()].map((c) => ({ ...c, total: r2(c.total) })).sort((a, b) => b.total - a.total),
+    };
   }
 
   async create(organizationId: string, userId: string, dto: CreateExpenseDto) {
