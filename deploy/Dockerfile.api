@@ -7,4 +7,4 @@ RUN pnpm install --frozen-lockfile && pnpm db:generate && pnpm --filter @wms/api
 ENV NODE_ENV=production
 WORKDIR /app/apps/api
 EXPOSE 4000
-CMD ["node", "dist/main.js"]
+CMD ["node", "dist/src/main.js"]
