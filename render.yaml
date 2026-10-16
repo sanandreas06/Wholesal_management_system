@@ -5,6 +5,8 @@ services:
     name: wms-api
     runtime: docker
     plan: free
+    # Frankfurt: the closest Render region to West Africa, and the same region as the Neon database (keep the two together)
+    region: frankfurt
     dockerfilePath: ./deploy/Dockerfile.api
     dockerContext: .
     healthCheckPath: /api/health
