@@ -30,9 +30,10 @@ pnpm dev
 
 Open http://localhost:3000
 
-Demo:
+First sign-in on a fresh database:
 - Email: admin@wholesale.local
-- Password: Admin@12345
+- Starting password: set with `SEED_ADMIN_PASSWORD` when seeding (the built-in one is in `database/prisma/seed/seed.ts`).
+- You are asked to choose a new password straight away. Never leave the starting one in place on anything other people can reach.
 
 API: http://localhost:4000/api/health
 

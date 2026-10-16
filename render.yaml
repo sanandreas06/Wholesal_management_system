@@ -1,0 +1,23 @@
+# Free demo hosting on Render (the API only). The website goes on Vercel and the database on Neon: see the "Free demo" guide.
+# The two secrets are made by Render and never shown to anyone. DATABASE_URL is pasted into Render's dashboard by you.
+services:
+  - type: web
+    name: wms-api
+    runtime: docker
+    plan: free
+    dockerfilePath: ./deploy/Dockerfile.api
+    dockerContext: .
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: TRUST_PROXY
+        value: "true"
+      - key: JWT_EXPIRES_IN
+        value: 1d
+      - key: JWT_SECRET
+        generateValue: true
+      - key: AUDIT_SEAL_KEY
+        generateValue: true
+      - key: DATABASE_URL
+        sync: false

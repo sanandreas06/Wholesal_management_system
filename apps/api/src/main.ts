@@ -19,6 +19,7 @@ async function bootstrap() {
   app.setGlobalPrefix("api");
   app.enableCors({ origin: true, credentials: true });
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
-  await app.listen(config.get<number>("API_PORT") ?? 4000);
+  // hosts such as Render tell the app which port to use through PORT
+  await app.listen(Number(config.get("PORT") ?? config.get("API_PORT") ?? 4000), "0.0.0.0");
 }
 bootstrap();
