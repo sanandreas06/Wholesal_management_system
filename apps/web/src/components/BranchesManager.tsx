@@ -21,6 +21,8 @@ export default function BranchesManager() {
     api.get<Region[]>("/regions").then(setRegions).catch(() => {});
   }
   useEffect(load, []);
+  // "+" quick-create menu opens this page with ?new=1
+  useEffect(() => { if (new URLSearchParams(window.location.search).get("new") === "1") setEditing("new"); }, []);
 
   async function remove(branch: Branch) {
     if (!confirm(`Delete branch "${branch.name}"?`)) return;

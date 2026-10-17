@@ -1,9 +1,15 @@
 import { Module } from "@nestjs/common";
 import { JwtModule } from "@nestjs/jwt";
 import { ConfigModule, ConfigService } from "@nestjs/config";
-import { AuthController } from "./auth.controller";
+import { AuthController, OAuthController } from "./auth.controller";
 import { AuthService } from "./auth.service";
 import { AuditModule } from "../audit/audit.module";
+import { MailerService } from "./mailer";
+import { OtpService } from "./otp.service";
+import { TicketService } from "./tickets";
+import { OnboardingService } from "./onboarding.service";
+import { DemoService } from "./demo.service";
+import { OAuthService } from "./oauth.service";
 
 @Module({
   imports:[ConfigModule, AuditModule, JwtModule.registerAsync({
@@ -11,6 +17,8 @@ import { AuditModule } from "../audit/audit.module";
     imports:[ConfigModule],inject:[ConfigService],
     useFactory:(c:ConfigService)=>({secret:c.get("JWT_SECRET")||(process.env.NODE_ENV==="production"?(()=>{throw new Error("JWT_SECRET is not set")})():"development-secret"),signOptions:{expiresIn:c.get("JWT_EXPIRES_IN")||"1d"}})
   })],
-  controllers:[AuthController], providers:[AuthService]
+  controllers:[AuthController, OAuthController],
+  providers:[AuthService, MailerService, OtpService, TicketService, OnboardingService, DemoService, OAuthService],
+  exports:[OnboardingService, TicketService]
 })
 export class AuthModule {}

@@ -28,7 +28,8 @@ export class ProductsService {
   }
 
   async list(organizationId: string, lowStockOnly?: boolean, canSeeCost = false, branchScope: string | null = null) {
-    let all = await this.prisma.product.findMany({ where:{organizationId}, orderBy:{name:"asc"}, include:productInclude });
+    // pictures are left out of the list (they would make it heavy); the product's own page and the Home screen carry them
+    let all = await this.prisma.product.findMany({ where:{organizationId}, orderBy:{name:"asc"}, include:productInclude, omit:{imageUrl:true} });
     if(branchScope) all = await this.atBranch(organizationId, branchScope, all);
     const products = all.map(p => scrub(p, canSeeCost));
     if(!lowStockOnly) return products;
@@ -36,7 +37,7 @@ export class ProductsService {
   }
 
   async get(organizationId: string, id: string, canSeeCost = false, branchScope: string | null = null) {
-    let product = await this.prisma.product.findFirst({ where:{id,organizationId}, include:productInclude });
+    let product = await this.prisma.product.findFirst({ where:{id,organizationId}, include:productInclude, omit:{imageUrl:false} });
     if(!product) throw new NotFoundException("Product not found");
     if(branchScope) [product] = await this.atBranch(organizationId, branchScope, [product]);
     return scrub(product, canSeeCost);
@@ -62,7 +63,7 @@ export class ProductsService {
     await this.assertRefsBelongToOrg(organizationId, dto);
     const existing = await this.prisma.product.findFirst({ where:{organizationId,sku:dto.sku} });
     if(existing) throw new ConflictException(`SKU "${dto.sku}" already exists`);
-    return scrub(await this.prisma.product.create({ data:{ ...dto, organizationId }, include:productInclude }), canSeeCost);
+    return scrub(await this.prisma.product.create({ data:{ ...dto, imageUrl: dto.imageUrl || null, imageThumb: dto.imageThumb || null, organizationId }, include:productInclude, omit:{imageUrl:true} }), canSeeCost);
   }
 
   async update(organizationId: string, id: string, dto: UpdateProductDto, canSeeCost = false) {
@@ -73,7 +74,8 @@ export class ProductsService {
       const existing = await this.prisma.product.findFirst({ where:{organizationId,sku:dto.sku,NOT:{id}} });
       if(existing) throw new ConflictException(`SKU "${dto.sku}" already exists`);
     }
-    return scrub(await this.prisma.product.update({ where:{id}, data:dto, include:productInclude }), canSeeCost);
+    const { imageUrl, imageThumb, ...rest } = dto;
+    return scrub(await this.prisma.product.update({ where:{id}, data:{ ...rest, ...(imageUrl !== undefined ? { imageUrl: imageUrl || null } : {}), ...(imageThumb !== undefined ? { imageThumb: imageThumb || null } : {}) }, include:productInclude, omit:{imageUrl:true} }), canSeeCost);
   }
 
   async remove(organizationId: string, id: string) {

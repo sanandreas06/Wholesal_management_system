@@ -23,3 +23,33 @@ services:
         generateValue: true
       - key: DATABASE_URL
         sync: false
+      # ---- Batch 29: sign-in emails, social sign-in, refer & earn. See docs/deployment/sign-in-setup.md.
+      # Anything marked sync: false is typed into Render's dashboard (Environment tab), never into this file.
+      - key: WEB_URL
+        sync: false
+      - key: API_PUBLIC_URL
+        sync: false
+      - key: MAIL_PROVIDER
+        value: brevo
+      - key: MAIL_API_KEY
+        sync: false
+      - key: MAIL_FROM
+        sync: false
+      - key: MAIL_FROM_NAME
+        value: WHOLESTRA
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: FACEBOOK_APP_ID
+        sync: false
+      - key: FACEBOOK_APP_SECRET
+        sync: false
+      - key: LINKEDIN_CLIENT_ID
+        sync: false
+      - key: LINKEDIN_CLIENT_SECRET
+        sync: false
+      - key: PLATFORM_ADMIN_KEY
+        generateValue: true
+      - key: REFERRAL_MAX_USD
+        value: "30"

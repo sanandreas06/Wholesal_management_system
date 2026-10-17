@@ -4,6 +4,7 @@ import ScanBoard from "../../components/landing/ScanBoard";
 import BeforeAfter from "../../components/landing/BeforeAfter";
 import FeatureTabs from "../../components/landing/FeatureTabs";
 import SealChain from "../../components/landing/SealChain";
+import DemoButton from "../../components/landing/DemoButton";
 
 const HERO_ITEMS: FloatItem[] = [
   { art: "truck", x: "29%", y: "11%", w: 104, depth: 34, dur: 9 },
@@ -38,10 +39,10 @@ export default function Home() {
             <h1>Every branch’s stock, on one screen.</h1>
             <p className="lp-lead">WHOLESTRA tracks stock, sales, purchasing and expenses across all your branches. Owners see everything. Branch managers see their own.</p>
             <div className="lp-cta">
-              <Link href="/get-started" className="lp-btn kraft">Get started</Link>
-              <a href="#tour" className="lp-btn line">See how it works</a>
+              <Link href="/get-started" className="lp-btn kraft">Get started free</Link>
+              <DemoButton />
             </div>
-            <p className="lp-fine">Amounts are in cedis (GH₵). Works on phones, tablets and computers.</p>
+            <p className="lp-fine">Sign up with your email, Google, Facebook or LinkedIn. The demo opens a sample company, no sign-up needed. <a href="#tour">See how it works ↓</a></p>
           </div>
           <ScanBoard />
         </div>
@@ -84,13 +85,29 @@ export default function Home() {
         </div>
       </section>
 
+      <section className="lp-sec tint" id="refer">
+        <div className="lp-wrap lp-refer">
+          <div>
+            <h2 className="lp-h2">Refer a business. Earn up to US$30.</h2>
+            <p className="lp-sub">Know a wholesaler, distributor or shop owner who still runs branches on phone calls? Introduce them to WHOLESTRA. When they sign up with your link and our team confirms them, you are rewarded.</p>
+            <div className="lp-refer-amt"><b>US$30</b><span>up to, per company</span></div>
+            <p className="lp-more"><Link href="/refer">How refer &amp; earn works</Link></p>
+          </div>
+          <ol className="lp-refer-steps">
+            <li><b>Get your link</b><span>Create your account. Your personal link is under Refer &amp; earn.</span></li>
+            <li><b>Share it</b><span>Send it on WhatsApp or by email. Your code is filled in for them.</span></li>
+            <li><b>They join, you earn</b><span>We confirm the company and contact you to pay your reward.</span></li>
+          </ol>
+        </div>
+      </section>
+
       <section className="lp-final">
         <div className="lp-wrap">
           <h2 className="lp-h2">See it with your own products</h2>
-          <p className="lp-sub">Tell us about your business and we will arrange a walkthrough.</p>
+          <p className="lp-sub">Create your account in a few minutes, or look around the demo company first.</p>
           <div className="lp-cta center">
-            <Link href="/get-started" className="lp-btn kraft">Get started</Link>
-            <Link href="/login" className="lp-btn line">Sign in</Link>
+            <Link href="/get-started" className="lp-btn kraft">Create your account</Link>
+            <DemoButton />
           </div>
         </div>
       </section>

@@ -143,7 +143,7 @@ function ExpensesTab({ branches, canCreate, canApprove, initial }: { branches: R
   const [categoryId, setCategoryId] = useState(initial.categoryId ?? "");
   const [from, setFrom] = useState(initial.from ?? "");
   const [to, setTo] = useState(initial.to ?? "");
-  const [adding, setAdding] = useState(false);
+  const [adding, setAdding] = useState(canCreate && initial.new === "1");
   const [error, setError] = useState("");
 
   const filtered = !!(status || branchId || categoryId || from || to);

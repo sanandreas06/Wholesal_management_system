@@ -28,12 +28,33 @@ services:
       JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in deploy/.env.production}
       AUDIT_SEAL_KEY: ${AUDIT_SEAL_KEY:?set AUDIT_SEAL_KEY in deploy/.env.production}
       JWT_EXPIRES_IN: 1d
+      # sign-in emails, social sign-in and refer & earn (see docs/deployment/sign-in-setup.md); empty ones simply stay switched off
+      WEB_URL: https://${DOMAIN}
+      API_PUBLIC_URL: https://${DOMAIN}
+      MAIL_PROVIDER: ${MAIL_PROVIDER:-}
+      MAIL_API_KEY: ${MAIL_API_KEY:-}
+      MAIL_FROM: ${MAIL_FROM:-}
+      MAIL_FROM_NAME: ${MAIL_FROM_NAME:-WHOLESTRA}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      FACEBOOK_APP_ID: ${FACEBOOK_APP_ID:-}
+      FACEBOOK_APP_SECRET: ${FACEBOOK_APP_SECRET:-}
+      LINKEDIN_CLIENT_ID: ${LINKEDIN_CLIENT_ID:-}
+      LINKEDIN_CLIENT_SECRET: ${LINKEDIN_CLIENT_SECRET:-}
+      PLATFORM_ADMIN_KEY: ${PLATFORM_ADMIN_KEY:-}
+      REFERRAL_MAX_USD: ${REFERRAL_MAX_USD:-30}
 
   web:
     build:
       context: ..
       dockerfile: deploy/Dockerfile.web
-      args: { NEXT_PUBLIC_API_URL: "https://${DOMAIN:?set DOMAIN in deploy/.env.production}/api" }
+      args:
+        NEXT_PUBLIC_API_URL: "https://${DOMAIN:?set DOMAIN in deploy/.env.production}/api"
+        NEXT_PUBLIC_CONTACT_EMAIL: ${NEXT_PUBLIC_CONTACT_EMAIL:-}
+        NEXT_PUBLIC_CONTACT_WHATSAPP: ${NEXT_PUBLIC_CONTACT_WHATSAPP:-}
+        NEXT_PUBLIC_CONTACT_PHONE: ${NEXT_PUBLIC_CONTACT_PHONE:-}
+        NEXT_PUBLIC_CONTACT_HOURS: ${NEXT_PUBLIC_CONTACT_HOURS:-}
+        NEXT_PUBLIC_CONTACT_LOCATION: ${NEXT_PUBLIC_CONTACT_LOCATION:-}
     restart: unless-stopped
     depends_on: [api]
 

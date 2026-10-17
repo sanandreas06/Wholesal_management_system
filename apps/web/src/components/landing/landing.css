@@ -52,6 +52,7 @@
 .lp-cta{display:flex;gap:12px;flex-wrap:wrap;margin-top:32px}
 .lp-cta.center{justify-content:center}
 .lp-fine{margin-top:22px;font-size:.9rem;color:#8EA1D0}
+.lp-fine a{color:#F3D49F;font-weight:700}
 
 /* the stock board */
 .sb{position:relative;z-index:2;background:linear-gradient(180deg,#0E2054,#0A1844);border:1px solid #284486;border-radius:22px;box-shadow:0 40px 90px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.08);padding:18px 18px 16px;color:#fff;font-size:.92rem}
@@ -244,6 +245,9 @@
 .lp-foot nav{display:flex;flex-direction:column;gap:10px}
 .lp-foot h2{font:700 .95rem "Plus Jakarta Sans",sans-serif;color:#fff;margin-bottom:4px}
 .lp-foot nav a:hover{color:#fff}
+.lp-foot-contact{display:flex;flex-direction:column;gap:10px}
+.lp-foot-contact a:hover{color:#fff}
+.lp-foot-contact span{font-size:.86rem}
 .lp-foot-end{margin-top:40px;padding-top:20px;border-top:1px solid rgba(157,184,255,.14);font-size:.84rem}
 
 .lp-field{position:absolute;inset:0;pointer-events:none;z-index:1}
@@ -307,6 +311,43 @@
 
 [data-theme="dark"] .lp-btns i:first-child{color:#0A1126}
 
+/* refer & earn strip above the top bar */
+.lp-refbar{display:flex;align-items:center;justify-content:center;gap:12px;padding:9px 48px 9px 16px;position:relative;background:linear-gradient(90deg,#F3D49F,#E3B36B);color:#2A1A05;font:500 .9rem "Plus Jakarta Sans",system-ui,sans-serif;text-align:center}
+.lp-refbar p{margin:0}
+.lp-refbar a{font-weight:800;color:#2A1A05;text-decoration:underline;text-underline-offset:3px;white-space:nowrap}
+.lp-refbar button{position:absolute;right:10px;top:50%;transform:translateY(-50%);width:30px;height:30px;border:0;border-radius:8px;background:transparent;color:#2A1A05;font-size:1.3rem;cursor:pointer;line-height:1}
+.lp-refbar button:hover{background:rgba(42,26,5,.1)}
+.lp-refbar-gift{font-size:1.1rem}
+
+/* "Try the demo" button with its note */
+.lp-demo-wrap{display:inline-flex;flex-direction:column;gap:6px}
+.lp-demo-wrap .lp-btn:disabled{opacity:.7;cursor:wait;transform:none}
+.lp-demo-note{font-size:.8rem;color:#B9C7EA;max-width:22em}
+.lp-sec.light .lp-demo-note{color:var(--muted)}
+
+/* refer & earn on the home page and the /refer page */
+.lp-refer{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);gap:clamp(28px,5vw,64px);align-items:center}
+.lp-refer-amt{display:inline-flex;align-items:baseline;gap:8px;margin-top:22px;padding:14px 22px;border-radius:16px;background:linear-gradient(180deg,#F3D49F,#E3B36B);color:#2A1A05;box-shadow:0 14px 34px rgba(227,179,107,.35)}
+.lp-refer-amt b{font:800 2.6rem/1 "Bricolage Grotesque",sans-serif}
+.lp-refer-amt span{font-weight:700}
+.lp-refer-steps{list-style:none;counter-reset:rf;margin:0;padding:0;display:flex;flex-direction:column;gap:14px}
+.lp-refer-steps li{counter-increment:rf;position:relative;padding:20px 22px 20px 74px;border-radius:16px;background:var(--card);border:1px solid var(--line);box-shadow:0 10px 30px rgba(15,23,42,.06)}
+.lp-refer-steps li::before{content:counter(rf);position:absolute;left:22px;top:50%;transform:translateY(-50%);width:36px;height:36px;border-radius:50%;display:grid;place-items:center;background:#2457FF;color:#fff;font:800 1.05rem "Bricolage Grotesque",sans-serif}
+.lp-refer-steps b{display:block;font:700 1.1rem "Bricolage Grotesque",sans-serif}
+.lp-refer-steps span{color:var(--muted)}
+.lp-sec.ink .lp-refer-steps li,.lp-sec.dark .lp-refer-steps li{background:rgba(255,255,255,.05);border-color:rgba(157,184,255,.18);box-shadow:none}
+.lp-sec.ink .lp-refer-steps span,.lp-sec.dark .lp-refer-steps span{color:#B9C7EA}
+
+/* terms and privacy */
+.lp-legal{max-width:760px}
+.lp-legal h2{font-size:1.5rem;font-weight:800;margin:40px 0 10px;scroll-margin-top:90px}
+.lp-legal h2:first-child{margin-top:0}
+.lp-legal p,.lp-legal li{color:var(--text);line-height:1.7}
+.lp-legal p{margin:0 0 12px}
+.lp-legal ul{margin:0 0 12px;padding-left:22px}
+.lp-legal a{color:#2457FF;font-weight:600}
+.lp-updated{color:var(--muted);font-size:.9rem;margin-bottom:28px!important}
+
 @media (max-width:1100px){
   .lp-hero-grid{grid-template-columns:minmax(0,1fr)}
   .lp-hero .lp-field{display:none}
@@ -323,7 +364,9 @@
   .lp-menu-acct .lp-btn{flex:1}
   .lp-split,.ft{grid-template-columns:minmax(0,1fr)}
   .lp-split.flip>:first-child{order:0}
-  .lp-defs,.lp-trio{grid-template-columns:minmax(0,1fr)}
+  .lp-defs,.lp-trio,.lp-refer{grid-template-columns:minmax(0,1fr)}
+  .lp-refbar{font-size:.84rem;justify-content:flex-start;text-align:left;flex-wrap:wrap;gap:4px 10px}
+  .lp-refbar-gift{display:none}
   .lp-foot-in{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
   .lp-foot-brand{grid-column:1/-1}
   .ft-list{flex-direction:row;overflow-x:auto;gap:8px;padding-bottom:6px}

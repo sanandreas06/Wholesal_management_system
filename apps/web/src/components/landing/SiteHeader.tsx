@@ -8,6 +8,7 @@ import { clearSession, getSessionUser } from "../../lib/session";
 const LINKS = [
   { href: "/features", label: "Features" },
   { href: "/security", label: "Security" },
+  { href: "/refer", label: "Refer & earn" },
   { href: "/about", label: "About" },
   { href: "/contact", label: "Contact" },
 ];

@@ -42,6 +42,87 @@ model Organization {
   auditLogs      AuditLog[]
   auditChainHead AuditChainHead?
   productAliases ProductAlias[]
+  // ---- company profile (Batch 29): what the owner fills in on the "Set up your organization profile" screen ----
+  industry           String?
+  country            String?
+  stateProvince      String?
+  address            String?   @db.Text
+  phone              String?
+  email              String?
+  website            String?
+  taxId              String?
+  currency           String    @default("GHS")
+  language           String    @default("en")
+  timeZone           String    @default("Africa/Accra")
+  inventoryStartDate DateTime? @db.Date
+  /// First month of the financial year, for example "January" (Jan to Dec) or "April" (Apr to Mar)
+  fiscalYearStart    String    @default("January")
+  /// Small picture shown on invoices (already shrunk by the browser)
+  logo               String?   @db.Text
+  plan               String    @default("PILOT")
+  /// True for the shared read-only demo company. Nobody can sign in to it with an email and password.
+  isDemo             Boolean   @default(false)
+  /// True from the moment a company signs itself up until the owner finishes the profile screen. Companies that existed before this batch are never "pending".
+  setupPending       Boolean   @default(false)
+  /// The code this company shares to refer other companies
+  referralCode       String?   @unique
+  referredByCode     String?
+  referralsMade      Referral[] @relation("Referrer")
+  referral           Referral?  @relation("Referred")
+}
+
+enum ReferralStatus {
+  REGISTERED
+  CONFIRMED
+  PAID
+  REJECTED
+}
+
+/// One company that signed up through another company's link. The reward is "up to US$30" and is set by WHOLESTRA staff once the new company is verified.
+model Referral {
+  id                String         @id @default(uuid())
+  referrerOrgId     String
+  referredOrgId     String         @unique
+  code              String
+  status            ReferralStatus @default(REGISTERED)
+  rewardUsd         Decimal        @default(0) @db.Decimal(8, 2)
+  note              String?
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+  referrer          Organization   @relation("Referrer", fields: [referrerOrgId], references: [id], onDelete: Cascade)
+  referred          Organization   @relation("Referred", fields: [referredOrgId], references: [id], onDelete: Cascade)
+
+  @@index([referrerOrgId])
+}
+
+/// A one-time email code, kept only as a keyed fingerprint. Used for sign-in and for confirming a new account's email.
+model OtpChallenge {
+  id         String    @id @default(uuid())
+  email      String
+  purpose    String
+  codeHash   String
+  attempts   Int       @default(0)
+  expiresAt  DateTime
+  consumedAt DateTime?
+  ip         String?
+  createdAt  DateTime  @default(now())
+
+  @@index([email, createdAt])
+  @@index([ip, createdAt])
+}
+
+/// A Google, Facebook or LinkedIn account linked to a person.
+model AuthIdentity {
+  id             String   @id @default(uuid())
+  userId         String
+  provider       String
+  providerUserId String
+  email          String?
+  createdAt      DateTime @default(now())
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerUserId])
+  @@index([userId])
 }
 
 model Branch {
@@ -86,6 +167,17 @@ model User {
   avatar                String?         @db.Text
   /// Set when an administrator created the account or reset the password: the person must choose their own at next sign-in.
   mustChangePassword    Boolean         @default(false)
+  /// False for people who joined with Google, Facebook or LinkedIn and have not chosen a password yet.
+  passwordSet           Boolean         @default(true)
+  emailVerifiedAt       DateTime?
+  /// Authenticator-app secret, encrypted. It only counts once totpEnabledAt is set.
+  totpSecret            String?         @db.Text
+  totpEnabledAt         DateTime?
+  /// The newest 30-second step already used, so the same code cannot be used twice.
+  totpLastStep          Int?
+  /// SHA-256 fingerprints of the one-time recovery codes that have not been used yet.
+  recoveryCodes         Json?
+  identities            AuthIdentity[]
   savedViews            SavedView[]
   status                UserStatus      @default(ACTIVE)
   createdAt             DateTime        @default(now())
@@ -127,6 +219,10 @@ model Product {
   costPrice          Decimal?            @db.Decimal(14, 2)
   stockQuantity      Int                 @default(0)
   reorderLevel       Int                 @default(10)
+  /// Small picture (already shrunk by the browser) shown on the Home screen and product lists
+  imageUrl           String?             @db.Text
+  /// a small copy of the picture (about 128px) for lists, so long lists stay light
+  imageThumb         String?             @db.Text
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
   organization       Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)

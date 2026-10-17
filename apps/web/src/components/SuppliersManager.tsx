@@ -4,6 +4,7 @@ import AppShell from "./AppShell";
 import { api, ApiError } from "../lib/api";
 import { toast } from "../lib/toast";
 import { usePermissions } from "../hooks/usePermissions";
+import { currencySymbol, money } from "../lib/format";
 
 interface Contact { id: string; name: string; role: string | null; phone: string | null; email: string | null }
 interface Supplier {
@@ -11,7 +12,6 @@ interface Supplier {
   creditLimit: string | number | null; creditDays: number | null; leadTimeDays?: number | null; learnedLeadDays?: number | null; learnedFromOrders?: number; status: "ACTIVE" | "INACTIVE"; contacts: Contact[];
 }
 
-const money = new Intl.NumberFormat("en-GH", { style: "currency", currency: "GHS" });
 
 export default function SuppliersManager() {
   const [items, setItems] = useState<Supplier[] | null>(null);
@@ -22,6 +22,8 @@ export default function SuppliersManager() {
 
   function load() { api.get<Supplier[]>("/suppliers").then(setItems).catch(e => setError(e.message)); }
   useEffect(load, []);
+  // "+" quick-create menu opens this page with ?new=1
+  useEffect(() => { if (new URLSearchParams(window.location.search).get("new") === "1") setEditing("new"); }, []);
 
   async function remove(item: Supplier) {
     if (!confirm(`Delete supplier "${item.name}"?`)) return;
@@ -106,7 +108,7 @@ function SupplierModal({ item, onClose, onSaved }: { item: Supplier | null; onCl
           <label>Phone<input value={phone} onChange={e => setPhone(e.target.value)} placeholder="e.g. 0244 000 000" /></label>
           <label>Email<input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="e.g. sales@supplier.com" /></label>
           <label>Address<input value={address} onChange={e => setAddress(e.target.value)} placeholder="e.g. Industrial Area, Kumasi" /></label>
-          <label>Credit Limit (GHS)<input type="number" step="0.01" min="0" value={creditLimit} onChange={e => setCreditLimit(e.target.value)} placeholder="e.g. 50000" /></label>
+          <label>Credit Limit ({currencySymbol()})<input type="number" step="0.01" min="0" value={creditLimit} onChange={e => setCreditLimit(e.target.value)} placeholder="e.g. 50000" /></label>
           <label>Credit Days<input type="number" min="0" value={creditDays} onChange={e => setCreditDays(e.target.value)} placeholder="e.g. 30" /></label>
           <label>Delivery time (days)<input type="number" min="1" max="180" value={leadTime} onChange={e => setLeadTime(e.target.value)} placeholder={item?.learnedLeadDays ? `learned: about ${item.learnedLeadDays}` : "e.g. 5, or leave empty to learn it"} /></label>
           {error && <div className="error">{error}</div>}

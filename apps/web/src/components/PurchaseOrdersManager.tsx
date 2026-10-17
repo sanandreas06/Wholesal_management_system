@@ -6,6 +6,7 @@ import { api, ApiError } from "../lib/api";
 import { toast } from "../lib/toast";
 import { usePermissions } from "../hooks/usePermissions";
 import { usePolling } from "../hooks/usePolling";
+import { currencySymbol, money } from "../lib/format";
 
 interface Ref { id: string; name: string }
 interface ProductRef { id: string; name: string; sku: string }
@@ -16,7 +17,6 @@ interface PurchaseOrder {
   supplier: Ref; branch: Ref; items: POItem[]; receipts: Receipt[];
 }
 
-const money = new Intl.NumberFormat("en-GH", { style: "currency", currency: "GHS" });
 const STATUS_CLASS: Record<string, string> = { DRAFT: "inactive", SENT: "active", PARTIALLY_RECEIVED: "active", RECEIVED: "active", CLOSED: "inactive", CANCELLED: "inactive" };
 
 export default function PurchaseOrdersManager() {
@@ -36,6 +36,11 @@ export default function PurchaseOrdersManager() {
     api.get<ProductRef[]>("/products").then(setProducts).catch(() => {});
   }
   useEffect(load, []);
+  // links from Home arrive with ?open=<id>: show that one once the list is in
+  const [openId, setOpenId] = useState(() => (typeof window === "undefined" ? "" : new URLSearchParams(window.location.search).get("open") ?? ""));
+  useEffect(() => { if (!openId || !orders) return; const hit = orders.find(x => x.id === openId); if (hit) setViewing(hit); setOpenId(""); }, [orders, openId]);
+  // "+" quick-create menu opens this page with ?new=1
+  useEffect(() => { if (new URLSearchParams(window.location.search).get("new") === "1") setCreating(true); }, []);
   usePolling(load, 8000);
 
   async function send(po: PurchaseOrder) {
@@ -273,7 +278,7 @@ function ReceiveGoodsForm({ po, onCancel, onSaved }: { po: PurchaseOrder; onCanc
         );
       })}
       <label>Supplier Invoice Number<input value={invoiceNumber} onChange={e => setInvoiceNumber(e.target.value)} placeholder="e.g. INV-2026-0088" /></label>
-      <label>Supplier Invoice Amount (GHS)<input type="number" step="0.01" min="0" value={invoiceAmount} onChange={e => setInvoiceAmount(e.target.value)} /></label>
+      <label>Supplier Invoice Amount ({currencySymbol()})<input type="number" step="0.01" min="0" value={invoiceAmount} onChange={e => setInvoiceAmount(e.target.value)} /></label>
       {error && <div className="error">{error}</div>}
       <div className="modal-actions">
         <button type="button" className="secondary" onClick={onCancel}>Cancel</button>

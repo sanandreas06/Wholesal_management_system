@@ -38,7 +38,8 @@ export class UsersService {
   }
 
   async create(organizationId: string, dto: CreateUserDto) {
-    const existing = await this.prisma.user.findUnique({ where:{email:dto.email} });
+    dto.email = dto.email.trim().toLowerCase();
+    const existing = await this.prisma.user.findFirst({ where:{ email:{ equals:dto.email, mode:"insensitive" } } });
     if(existing) throw new ConflictException(`Email "${dto.email}" is already in use`);
     await this.assertBranchBelongsToOrg(organizationId, dto.branchId);
     const roleIds = dto.roleIds ?? [];
@@ -55,9 +56,19 @@ export class UsersService {
   }
 
   async update(organizationId: string, id: string, dto: UpdateUserDto) {
-    await this.get(organizationId, id);
+    const before = await this.get(organizationId, id);
     await this.assertBranchBelongsToOrg(organizationId, dto.branchId);
-    return this.prisma.user.update({ where:{id}, data:dto, select:userSelect });
+    const data: UpdateUserDto & { emailVerifiedAt?: null } = { ...dto };
+    if (dto.email !== undefined) {
+      const email = dto.email.trim().toLowerCase();
+      if (email === String(before.email).toLowerCase()) delete data.email;
+      else {
+        const taken = await this.prisma.user.findFirst({ where:{ email:{ equals:email, mode:"insensitive" }, NOT:{ id } }, select:{ id:true } });
+        if (taken) throw new ConflictException(`Email "${email}" is already in use`);
+        data.email = email; data.emailVerifiedAt = null;
+      }
+    }
+    return this.prisma.user.update({ where:{id}, data, select:userSelect });
   }
 
   async assignRoles(organizationId: string, id: string, dto: AssignRolesDto) {

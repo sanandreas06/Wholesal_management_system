@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { CONTACT_EMAIL, CONTACT_WHATSAPP } from "../../../lib/contact";
+import { CONTACT_EMAIL, CONTACT_HOURS, CONTACT_LOCATION, CONTACT_PHONE, CONTACT_WHATSAPP, telHref } from "../../../lib/contact";
 
 export const metadata: Metadata = { title: "Contact | WHOLESTRA", description: "Questions about WHOLESTRA and how it would work for your business." };
 
@@ -10,7 +10,10 @@ const FAQ = [
   ["Does it work on phones?", "Yes. The menu slides out, tables scroll sideways and dialogs fit the screen."],
   ["Can we bring in our Excel sales?", "Yes. Upload .xlsx or .csv files by branch and period. Rows that were already imported are not counted twice."],
   ["What happens if someone changes a price?", "The change is written to the change log with who did it, when, and the old and new values."],
-  ["Is my data safe on this demo?", "The demo uses sample data on free hosting. Please do not enter real customer or shop records."],
+  ["Can I try it without signing up?", "Yes. “Try the demo” on the home or sign-in page opens a sample company. It is read-only and shared, so please do not try to enter real records there."],
+  ["How do I create an account?", "Choose “Get started”, sign up with your email (we send a code to confirm it) or with Google, Facebook or LinkedIn, then fill in your company profile."],
+  ["How is my account protected?", "Every sign-in starts with a code sent to your email, and you can add an authenticator app such as Google Authenticator for a second lock."],
+  ["What is refer & earn?", "Introduce another business to WHOLESTRA. When it signs up with your link and our team confirms it, you earn up to US$30."],
 ];
 
 export default function Contact() {
@@ -21,12 +24,14 @@ export default function Contact() {
         <div className="lp-wrap lp-split">
           <div>
             <h2 className="lp-h2">Reach us</h2>
-            {CONTACT_WHATSAPP || CONTACT_EMAIL ? (
+            {CONTACT_WHATSAPP || CONTACT_EMAIL || CONTACT_PHONE ? (
               <div className="lp-contacts">
                 {CONTACT_WHATSAPP && <a href={`https://wa.me/${CONTACT_WHATSAPP}`} target="_blank" rel="noreferrer"><b>WhatsApp</b><span>+{CONTACT_WHATSAPP}</span></a>}
+                {CONTACT_PHONE && <a href={telHref(CONTACT_PHONE)}><b>Call us</b><span>{CONTACT_PHONE}</span></a>}
                 {CONTACT_EMAIL && <a href={`mailto:${CONTACT_EMAIL}`}><b>Email</b><span>{CONTACT_EMAIL}</span></a>}
               </div>
-            ) : <p className="lp-sub">Contact details are not published on this site yet. The quickest way is to prepare a message on the <Link href="/get-started">Get started</Link> page and send it to the person who shared this site with you.</p>}
+            ) : <p className="lp-sub">Contact details are not published on this site yet. You can <Link href="/get-started">create an account</Link> or try the demo in the meantime.</p>}
+            <p className="lp-sub">{CONTACT_HOURS}. {CONTACT_LOCATION}.</p>
           </div>
           <div className="lp-faq">
             <h2 className="lp-h2">Common questions</h2>

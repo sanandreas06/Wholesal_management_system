@@ -6,6 +6,7 @@ import { toast } from "../lib/toast";
 import { exportCsv } from "../lib/exportCsv";
 import { usePermissions } from "../hooks/usePermissions";
 import { ContactsModal } from "./SuppliersManager";
+import { currencySymbol, money } from "../lib/format";
 
 interface Contact { id: string; name: string; role: string | null; phone: string | null; email: string | null }
 interface Customer {
@@ -13,7 +14,6 @@ interface Customer {
   creditLimit: string | number | null; creditDays: number | null; status: "ACTIVE" | "INACTIVE"; contacts: Contact[];
 }
 
-const money = new Intl.NumberFormat("en-GH", { style: "currency", currency: "GHS" });
 
 export default function CustomersManager() {
   const [items, setItems] = useState<Customer[] | null>(null);
@@ -24,6 +24,8 @@ export default function CustomersManager() {
 
   function load() { api.get<Customer[]>("/customers").then(setItems).catch(e => setError(e.message)); }
   useEffect(load, []);
+  // "+" quick-create menu opens this page with ?new=1
+  useEffect(() => { if (new URLSearchParams(window.location.search).get("new") === "1") setEditing("new"); }, []);
 
   async function remove(item: Customer) {
     if (!confirm(`Delete customer "${item.name}"?`)) return;
@@ -111,7 +113,7 @@ function CustomerModal({ item, onClose, onSaved }: { item: Customer | null; onCl
           <label>Phone<input value={phone} onChange={e => setPhone(e.target.value)} placeholder="e.g. 0244 000 000" /></label>
           <label>Email<input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="e.g. orders@customer.com" /></label>
           <label>Address<input value={address} onChange={e => setAddress(e.target.value)} placeholder="e.g. Adum, Kumasi" /></label>
-          <label>Credit Limit (GHS)<input type="number" step="0.01" min="0" value={creditLimit} onChange={e => setCreditLimit(e.target.value)} placeholder="e.g. 20000" /></label>
+          <label>Credit Limit ({currencySymbol()})<input type="number" step="0.01" min="0" value={creditLimit} onChange={e => setCreditLimit(e.target.value)} placeholder="e.g. 20000" /></label>
           <label>Credit Days<input type="number" min="0" value={creditDays} onChange={e => setCreditDays(e.target.value)} placeholder="e.g. 14" /></label>
           {error && <div className="error">{error}</div>}
           <div className="modal-actions">

@@ -10,6 +10,8 @@ import ToastHost from "./ToastHost";
 import Avatar from "./Avatar";
 import Logo from "./Logo";
 import ProfileModal, { Profile } from "./ProfileModal";
+import ContactBlock from "./ContactBlock";
+import "./app-extra.css";
 
 type Item = { href: string; label: string; permission: string | null };
 type Entry = { kind: "link"; icon: string; item: Item } | { kind: "group"; icon: string; label: string; items: Item[] };
@@ -40,12 +42,37 @@ const NAV: Entry[] = [
   { kind: "link", icon: "sheet", item: { href: "/imports", label: "Excel Import", permission: "EXCEL_IMPORT:READ" } },
   { kind: "link", icon: "shield", item: { href: "/audit", label: "Audit & Fraud Signals", permission: "AUDIT:READ" } },
   { kind: "group", icon: "gear", label: "Administration", items: [
+    { href: "/settings", label: "All settings", permission: null },
     { href: "/organization", label: "Organization", permission: "ORGANIZATION:READ" },
     { href: "/regions", label: "Regions", permission: "REGIONS:READ" },
     { href: "/branches", label: "Branches", permission: "BRANCHES:READ" },
     { href: "/users", label: "Users", permission: "USERS:READ" },
     { href: "/roles", label: "Roles", permission: "ROLES:READ" }
-  ] }
+  ] },
+  { kind: "link", icon: "gift", item: { href: "/referrals", label: "Refer & earn", permission: null } }
+];
+
+/** The "+" menu in the top bar, grouped like the sidebar. Each item shows only for people allowed to create that thing. */
+const QUICK: { group: string; items: { label: string; href: string; permission: string }[] }[] = [
+  { group: "General", items: [
+    { label: "Product", href: "/products?new=1", permission: "PRODUCTS:CREATE" },
+    { label: "User", href: "/users?new=1", permission: "USERS:CREATE" },
+    { label: "Branch", href: "/branches?new=1", permission: "BRANCHES:CREATE" },
+  ] },
+  { group: "Inventory", items: [
+    { label: "Stock adjustment", href: "/stock-adjustments?new=1", permission: "STOCK_ADJUSTMENTS:CREATE" },
+    { label: "Stock transfer", href: "/stock-transfers?new=1", permission: "STOCK_TRANSFERS:CREATE" },
+    { label: "Stock count", href: "/stock-counts?new=1", permission: "STOCK_COUNTS:CREATE" },
+  ] },
+  { group: "Sales", items: [
+    { label: "Sale / invoice", href: "/sales?new=1", permission: "SALES:CREATE" },
+    { label: "Customer", href: "/customers?new=1", permission: "CUSTOMERS:CREATE" },
+  ] },
+  { group: "Purchases", items: [
+    { label: "Purchase order", href: "/purchase-orders?new=1", permission: "PURCHASING:CREATE" },
+    { label: "Supplier", href: "/suppliers?new=1", permission: "SUPPLIERS:CREATE" },
+    { label: "Expense", href: "/finance?tab=expenses&new=1", permission: "EXPENSES:CREATE" },
+  ] },
 ];
 
 const ICONS: Record<string, string> = {
@@ -56,9 +83,15 @@ const ICONS: Record<string, string> = {
   coins: "M12 3a8 8 0 100 16 8 8 0 000-16zM12 7v8M9.5 10c0-1 1-1.6 2.5-1.6s2.5.6 2.5 1.6-1 1.5-2.5 1.7-2.5.7-2.5 1.700 1 1.600 2.500 1.600 2.500-.6 2.500-1.600",
   trend: "M3 17l6-6 4 4 8-8M15 7h6v6",
   sheet: "M6 3h9l4 4v14H6V3zM14 3v5h5M9 13h6M9 17h6",
+  gift: "M4 11h16v10H4zM3 7h18v4H3zM12 7v14M12 7c-1.500-3-5-3.500-5-1.200C7 7 9 7 12 7zM12 7c1.500-3 5-3.500 5-1.200C17 7 15 7 12 7z",
+  plus: "M12 5v14M5 12h14",
   shield: "M12 3l8 3v6c0 5-3.500 8-8 9-4.500-1-8-4-8-9V6l8-3zM9 12l2 2 4-4",
   gear: "M12 9a3 3 0 100 6 3 3 0 000-6zM19 12l2-1-2-4-2 .7-1.500-1L15 4h-4l-.5 2.700-1.500 1L7 7l-2 4 2 1v2l-2 1 2 4 2-.7 1.500 1L11 20h4l.5-2.700 1.500-1 2 .7 2-4-2-1v-2z"
 };
+/** Friendly names for the built-in role codes; a company's own roles show their code as it is. */
+const ROLE_NAMES: Record<string, string> = { SUPER_ADMIN: "Owner", ORGANIZATION_ADMIN: "Administrator", REGIONAL_MANAGER: "Regional manager", BRANCH_MANAGER: "Branch manager", SALES_USER: "Sales", INVENTORY_USER: "Inventory", DEMO_VIEWER: "Demo viewer" };
+const roleName = (code?: string) => (code ? ROLE_NAMES[code] ?? code.replace(/_/g, " ").toLowerCase().replace(/^./, (c) => c.toUpperCase()) : "");
+
 function Icon({ name }: { name: string }) {
   return (
     <svg className="nav-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -81,6 +114,7 @@ export default function AppShell({ title, children }: { title: string; children:
   const [navOpen, setNavOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [quickOpen, setQuickOpen] = useState(false);
   useEffect(() => {
     try { const c = sessionStorage.getItem("wms_profile"); if (c) setProfile(JSON.parse(c)); } catch { /* cache is optional */ }
     api.get<Profile>("/profile").then(p => { setProfile(p); try { sessionStorage.setItem("wms_profile", JSON.stringify(p)); } catch { /* ignore */ } }).catch(() => {});
@@ -97,7 +131,9 @@ export default function AppShell({ title, children }: { title: string; children:
 
   useEffect(() => {
     const u = getSessionUser();
-    if (!u) { router.replace("/login"); return; }
+    if (!u) { router.replace(`/login?next=${encodeURIComponent(window.location.pathname + window.location.search)}`); return; }
+    // a brand-new company fills in its profile first
+    if (u.setupPending && !u.demo) { router.replace("/setup"); return; }
     setUser(u);
   }, [router]);
 
@@ -113,6 +149,7 @@ export default function AppShell({ title, children }: { title: string; children:
     .filter((e): e is Entry => !!e && (e.kind === "link" || e.items.length > 0));
 
   const can = (p: string) => !!user?.permissions.includes(p);
+  const quick = QUICK.map(g => ({ ...g, items: g.items.filter(i => can(i.permission)) })).filter(g => g.items.length);
   const commands: Cmd[] = [
     ...(can("SALES:CREATE") ? [{ id: "a-sale", label: "New sale", group: "Actions", href: "/sales?new=1" }] : []),
     ...(can("PRODUCTS:CREATE") ? [{ id: "a-product", label: "Add product", group: "Actions", href: "/products?new=1" }] : []),
@@ -189,6 +226,25 @@ export default function AppShell({ title, children }: { title: string; children:
             <span className="search-ph">Search products, invoices, customers...</span><kbd>Ctrl K</kbd>
           </button>
           <div className="topbar-actions">
+            {user?.organization && <span className="org-chip" title="Your company">{user.organization}</span>}
+            {quick.length > 0 && (
+              <div className="bell-wrap">
+                <button type="button" className="quick-btn" onClick={() => setQuickOpen(o => !o)} aria-haspopup="menu" aria-expanded={quickOpen} aria-label="Create new" title="Create new">
+                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true"><path d={ICONS.plus} /></svg>
+                </button>
+                {quickOpen && <>
+                  <div className="bell-backdrop" onClick={() => setQuickOpen(false)} />
+                  <div className="quick-menu" role="menu" aria-label="Create new">
+                    {quick.map(g => (
+                      <div key={g.group} className="quick-col">
+                        <div className="quick-h">{g.group}</div>
+                        {g.items.map(i => <a key={i.href} href={i.href} role="menuitem" onClick={() => setQuickOpen(false)}><span aria-hidden="true">+</span>{i.label}</a>)}
+                      </div>
+                    ))}
+                  </div>
+                </>}
+              </div>
+            )}
             <div className="bell-wrap">
               <button type="button" className="theme-toggle bell" onClick={() => setBellOpen(o => !o)} aria-label={`Notifications${notes.badgeCount ? `, ${notes.badgeCount} need attention` : ""}`} title="Notifications">
                 🔔{notes.badgeCount > 0 && <span className="bell-badge">{notes.badgeCount}</span>}
@@ -211,25 +267,45 @@ export default function AppShell({ title, children }: { title: string; children:
               <div className="user-wrap">
                 <button type="button" className="user-chip" onClick={() => setMenuOpen(o => !o)} aria-haspopup="menu" aria-expanded={menuOpen}>
                   <Avatar avatar={profile?.avatar} name={profile?.name ?? user.name} size={36} />
-                  <span className="who-text"><strong>{profile?.name ?? user.name}</strong><span>{user.roles?.[0] ?? user.branch ?? ""}</span></span>
+                  <span className="who-text"><strong>{profile?.name ?? user.name}</strong><span>{roleName(user.roles?.[0]) || user.branch || ""}</span></span>
                   <span className="chev-d">▾</span>
                 </button>
                 {menuOpen && <>
                   <div className="bell-backdrop" onClick={() => setMenuOpen(false)} />
                   <div className="user-menu" role="menu">
+                    {user.organization && <div className="user-menu-org"><small>Company</small><strong>{user.organization}</strong></div>}
                     <button type="button" role="menuitem" onClick={() => { setMenuOpen(false); setProfileOpen(true); }}>My profile</button>
+                    <button type="button" role="menuitem" onClick={() => { setMenuOpen(false); router.push("/settings/security"); }}>Sign-in & security</button>
                     <button type="button" role="menuitem" onClick={() => { setMenuOpen(false); setHelpOpen(true); }}>Keyboard shortcuts</button>
                     <button type="button" role="menuitem" className="danger" onClick={signOut}>Sign out</button>
                   </div>
                 </>}
               </div>
             )}
+            <a href="/settings" className={"theme-toggle gear" + (pathname?.startsWith("/settings") ? " on" : "")} aria-label="Settings" title="Settings">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={ICONS.gear} /></svg>
+            </a>
             <button className="theme-toggle" onClick={toggle} aria-label="Toggle dark mode" title={theme === "light" ? "Switch to dark mode" : "Switch to light mode"}>
               {theme === "light" ? "🌙" : "☀️"}
             </button>
           </div>
         </header>
+        {user?.demo && (
+          <div className="demo-bar" role="status">
+            <span className="demo-tag">Demo account</span>
+            <span>You are looking around a sample company. Everything is read-only, and the data is not real.</span>
+            <a href="/get-started" onClick={() => clearSession()}>Sign up now, it&apos;s free →</a>
+          </div>
+        )}
+        {user && !user.demo && /\.(local|localhost|test|invalid)$/i.test(user.email) && !pathname?.startsWith("/settings/security") && (
+          <div className="demo-bar warn-bar" role="alert">
+            <span className="demo-tag">Action needed</span>
+            <span>Your sign-in email <b>{user.email}</b> is not a real inbox. Sign-in codes are sent by email, so change it to an address you can open.</span>
+            <a href="/settings/security">Change email →</a>
+          </div>
+        )}
         <main className="page">{children}</main>
+        <ContactBlock variant="footer" />
       </div>
       <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} commands={commands} />
       <ToastHost />

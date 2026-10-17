@@ -33,6 +33,11 @@ export default function StockTransfersManager() {
     api.get<ProductRef[]>("/products").then(setProducts).catch(() => {});
   }
   useEffect(load, []);
+  // links from Home arrive with ?open=<id>: show that one once the list is in
+  const [openId, setOpenId] = useState(() => (typeof window === "undefined" ? "" : new URLSearchParams(window.location.search).get("open") ?? ""));
+  useEffect(() => { if (!openId || !transfers) return; const hit = transfers.find(x => x.id === openId); if (hit) setViewing(hit); setOpenId(""); }, [transfers, openId]);
+  // "+" quick-create menu opens this page with ?new=1
+  useEffect(() => { if (new URLSearchParams(window.location.search).get("new") === "1") setCreating(true); }, []);
   usePolling(load, 8000);
   usePolling(() => { if (viewing) refreshViewing(viewing.id); }, 6000, !!viewing);
 

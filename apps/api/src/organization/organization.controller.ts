@@ -5,7 +5,7 @@ import { RequirePermissions } from "../common/decorators/permissions.decorator";
 import { CurrentUser } from "../common/decorators/current-user.decorator";
 import { AuthUser } from "../common/types/auth-user.type";
 import { OrganizationService } from "./organization.service";
-import { UpdateOrganizationDto } from "./dto/update-organization.dto";
+import { SetupOrganizationDto, UpdateOrganizationDto } from "./dto/update-organization.dto";
 
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 @Controller("organization")
@@ -16,7 +16,15 @@ export class OrganizationController {
   @RequirePermissions("ORGANIZATION:READ")
   get(@CurrentUser() user: AuthUser) { return this.organization.get(user.organizationId); }
 
+  /** Name, logo and contact details for invoices and printouts: no permission needed beyond being signed in. */
+  @Get("brand")
+  brand(@CurrentUser() user: AuthUser) { return this.organization.brand(user.organizationId); }
+
   @Put()
   @RequirePermissions("ORGANIZATION:UPDATE")
   update(@CurrentUser() user: AuthUser, @Body() dto: UpdateOrganizationDto) { return this.organization.update(user.organizationId, dto); }
+
+  @Put("setup")
+  @RequirePermissions("ORGANIZATION:UPDATE")
+  setup(@CurrentUser() user: AuthUser, @Body() dto: SetupOrganizationDto) { return this.organization.setup(user.organizationId, dto); }
 }

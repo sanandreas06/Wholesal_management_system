@@ -28,6 +28,8 @@ export default function StockCountsManager() {
     api.get<Ref[]>("/branches?own=1").then(setBranches).catch(() => {});
   }
   useEffect(load, []);
+  // "+" quick-create menu opens this page with ?new=1
+  useEffect(() => { if (new URLSearchParams(window.location.search).get("new") === "1") setCreating(true); }, []);
 
   function refreshViewing(id: string) { api.get<StockCount>(`/stock-counts/${id}`).then(setViewing).catch(() => {}); }
 

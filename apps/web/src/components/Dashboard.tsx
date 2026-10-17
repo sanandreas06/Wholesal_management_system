@@ -10,6 +10,16 @@ import { api } from "../lib/api";
 import { toast } from "../lib/toast";
 import { usePolling } from "../hooks/usePolling";
 import { getSessionUser } from "../lib/session";
+import HomeTracking from "./home/HomeTracking";
+import GettingStarted from "./home/GettingStarted";
+
+const TABS = [
+  { id: "overview", label: "Dashboard" },
+  { id: "tracking", label: "Products & tracking" },
+  { id: "start", label: "Getting started" },
+] as const;
+type Tab = (typeof TABS)[number]["id"];
+import { money, moneyShort } from "../lib/format";
 
 type Summary = {
   period: { days: number; from: string; to: string };
@@ -32,8 +42,6 @@ type Summary = {
 };
 type Branch = { id: string; name: string };
 
-const money = new Intl.NumberFormat("en-GH", { style: "currency", currency: "GHS" });
-const moneyShort = new Intl.NumberFormat("en-GH", { style: "currency", currency: "GHS", maximumFractionDigits: 0 });
 const PERIODS = [7, 30, 90];
 const COLORS = ["var(--c1)", "var(--c2)", "var(--c3)", "var(--c4)", "var(--c5)"];
 const TYPE_LABEL: Record<string, string> = {
@@ -63,11 +71,26 @@ export default function Dashboard() {
   const [branches, setBranches] = useState<Branch[]>([]);
   const [firstName, setFirstName] = useState("");
   const [perms, setPerms] = useState<string[]>([]);
+  const [tab, setTabState] = useState<Tab>("overview");
+  const [company, setCompany] = useState("");
+  // the tab lives in the address (?tab=tracking) so it can be bookmarked and the Back button works
+  useEffect(() => {
+    const read = () => { const t = new URLSearchParams(window.location.search).get("tab"); setTabState(TABS.some((x) => x.id === t) ? (t as Tab) : "overview"); };
+    read(); window.addEventListener("popstate", read);
+    return () => window.removeEventListener("popstate", read);
+  }, []);
+  function setTab(t: Tab) {
+    setTabState(t);
+    const u = new URL(window.location.href);
+    if (t === "overview") u.searchParams.delete("tab"); else u.searchParams.set("tab", t);
+    window.history.pushState(null, "", u.pathname + u.search);
+  }
 
   useEffect(() => {
     const u = getSessionUser();
     setFirstName((u?.name ?? "").split(" ")[0]);
     setPerms(u?.permissions ?? []);
+    setCompany(u?.organization ?? "");
     api.get<Branch[]>("/branches?own=1").then(setBranches).catch(() => {});
   }, []);
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
@@ -100,10 +123,26 @@ export default function Dashboard() {
 
   return (
     <AppShell title="">
+      <div className="home-top">
+        <div className="home-hello">
+          <span className="home-av" aria-hidden="true">{(company || firstName || "W").slice(0, 1).toUpperCase()}</span>
+          <div>
+            <h1>Hello{firstName ? `, ${firstName}` : ""}</h1>
+            <p>{company || "Your company"}</p>
+          </div>
+        </div>
+        <nav className="home-tabs" role="tablist" aria-label="Home">
+          {TABS.map((t) => <button key={t.id} type="button" role="tab" aria-selected={tab === t.id} className={tab === t.id ? "on" : ""} onClick={() => setTab(t.id)}>{t.label}</button>)}
+        </nav>
+      </div>
+
+      {tab === "tracking" && <HomeTracking />}
+      {tab === "start" && <GettingStarted />}
+      {tab === "overview" && <>
       <div className="dash-head">
         <div>
           <h1>Dashboard</h1>
-          <p>Welcome back{firstName ? `, ${firstName}` : ""}. Here&apos;s what&apos;s happening with your business.</p>
+          <p>Here&apos;s what&apos;s happening with your business.</p>
         </div>
         <div className="filters">
           <button type="button" className="live-pill" onClick={() => load(true)} title="Refresh now" aria-label="Refresh now"><span className="live-dot" />Live{updatedText ? ` · ${updatedText}` : ""} ↻</button>
@@ -218,7 +257,7 @@ export default function Dashboard() {
             <div className="card2-head"><h3>Stock Alerts{k.lowStock > 0 && <span className="count-pill">{k.lowStock}</span>}</h3><span>{can("PURCHASING:READ") && <Link href="/reorder">Reorder →</Link>}{can("INVENTORY:READ") && <Link href="/inventory" style={{ marginLeft: 12 }}>View all →</Link>}</span></div>
             {s.stockAlerts.length === 0 ? <p className="empty">Nothing needs restocking right now.</p> : (
               <ul className="alerts">{s.stockAlerts.map((a) => (
-                <li key={a.sku}><span className={`aic ${a.level}`}>!</span>
+                <li key={`${a.sku}-${a.branch}`}><span className={`aic ${a.level}`}>!</span>
                   <div><strong>{a.level === "out" ? "Out of stock" : "Low stock"}</strong>
                     <span className="t">{a.name} at {a.branch}: {a.level === "out" ? "none left" : `${a.stock} left${a.daysLeft !== null ? `, about ${a.daysLeft} days of stock` : ""}`}. Suggest ordering {a.suggestedQty}.</span></div></li>
               ))}</ul>
@@ -254,6 +293,7 @@ export default function Dashboard() {
             {s.insights.length === 0 ? <p className="sub">Not enough data yet.</p> : <ul>{s.insights.map((t, i) => <li key={i}>{t}</li>)}</ul>}
           </article>
         </section>
+      </>}
       </>}
     </AppShell>
   );

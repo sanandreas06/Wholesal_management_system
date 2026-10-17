@@ -28,7 +28,8 @@ const WATCHED: Record<string, [string, string]> = {
   "expense-categories": ["expenseCategory", "Expense category"],
   "variance-cases": ["varianceCase", "Variance case"],
 };
-const HIDDEN = new Set(["passwordHash", "password", "createdAt", "updatedAt", "refreshToken"]);
+// pictures are left out of the log: they are large and the log is for who-changed-what, not for storing images
+const HIDDEN = new Set(["passwordHash", "password", "createdAt", "updatedAt", "refreshToken", "logo", "imageUrl", "imageThumb", "avatar", "totpSecret", "recoveryCodes"]);
 const SUB_ACTIONS: Record<string, string> = {
   permissions: "PERMISSIONS CHANGED", roles: "ROLES CHANGED", activate: "ACTIVATED", deactivate: "DEACTIVATED",
   approve: "APPROVED", reject: "REJECTED", status: "STATUS CHANGED",

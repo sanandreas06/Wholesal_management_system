@@ -26,6 +26,8 @@ export default function UsersManager() {
     api.get<{ id: string; name: string; code: string }[]>("/roles").then(setRoles).catch(() => {});
   }
   useEffect(load, []);
+  // "+" quick-create menu opens this page with ?new=1
+  useEffect(() => { if (new URLSearchParams(window.location.search).get("new") === "1") setEditing("new"); }, []);
 
   async function setStatus(user: User, action: "activate" | "deactivate") {
     try { await api.patch(`/users/${user.id}/${action}`); load(); }
@@ -112,7 +114,7 @@ function UserModal({ user, branches, roles, onClose, onSaved }: { user: User | n
   async function submit(e: FormEvent) {
     e.preventDefault(); setSaving(true); setError("");
     try {
-      if (user) await api.put(`/users/${user.id}`, { name, branchId: branchId || undefined });
+      if (user) await api.put(`/users/${user.id}`, { name, branchId: branchId || undefined, ...(email.trim().toLowerCase() !== user.email.toLowerCase() ? { email: email.trim() } : {}) });
       else await api.post("/users", { name, email, password, branchId: branchId || undefined, roleIds });
       onSaved();
     } catch (e) { setError(e instanceof ApiError ? e.message : "Save failed"); }
@@ -126,7 +128,7 @@ function UserModal({ user, branches, roles, onClose, onSaved }: { user: User | n
         <h2>{user ? "Edit User" : "New User"}</h2>
         <form onSubmit={submit}>
           <label>Name<input value={name} onChange={e => setName(e.target.value)} required /></label>
-          <label>Email<input type="email" value={email} onChange={e => setEmail(e.target.value)} required disabled={!!user} /></label>
+          <label>Email<input type="email" value={email} onChange={e => setEmail(e.target.value)} required />{user && <span className="field-hint">Sign-in codes go to this address, so it must be an inbox the person can open.</span>}</label>
           {!user && <label>Password<input type="password" value={password} onChange={e => setPassword(e.target.value)} minLength={8} required /></label>}
           <label>Branch
             <select value={branchId} onChange={e => setBranchId(e.target.value)}>

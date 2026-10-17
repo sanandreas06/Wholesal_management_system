@@ -7,14 +7,18 @@ import { exportCsv } from "../lib/exportCsv";
 import SavedViews from "./SavedViews";
 import AliasEditor from "./AliasEditor";
 import { usePermissions } from "../hooks/usePermissions";
+import { currencySymbol, money } from "../lib/format";
+import { shrinkImage } from "../lib/image";
+import ProductThumb from "./home/ProductThumb";
 
 interface Ref { id: string; name: string }
 interface Product {
   id: string; sku: string; name: string; unitPrice: string | number; costPrice?: string | number | null; stockQuantity: number; reorderLevel: number;
   categoryRef: Ref | null; brand: Ref | null; unit: Ref | null;
+  /** small picture for lists; the full one comes from /products/:id */
+  imageThumb?: string | null;
 }
 
-const money = new Intl.NumberFormat("en-GH", { style: "currency", currency: "GHS" });
 
 export default function ProductsManager() {
   const [products, setProducts] = useState<Product[] | null>(null);
@@ -77,7 +81,7 @@ export default function ProductsManager() {
                 return (
                   <tr key={p.id}>
                     <td>{p.sku}</td>
-                    <td>{p.name}</td>
+                    <td><span className="pname"><ProductThumb name={p.name} src={p.imageThumb} size={34} />{p.name}</span></td>
                     <td>{p.categoryRef?.name || "—"}</td>
                     <td>{p.brand?.name || "—"}</td>
                     <td>{p.unit?.name || "—"}</td>
@@ -125,6 +129,24 @@ function ProductModal({ product, categories, brands, units, canProfit, onClose, 
   const [reorderLevel, setReorderLevel] = useState(product ? String(product.reorderLevel) : "10");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
+  // picture: undefined = unchanged, "" = remove, data URL = new one
+  const [image, setImage] = useState<{ full: string; thumb: string } | undefined>(undefined);
+  const [current, setCurrent] = useState<string | null>(product?.imageThumb ?? null);
+  const [picking, setPicking] = useState(false);
+  useEffect(() => {
+    if (!product?.imageThumb) return;
+    api.get<{ imageUrl?: string | null }>(`/products/${product.id}`).then(p => { if (p.imageUrl) setCurrent(p.imageUrl); }).catch(() => {});
+  }, [product]);
+  async function pickImage(f: File | undefined) {
+    if (!f) return;
+    setPicking(true); setError("");
+    try {
+      const [full, thumb] = await Promise.all([shrinkImage(f, { maxSide: 640, maxChars: 68000 }), shrinkImage(f, { maxSide: 128, maxChars: 13000 })]);
+      setImage({ full, thumb });
+    } catch (e) { setError((e as Error).message); }
+    finally { setPicking(false); }
+  }
+  const shownImage = image === undefined ? current : image.full || null;
 
   const price = Number(unitPrice), cost = Number(costPrice);
   const showMargin = canProfit && unitPrice !== "" && costPrice !== "" && price > 0;
@@ -138,6 +160,7 @@ function ProductModal({ product, categories, brands, units, canProfit, onClose, 
       categoryId: categoryId || undefined, brandId: brandId || undefined, unitId: unitId || undefined,
       unitPrice: Number(unitPrice), ...(canProfit && costPrice !== "" ? { costPrice: Number(costPrice) } : {}),
       reorderLevel: Number(reorderLevel),
+      ...(image !== undefined ? { imageUrl: image.full, imageThumb: image.thumb } : {}),
       // stock on an existing product changes only through stock adjustments, so it stays in the ledger
       ...(product ? {} : { stockQuantity: Number(stockQuantity) })
     };
@@ -177,6 +200,20 @@ function ProductModal({ product, categories, brands, units, canProfit, onClose, 
           </section>
 
           <section>
+            <h4>Picture</h4>
+            <div className="pm-pic">
+              <label className="pm-pic-box" aria-label={shownImage ? "Change the picture" : "Add a picture"}>
+                {shownImage ? <img src={shownImage} alt="" /> : <span>{picking ? "..." : "+"}<small>{picking ? "Preparing" : "Add picture"}</small></span>}
+                <input type="file" accept="image/png,image/jpeg,image/webp" hidden onChange={e => { pickImage(e.target.files?.[0]); e.target.value = ""; }} />
+              </label>
+              <div className="pm-pic-text">
+                <p className="muted fine">A clear photo of the product or its pack helps staff pick the right item. It is made smaller for you.</p>
+                {shownImage && <button type="button" className="secondary" onClick={() => setImage({ full: "", thumb: "" })}>Remove picture</button>}
+              </div>
+            </div>
+          </section>
+
+          <section>
             <h4>Classification</h4>
             <div className="form-grid three">
               {select("Category", categoryId, setCategoryId, categories, "Categories")}
@@ -188,15 +225,15 @@ function ProductModal({ product, categories, brands, units, canProfit, onClose, 
           <section>
             <h4>Pricing</h4>
             <div className="form-grid">
-              <label>Selling price (GHS)<input type="number" step="0.01" min="0" value={unitPrice} onChange={e => setUnitPrice(e.target.value)} placeholder="0.00" required /></label>
+              <label>Selling price ({currencySymbol()})<input type="number" step="0.01" min="0" value={unitPrice} onChange={e => setUnitPrice(e.target.value)} placeholder="0.00" required /></label>
               {canProfit && (
-                <label>Cost price (GHS)<input type="number" step="0.01" min="0" value={costPrice} onChange={e => setCostPrice(e.target.value)} placeholder="What one unit costs you" />
+                <label>Cost price ({currencySymbol()})<input type="number" step="0.01" min="0" value={costPrice} onChange={e => setCostPrice(e.target.value)} placeholder="What one unit costs you" />
                   <span className="field-hint">Updates itself when you receive goods on a purchase order.</span></label>
               )}
             </div>
             {showMargin && (
               <div className={"margin-chip " + (margin < 10 ? "low" : "ok")}>
-                Profit per unit <strong>GHS {profit.toFixed(2)}</strong> · margin <strong>{margin.toFixed(1)}%</strong>
+                Profit per unit <strong>{money.format(profit)}</strong> · margin <strong>{margin.toFixed(1)}%</strong>
                 {margin < 10 && <span> · thin margin, check the prices</span>}
               </div>
             )}

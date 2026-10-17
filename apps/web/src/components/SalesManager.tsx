@@ -30,6 +30,15 @@ function payState(s: Sale): [string, string] {
   return paidOf(s) > 0 ? ["Partial", "medium"] : ["Unpaid", "high"];
 }
 
+type Brand = { name: string; logo: string | null; address: string | null; phone: string | null; email: string | null; website: string | null; taxId: string | null; currency: string };
+let brandCache: Brand | null = null;
+/** The company's name, logo and contact details for the top of an invoice (fetched once per page). */
+async function loadBrand(): Promise<Brand | null> {
+  if (brandCache) return brandCache;
+  try { brandCache = await api.get<Brand>("/organization/brand"); } catch { /* print without it */ }
+  return brandCache;
+}
+
 export default function SalesManager() {
   const [sales, setSales] = useState<Sale[] | null>(null);
   const [branches, setBranches] = useState<Ref[]>([]);
@@ -321,16 +330,20 @@ function SaleDetailModal({ sale, canUpdate, canPay, canReturn, onClose, onUpdate
     if (!confirm(`Void ${sale.invoiceNumber}? Stock will be restored.`)) return;
     run(() => api.patch<Sale>(`/sales/${sale.id}/void`));
   }
-  function printInvoice() {
+  async function printInvoice() {
+    // the window must open straight from the click (or pop-up blockers stop it); the company's details are filled in a moment later
     const w = window.open("", "_blank", "width=820,height=1000");
     if (!w) { toast.error("Your browser blocked the invoice window. Allow pop-ups for this site and try again."); return; }
+    w.document.write("<p style=\"font-family:sans-serif;padding:24px\">Preparing the invoice...</p>");
+    const b = await loadBrand();
     const esc = (t: string) => t.replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c] as string));
     const rows = sale.items.map(i => `<tr><td>${esc(i.product.name)}<small>${esc(i.product.sku)}</small></td><td class="r">${i.quantity}</td><td class="r">${money(i.unitPrice)}</td><td class="r">${money(i.lineTotal)}</td></tr>`).join("");
     const pays = sale.payments.map(p => `<tr><td>${new Date(p.receivedAt).toLocaleDateString()}</td><td>${esc(p.method.replace("_", " "))}</td><td class="r">${money(p.amount)}</td></tr>`).join("");
+    w.document.open();
     w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${esc(sale.invoiceNumber)}</title><style>
       @page{margin:16mm}*{box-sizing:border-box}body{font-family:'Segoe UI',Arial,sans-serif;color:#1a2332;margin:0;padding:8px;font-size:13px}
       .top{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #2563eb;padding-bottom:14px}
-      .brand{font-size:22px;font-weight:800;letter-spacing:.12em;color:#2563eb}.brand small{display:block;font-size:11px;color:#6b7280;font-weight:500}
+      .brand{display:flex;gap:14px;align-items:flex-start;max-width:60%}.brand img{max-width:84px;max-height:84px;object-fit:contain}.brand .co{display:block;font-size:20px;font-weight:800;color:#1a2332;margin-bottom:3px}.brand small{display:block;font-size:11px;color:#6b7280;font-weight:500;line-height:1.5}
       h1{margin:0;font-size:26px;text-align:right}.top .r small{display:block;color:#6b7280;font-weight:500}
       .void{color:#b42318;border:2px solid #b42318;display:inline-block;padding:2px 10px;font-weight:800;margin-top:6px;transform:rotate(-4deg)}
       .meta{display:grid;grid-template-columns:1fr 1fr;gap:6px 30px;margin:18px 0}.meta b{display:block;font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:#6b7280}
@@ -342,11 +355,11 @@ function SaleDetailModal({ sale, canUpdate, canPay, canReturn, onClose, onUpdate
       .hint{background:#eff6ff;color:#1e40af;padding:8px 12px;border-radius:8px;margin-bottom:14px;font-size:12px}@media print{.hint{display:none}}
     </style></head><body>
       <div class="hint">To save as a PDF, choose <b>Save as PDF</b> as the printer in the window that opens.</div>
-      <div class="top"><div class="brand">WHOLESTRA<small>Wholesale management</small></div><div class="r"><h1>INVOICE</h1><small>${esc(sale.invoiceNumber)}</small>${voided ? '<div class="void">VOIDED</div>' : ""}</div></div>
+      <div class="top"><div class="brand">${b?.logo && /^data:image\/(png|jpeg|webp);base64,/.test(b.logo) ? `<img src="${b.logo}" alt="">` : ""}<div><span class="co">${esc(b?.name || "WHOLESTRA")}</span>${[b?.address, b?.phone, b?.email, b?.website, b?.taxId ? `TIN ${b.taxId}` : ""].filter(Boolean).map(x => `<small>${esc(String(x))}</small>`).join("")}</div></div><div class="r"><h1>INVOICE</h1><small>${esc(sale.invoiceNumber)}</small>${voided ? '<div class="void">VOIDED</div>' : ""}</div></div>
       <div class="meta"><div><b>Billed to</b>${esc(sale.customer?.name || "Walk-in customer")}</div><div><b>Date</b>${new Date(sale.soldAt).toLocaleString()}</div>
       <div><b>Branch</b>${esc(sale.branch.name)}</div><div><b>Served by</b>${esc(sale.user.name)}</div></div>
       <table><thead><tr><th>Item</th><th class="r">Qty</th><th class="r">Price</th><th class="r">Amount</th></tr></thead><tbody>${rows}</tbody></table>
-      <div class="tot"><div class="g"><span>Total</span><span>${money(sale.totalAmount)}</span></div><div><span>Paid</span><span>${money(paidOf(sale))}</span></div><div class="${balance > 0.005 && !voided ? "due" : ""}"><span>Balance due</span><span>${voided ? money(0) : money(balance)}</span></div></div>
+      <div class="tot"><div class="g"><span>Total${b?.currency ? ` (${esc(b.currency)})` : ""}</span><span>${money(sale.totalAmount)}</span></div><div><span>Paid</span><span>${money(paidOf(sale))}</span></div><div class="${balance > 0.005 && !voided ? "due" : ""}"><span>Balance due</span><span>${voided ? money(0) : money(balance)}</span></div></div>
       ${pays ? `<h3>Payments received</h3><table><tbody>${pays}</tbody></table>` : ""}
       <div class="foot">Thank you for your business.</div>
       <script>window.onload=function(){setTimeout(function(){window.print()},250)}<\/script></body></html>`);

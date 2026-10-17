@@ -20,11 +20,11 @@ export default function About() {
       <section className="lp-sec tint">
         <div className="lp-wrap lp-prose">
           <h2 className="lp-h2">Where it stands</h2>
-          <p className="lp-sub">WHOLESTRA is in early access. The core is built: products, inventory, sales, purchasing, expenses and approvals, Excel import, roles, insights and the sealed change log. A public demo with sample data is online so you can look around. It is being tested before it holds real shop records.</p>
+          <p className="lp-sub">WHOLESTRA is in early access. The core is built: products, inventory, sales, purchasing, expenses and approvals, Excel import, roles, insights and the sealed change log. A demo company with sample data is open to everyone, and new companies can now create their own account, confirm their email and protect it with an authenticator app.</p>
           <p className="lp-sub">Next comes hosting with regular backups, a trial with a real branch, and more reports.</p>
         </div>
       </section>
-      <section className="lp-final"><div className="lp-wrap"><h2 className="lp-h2">Want to be one of the first?</h2><div className="lp-cta center"><Link href="/get-started" className="lp-btn kraft">Get started</Link><Link href="/features" className="lp-btn line">See features</Link></div></div></section>
+      <section className="lp-final"><div className="lp-wrap"><h2 className="lp-h2">Want to be one of the first?</h2><div className="lp-cta center"><Link href="/get-started" className="lp-btn kraft">Create your account</Link><Link href="/features" className="lp-btn line">See features</Link></div></div></section>
     </>
   );
 }
