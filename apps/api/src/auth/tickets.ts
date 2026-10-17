@@ -4,7 +4,8 @@ import { ConfigService } from "@nestjs/config";
 import { createHash } from "crypto";
 import { keyFrom } from "./totp";
 
-export type TicketType = "email" | "mfa" | "oauth" | "oauth-state";
+/** "device": this browser passed the authenticator check recently, so it is not asked again for a few hours */
+export type TicketType = "email" | "mfa" | "oauth" | "oauth-state" | "device";
 export interface Ticket { typ: TicketType; [k: string]: unknown }
 
 /**

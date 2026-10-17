@@ -262,3 +262,6 @@ a.au-soc:hover{border-color:var(--primary);transform:translateY(-1px);box-shadow
 [data-theme="dark"] .shw-dots button i,[data-theme="dark"] .shw-dots button.on:not(:has(i)){background:#E3B36B}
 [data-theme="dark"] .au-demo{background:var(--accent-amber-tint)}
 .shw-frame{color:#fff}
+.au-company{display:flex;align-items:center;gap:10px;margin:0 0 18px;padding:11px 14px;border-radius:12px;background:#F1F4FA;border:1px solid #E3E8F2;color:#0B1B3E;font-size:14px}
+.au-company b{font-weight:800}
+[data-theme="dark"] .au-company{background:#16264A;border-color:#22305A;color:#E9EEFF}

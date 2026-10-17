@@ -12,12 +12,14 @@ class EmailVerifyDto {
   @IsIn(["signin", "signup"]) purpose!: "signin" | "signup";
   @IsOptional() @IsIn(["email", "authenticator"]) method?: "email" | "authenticator";
   @IsString() @MaxLength(40) code!: string;
+  @IsOptional() @IsString() @MaxLength(2000) device?: string;
 }
 class MfaDto { @IsString() @MaxLength(2000) mfa!: string; @IsString() @MaxLength(40) code!: string; }
 class LoginDto {
   @IsOptional() @IsEmail() email?: string;
   @IsOptional() @IsString() @MaxLength(2000) ticket?: string;
   @IsString() @MinLength(8) @MaxLength(100) password!: string;
+  @IsOptional() @IsString() @MaxLength(2000) device?: string;
 }
 class ResetDto { @IsString() @MaxLength(2000) ticket!: string; @IsString() @MinLength(8) @MaxLength(100) password!: string; }
 class SignupDto {
@@ -27,6 +29,7 @@ class SignupDto {
   @IsOptional() @IsString() @MaxLength(40) phone?: string;
   @IsOptional() @IsString() @MaxLength(20) referralCode?: string;
 }
+class DemoDto { @IsOptional() @IsString() @MaxLength(80) company?: string; }
 class ExchangeDto { @IsString() @MaxLength(2000) ticket!: string; }
 class CodeDto { @IsString() @MaxLength(40) code!: string; }
 class EmailChangeDto { @IsEmail() @MaxLength(160) email!: string; @IsOptional() @IsString() @MaxLength(100) password?: string; }
@@ -49,7 +52,7 @@ export class AuthController {
   @Post("login") @HttpCode(201) login(@Body() dto: LoginDto, @Req() req: Req) { return this.auth.login(dto, client(req)); }
   @Post("password/reset") @HttpCode(200) reset(@Body() dto: ResetDto, @Req() req: Req) { return this.auth.resetPassword(dto, client(req)); }
   @Post("signup") @HttpCode(201) signup(@Body() dto: SignupDto, @Req() req: Req) { return this.auth.signup(dto, client(req)); }
-  @Post("demo") @HttpCode(200) demo(@Req() req: Req) { return this.auth.demo(client(req)); }
+  @Post("demo") @HttpCode(200) demo(@Body() dto: DemoDto, @Req() req: Req) { return this.auth.demo(client(req), dto.company); }
   @Post("oauth/exchange") @HttpCode(200) exchange(@Body() dto: ExchangeDto, @Req() req: Req) { return this.auth.exchangeOAuth(dto.ticket, client(req)); }
 
   /** Called by the app when someone signs out, so the Change log shows when each session ended. */

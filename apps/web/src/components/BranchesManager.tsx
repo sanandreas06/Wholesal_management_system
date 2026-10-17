@@ -4,6 +4,7 @@ import AppShell from "./AppShell";
 import { api, ApiError } from "../lib/api";
 import { toast } from "../lib/toast";
 import { usePermissions } from "../hooks/usePermissions";
+import { getSessionUser } from "../lib/session";
 
 interface Region { id: string; name: string; code: string }
 interface Branch { id: string; name: string; code: string; location: string | null; regionId: string | null; region: Region | null }
@@ -88,6 +89,7 @@ function BranchModal({ branch, regions, onClose, onSaved }: { branch: Branch | n
       <div className="modal" onClick={e => e.stopPropagation()}>
         <button type="button" className="modal-close" onClick={onClose} aria-label="Close">&times;</button>
         <h2>{branch ? "Edit Branch" : "New Branch"}</h2>
+        <p className="modal-sub company-line">{branch ? "A branch of" : "A new branch of"} <b>{getSessionUser()?.organization ?? "your company"}</b>. Each company only ever sees its own records.</p>
         <form onSubmit={submit}>
           <label>Name<input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Kumasi Central" required /></label>
           <label>Code<input value={code} onChange={e => setCode(e.target.value.toUpperCase())} placeholder="e.g. KSI-001" required /></label>

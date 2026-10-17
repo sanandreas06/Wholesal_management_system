@@ -19,6 +19,7 @@ class InquiryDto {
   /** a field people never see; robots fill it in */
   @IsOptional() @IsString() @MaxLength(200) website?: string;
 }
+class MailTestDto { @IsEmail() to!: string; }
 class StatusDto { @IsIn(["NEW", "REPLIED", "CLOSED"]) status!: string; }
 
 const esc = (t: string) => t.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c] as string));
@@ -81,5 +82,25 @@ export class InquiriesAdminController {
   @Patch(":id") update(@Headers("x-admin-key") key: string | undefined, @Param("id") id: string, @Body() dto: StatusDto) { adminOnly(key); return this.svc.setStatus(id, dto.status); }
 }
 
-@Module({ imports: [AuthModule], controllers: [InquiriesController, InquiriesAdminController], providers: [InquiriesService] })
+/** For WHOLESTRA staff: who opened the demo, by the shop or company name they typed. */
+@Controller("admin/demo-visits")
+export class DemoVisitsAdminController {
+  constructor(private readonly prisma: PrismaService) {}
+  @Get() list(@Headers("x-admin-key") key?: string) { adminOnly(key); return this.prisma.demoVisit.findMany({ orderBy: { createdAt: "desc" }, take: 300 }); }
+}
+
+/** For WHOLESTRA staff: sends one test email and says exactly what went wrong, so a broken email setting is quick to find. */
+@Controller("admin/mail-test")
+export class MailTestController {
+  constructor(private readonly mailer: MailerService) {}
+  @Post() @HttpCode(200)
+  async test(@Headers("x-admin-key") key: string | undefined, @Body() dto: MailTestDto) {
+    adminOnly(key);
+    if (!this.mailer.configured) return { ok: false, provider: this.mailer.provider || null, error: "Email is not set up: check MAIL_PROVIDER, MAIL_FROM and the keys for that provider." };
+    try { await this.mailer.send({ to: dto.to, subject: "WHOLESTRA test email", text: "Email from WHOLESTRA works.", html: "<p>Email from <b>WHOLESTRA</b> works.</p>" }); return { ok: true, provider: this.mailer.provider }; }
+    catch { return { ok: false, provider: this.mailer.provider, error: this.mailer.lastError }; }
+  }
+}
+
+@Module({ imports: [AuthModule], controllers: [InquiriesController, InquiriesAdminController, MailTestController, DemoVisitsAdminController], providers: [InquiriesService] })
 export class InquiriesModule {}

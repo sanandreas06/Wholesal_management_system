@@ -50,35 +50,62 @@ On your own server they all go in `deploy/.env.production` (see `deploy/env.prod
 Social sign-in sends people back to `WEB_URL`, and tells Google, Facebook and
 LinkedIn to return to `API_PUBLIC_URL`.
 
-## 2. Email codes (Brevo, free)
+## 2. Email codes from your Gmail (sanshubster@gmail.com)
 
-Render's free plan blocks normal mail-server connections (SMTP), so WHOLESTRA
-sends email through the provider's web API instead.
+WHOLESTRA sends the codes straight from your Gmail through Google's Gmail API
+(over HTTPS, so Render's block on mail servers does not matter). Gmail allows
+a few hundred emails a day from a normal account.
 
-1. Create a free account at **brevo.com** (the free plan allows a few hundred
-   emails a day; check their current limit).
-2. **Senders, domains & dedicated IPs → Senders → Add a sender**: the address
-   codes should come from (for example `no-reply@yourcompany.com` or your own
-   Gmail). Confirm it from the email Brevo sends you.
-3. **SMTP & API → API keys → Generate a new API key**. Copy it once.
-4. On Render add:
+1. **console.cloud.google.com** → top bar project picker → **New project** →
+   name it `WHOLESTRA` → **Create** (or reuse the one for Google sign-in).
+2. **APIs & Services → Library** → search **Gmail API** → **Enable**.
+3. **Google Auth Platform** (older screens: *OAuth consent screen*) →
+   **Get started**: app name `WHOLESTRA`, support email
+   `sanshubster@gmail.com`, audience **External**, contact email the same →
+   **Create**. Then **Audience → Publish app** (*In production*). Without this
+   the key below stops working after 7 days.
+4. **Clients → Create client** → type **Web application**, name
+   `WHOLESTRA mail`. Under **Authorised redirect URIs** add
+   `https://developers.google.com/oauthplayground` → **Create**. Copy the
+   **Client ID** and **Client secret**.
+5. Open **developers.google.com/oauthplayground**. Click the **gear** (top
+   right) → tick **Use your own OAuth credentials** → paste the Client ID and
+   Client secret → **Close**.
+6. In the box under the list on the left (*Input your own scopes*) paste
+   `https://www.googleapis.com/auth/gmail.send` → **Authorize APIs** → choose
+   sanshubster@gmail.com. Google warns the app is not verified: click
+   **Advanced → Go to WHOLESTRA (unsafe)** (it is your own app) → **Continue**.
+7. Back in the playground click **Exchange authorization code for tokens**.
+   Copy the **Refresh token**.
+8. On Render (**wms-api → Environment**) set:
 
    | Name | Value |
    | --- | --- |
-   | `MAIL_PROVIDER` | `brevo` |
-   | `MAIL_API_KEY` | the key from step 3 |
-   | `MAIL_FROM` | the sender address from step 2 |
+   | `MAIL_PROVIDER` | `gmail` |
+   | `MAIL_FROM` | `sanshubster@gmail.com` |
    | `MAIL_FROM_NAME` | `WHOLESTRA` |
+   | `GMAIL_CLIENT_ID` | from step 4 |
+   | `GMAIL_CLIENT_SECRET` | from step 4 |
+   | `GMAIL_REFRESH_TOKEN` | from step 7 |
 
-5. Save and redeploy. On the sign-in page, enter your email: a code should
-   arrive within a minute (check spam the first time).
+   `MAIL_API_KEY` (Brevo) can be deleted. **Save, rebuild and deploy**.
+9. **Test it** (PowerShell; the key is `PLATFORM_ADMIN_KEY` from Render):
 
-Resend (resend.com) also works: `MAIL_PROVIDER=resend` and its API key. It
-needs your own web domain to send from.
+   ```powershell
+   $h = @{ "x-admin-key" = "PASTE-THE-KEY" }
+   Invoke-RestMethod "https://wms-api-rcsy.onrender.com/api/admin/mail-test" -Method Post -Headers $h -ContentType "application/json" -Body '{"to":"sanshubster@gmail.com"}'
+   ```
+
+   `ok : True` means it works. Otherwise `error` says exactly what Google or
+   the provider refused.
+
+Brevo or Resend still work too (`MAIL_PROVIDER=brevo` with `MAIL_API_KEY`).
+Note that Brevo replaces a Gmail sender address with its own, which is why
+Gmail is used directly here.
 
 **Trying things out before email is ready:** `OTP_DEV_ECHO=true` on Render
-shows each code on screen ("Test mode") instead of emailing it. That means an
-email address is not really proven, so remove it as soon as email works.
+shows each code on screen ("Test mode") instead of emailing it. Remove it as
+soon as email works.
 
 ## 3. Continue with Google
 
@@ -178,7 +205,24 @@ $h = @{ "x-admin-key" = "PASTE-THE-KEY" }
 Invoke-RestMethod "https://wms-api-rcsy.onrender.com/api/admin/inquiries" -Headers $h
 ```
 
-## 9. The demo company
+## 9. Who opened the demo
+
+The demo asks for the visitor's shop or company name first. To see the list:
+
+```powershell
+Invoke-RestMethod "https://wms-api-rcsy.onrender.com/api/admin/demo-visits" -Headers $h
+```
+
+## 10. The authenticator and the 5-hour rule
+
+An account with Google Authenticator turned on is asked for its 6-digit code
+when signing in. After a correct code, that browser is trusted for 5 hours:
+signing in again within 5 hours needs only the email code and the password.
+After 5 hours away, or on any other browser, the authenticator code is asked
+again. Wrong email codes, authenticator codes and passwords are recorded as
+"FAILED SIGN-IN" in Audit → Change log, under the company's name.
+
+## 11. The demo company
 
 "Try the demo" opens a shared sample company (Demo Wholesale Ltd) with three
 branches, twelve products with pictures and six weeks of sales. It is built the

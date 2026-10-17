@@ -87,7 +87,19 @@ export class AuthService {
     return { ok: true, expiresInSeconds: 600 };
   }
 
-  async verifyEmail(dto: { email: string; purpose: OtpPurpose; method?: "email" | "authenticator"; code: string }, c: ClientInfo) {
+  // ------------------------------------------------------------------ "remember this browser for 5 hours" after the authenticator check
+  static readonly TRUST_HOURS = 5;
+  private async trusted(userId: string, device?: string) {
+    if (!device) return false;
+    try { const t = await this.tickets.verify<{ typ: "device"; uid: string }>(device, "device"); return t.uid === userId; } catch { return false; }
+  }
+  private deviceToken(userId: string) { return this.tickets.sign({ typ: "device", uid: userId }, AuthService.TRUST_HOURS * 3600); }
+  private async failedAttempt(u: { id: string; email: string; organizationId: string }, why: string, c: ClientInfo) {
+    const recent = await this.prisma.auditLog.count({ where: { organizationId: u.organizationId, entityType: "Sign-in", entityId: u.id, action: "FAILED SIGN-IN", createdAt: { gte: new Date(Date.now() - 600_000) } } }).catch(() => 99);
+    if (recent < 10) await this.record(u, "FAILED SIGN-IN", why, c);
+  }
+
+  async verifyEmail(dto: { email: string; purpose: OtpPurpose; method?: "email" | "authenticator"; code: string; device?: string }, c: ClientInfo) {
     const email = normEmail(dto.email), wrong = new BadRequestException("That code is not right, or it has expired.");
     if (dto.purpose === "signup") {
       if (!(await this.otp.check(email, "signup", dto.code))) throw wrong;
@@ -97,15 +109,17 @@ export class AuthService {
     if (dto.method === "authenticator") {
       if (!user || !user.totpEnabledAt || !user.totpSecret) throw wrong;
       await this.checkAuthenticator(user, dto.code, c);
-      return { ticket: await this.tickets.sign({ typ: "email", email: user.email, purpose: "signin", uid: user.id }, 900), hasPassword: user.passwordSet };
+      return { ticket: await this.tickets.sign({ typ: "email", email: user.email, purpose: "signin", uid: user.id }, 900), hasPassword: user.passwordSet, company: user.organization.name, device: await this.deviceToken(user.id) };
     }
     const ok = await this.otp.check(email, "signin", dto.code);
+    if (user && !ok) await this.failedAttempt(user, "Failed sign-in: wrong email code", c);
     if (!ok || !user) throw wrong;
     // a code from the inbox proves the address is real
     if (!user.emailVerifiedAt) await this.prisma.user.update({ where: { id: user.id }, data: { emailVerifiedAt: new Date() } });
     // an account with an authenticator app also needs a code from it: an inbox alone is not enough to get in
-    if (user.totpEnabledAt) return { needsAuthenticator: true, mfa: await this.tickets.sign({ typ: "mfa", uid: user.id, next: "password" }, 600) };
-    return { ticket: await this.tickets.sign({ typ: "email", email: user.email, purpose: "signin", uid: user.id }, 900), hasPassword: user.passwordSet };
+    // (unless this browser passed that check in the last few hours)
+    if (user.totpEnabledAt && !(await this.trusted(user.id, dto.device))) return { needsAuthenticator: true, mfa: await this.tickets.sign({ typ: "mfa", uid: user.id, next: "password" }, 600), company: user.organization.name };
+    return { ticket: await this.tickets.sign({ typ: "email", email: user.email, purpose: "signin", uid: user.id }, 900), hasPassword: user.passwordSet, company: user.organization.name };
   }
 
   async verifyAuthenticator(dto: { mfa: string; code: string }, c: ClientInfo) {
@@ -113,8 +127,9 @@ export class AuthService {
     const user = await this.loadById(t.uid);
     if (!user || user.status !== "ACTIVE" || !user.totpEnabledAt || !user.totpSecret) throw new BadRequestException("That step has expired. Please start again.");
     await this.checkAuthenticator(user, dto.code, c);
-    if (t.next === "session") return this.session(user, c, "authenticator");
-    return { ticket: await this.tickets.sign({ typ: "email", email: user.email, purpose: "signin", uid: user.id }, 900), hasPassword: user.passwordSet };
+    const device = await this.deviceToken(user.id);
+    if (t.next === "session") return { ...(await this.session(user, c, "authenticator")), device };
+    return { ticket: await this.tickets.sign({ typ: "email", email: user.email, purpose: "signin", uid: user.id }, 900), hasPassword: user.passwordSet, company: user.organization.name, device };
   }
 
   // ------------------------------------------------------------------ step 3: password
@@ -123,7 +138,7 @@ export class AuthService {
     if (n >= 10) throw new HttpException("Too many wrong attempts on this account. Please wait ten minutes and try again.", HttpStatus.TOO_MANY_REQUESTS);
   }
 
-  async login(dto: { email?: string; password: string; ticket?: string }, client: ClientInfo = {}) {
+  async login(dto: { email?: string; password: string; ticket?: string; device?: string }, client: ClientInfo = {}) {
     let email: string;
     if (dto.ticket) {
       const t = await this.tickets.verify<{ typ: "email"; email: string; purpose: string }>(dto.ticket, "email");
@@ -145,7 +160,7 @@ export class AuthService {
       throw new UnauthorizedException("The email or password is not right.");
     }
     // without an email code (email not set up on this site), an account with an authenticator app still needs a code from it
-    if (!dto.ticket && user.totpEnabledAt) return { needsAuthenticator: true, mfa: await this.tickets.sign({ typ: "mfa", uid: user.id, next: "session" }, 600) };
+    if (!dto.ticket && user.totpEnabledAt && !(await this.trusted(user.id, dto.device))) return { needsAuthenticator: true, mfa: await this.tickets.sign({ typ: "mfa", uid: user.id, next: "session" }, 600) };
     return this.session(user, client, "password");
   }
 
@@ -177,9 +192,14 @@ export class AuthService {
     return this.session((await this.loadById(made.userId)) as LoadedUser, c, "signup");
   }
 
-  async demo(c: ClientInfo) {
+  /** Opens the shared demo company. The visitor's own shop or company name is kept (for our follow-up) and shown inside the demo. */
+  async demo(c: ClientInfo, company?: string) {
+    const name = (company ?? "").trim().replace(/\s+/g, " ");
+    if (name.length < 2) throw new BadRequestException("Please type your shop or company name.");
+    await this.prisma.demoVisit.create({ data: { company: name.slice(0, 80), ip: c.ip ?? null } }).catch(() => undefined);
     const id = await this.demoSvc.ensure();
-    return this.session((await this.loadById(id)) as LoadedUser, c, "demo");
+    const s = await this.session((await this.loadById(id)) as LoadedUser, c, "demo");
+    return { ...s, user: { ...s.user, demoFor: name.slice(0, 80) } };
   }
 
   /** The last step of a Google/Facebook/LinkedIn sign-in: swaps the one-time note for a real session. */

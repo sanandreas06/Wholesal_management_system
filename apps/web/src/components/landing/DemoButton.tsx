@@ -1,26 +1,14 @@
 'use client';
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { authApi, SessionResponse } from "../../lib/authApi";
-import { saveSession } from "../../lib/session";
-import { ApiError } from "../../lib/api";
+import { useState } from "react";
+import DemoModal from "./DemoModal";
 
-/** "Try the demo": opens the shared, read-only sample company straight away, without filling anything in. */
+/** "Try the demo": asks for the visitor's shop or company name in a pop-up, then opens the shared, read-only sample company. */
 export default function DemoButton({ className = "lp-btn line", label = "Try the demo" }: { className?: string; label?: string }) {
-  const router = useRouter();
-  const [busy, setBusy] = useState(false);
-  const [slow, setSlow] = useState(false);
-  const [error, setError] = useState("");
-  useEffect(() => { if (!busy) { setSlow(false); return; } const t = setTimeout(() => setSlow(true), 4000); return () => clearTimeout(t); }, [busy]);
-  async function go() {
-    setBusy(true); setError("");
-    try { const s = await authApi.post<SessionResponse>("/auth/demo"); saveSession(s.accessToken, s.user); router.push("/dashboard"); }
-    catch (e) { setError(e instanceof ApiError ? e.message : "The demo could not open. Please try again."); setBusy(false); }
-  }
+  const [open, setOpen] = useState(false);
   return (
-    <span className="lp-demo-wrap">
-      <button type="button" className={className} onClick={go} disabled={busy}>{busy ? "Opening the demo..." : label}</button>
-      {(slow || error) && <small className="lp-demo-note" role="status">{error || "The server is waking up after being idle. This can take up to a minute."}</small>}
-    </span>
+    <>
+      <button type="button" className={className} onClick={() => setOpen(true)}>{label}</button>
+      <DemoModal open={open} onClose={() => setOpen(false)} />
+    </>
   );
 }

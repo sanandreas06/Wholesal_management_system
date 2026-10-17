@@ -185,6 +185,13 @@ export default function AppShell({ title, children }: { title: string; children:
       {navOpen && <div className="nav-backdrop" onClick={() => setNavOpen(false)} />}
       <aside className={"sidebar" + (navOpen ? " open" : "")}>
         <div className="brand"><Logo size={38} /></div>
+        {user?.organization && (
+          <div className="org-badge" title="Every record here belongs to this company only">
+            <small>{user.demo ? "Demo company" : "Company"}</small>
+            <strong>{user.organization}</strong>
+            {user.demo && user.demoFor && <em>Viewing as {user.demoFor}</em>}
+          </div>
+        )}
         <nav className="sidebar-nav-scroll">
           {visibleNav.map(e => {
             if (e.kind === "link") {
@@ -293,7 +300,7 @@ export default function AppShell({ title, children }: { title: string; children:
         {user?.demo && (
           <div className="demo-bar" role="status">
             <span className="demo-tag">Demo account</span>
-            <span>You are looking around a sample company. Everything is read-only, and the data is not real.</span>
+            <span>{user.demoFor ? <>Welcome, <b>{user.demoFor}</b>. </> : null}You are looking around a sample company. Everything is read-only, and the data is not real.</span>
             <a href="/get-started" onClick={() => clearSession()}>Sign up now, it&apos;s free →</a>
           </div>
         )}

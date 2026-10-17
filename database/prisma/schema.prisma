@@ -1095,3 +1095,13 @@ model Inquiry {
   @@index([createdAt])
   @@index([email, createdAt])
 }
+
+/// Someone who opened the demo company, with the shop or company name they typed. For WHOLESTRA staff (follow-up), not part of any company's data.
+model DemoVisit {
+  id        String   @id @default(uuid())
+  company   String
+  ip        String?
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+}

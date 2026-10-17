@@ -30,7 +30,13 @@ services:
       - key: API_PUBLIC_URL
         sync: false
       - key: MAIL_PROVIDER
-        value: brevo
+        value: gmail
+      - key: GMAIL_CLIENT_ID
+        sync: false
+      - key: GMAIL_CLIENT_SECRET
+        sync: false
+      - key: GMAIL_REFRESH_TOKEN
+        sync: false
       - key: MAIL_API_KEY
         sync: false
       - key: MAIL_FROM

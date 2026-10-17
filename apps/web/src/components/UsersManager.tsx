@@ -4,6 +4,7 @@ import AppShell from "./AppShell";
 import { api, ApiError } from "../lib/api";
 import { toast } from "../lib/toast";
 import { usePermissions } from "../hooks/usePermissions";
+import { getSessionUser } from "../lib/session";
 
 interface Branch { id: string; name: string }
 interface RoleRef { id: string; name: string; code: string }
@@ -126,6 +127,7 @@ function UserModal({ user, branches, roles, onClose, onSaved }: { user: User | n
       <div className="modal" onClick={e => e.stopPropagation()}>
         <button type="button" className="modal-close" onClick={onClose} aria-label="Close">&times;</button>
         <h2>{user ? "Edit User" : "New User"}</h2>
+        <p className="modal-sub company-line">{user ? "This person belongs to" : "This person will belong to"} <b>{getSessionUser()?.organization ?? "your company"}</b>. Each company only ever sees its own records.</p>
         <form onSubmit={submit}>
           <label>Name<input value={name} onChange={e => setName(e.target.value)} required /></label>
           <label>Email<input type="email" value={email} onChange={e => setEmail(e.target.value)} required />{user && <span className="field-hint">Sign-in codes go to this address, so it must be an inbox the person can open.</span>}</label>

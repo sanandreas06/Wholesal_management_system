@@ -8,15 +8,17 @@ import PasswordInput, { passwordProblem } from "./PasswordInput";
 import SocialButtons from "./SocialButtons";
 import { useAuthOptions } from "./useAuthOptions";
 import { authApi, OAUTH_ERRORS, SessionResponse } from "../../lib/authApi";
-import { saveSession } from "../../lib/session";
+import { getTrust, saveSession, saveTrust } from "../../lib/session";
+import DemoModal from "../landing/DemoModal";
 import { ApiError } from "../../lib/api";
 
 type Step = "email" | "code" | "mfa" | "password" | "reset";
-type Verified = { ticket?: string; hasPassword?: boolean; needsAuthenticator?: boolean; mfa?: string };
+type Verified = { ticket?: string; hasPassword?: boolean; needsAuthenticator?: boolean; mfa?: string; company?: string; device?: string };
 
 /** Sends a freshly signed-in person to the right place: company set-up for a brand-new company, otherwise where they were going. */
-export function finishSignIn(router: ReturnType<typeof useRouter>, s: SessionResponse, next?: string | null) {
+export function finishSignIn(router: ReturnType<typeof useRouter>, s: SessionResponse & { device?: string }, next?: string | null) {
   saveSession(s.accessToken, s.user);
+  if (s.device) saveTrust(s.user.email, s.device);
   try { sessionStorage.removeItem("wms_profile"); } catch { /* ignore */ }
   if (s.user.setupPending && !s.user.demo) router.replace("/setup");
   else router.replace(next && next.startsWith("/") && !next.startsWith("//") ? next : "/dashboard");
@@ -58,7 +60,7 @@ export default function SignInFlow() {
     finally { setBusy(false); }
   }
 
-  function restart() { setStep("email"); setCode(""); setTicket(""); setMfa(""); setPassword(""); setConfirm(""); setDevCode(""); setMethod("email"); setRecovery(false); setError(""); }
+  function restart() { setCompany(""); setStep("email"); setCode(""); setTicket(""); setMfa(""); setPassword(""); setConfirm(""); setDevCode(""); setMethod("email"); setRecovery(false); setError(""); }
 
   async function sendCode(again = false) {
     const r = await run(() => authApi.post<{ devCode?: string }>("/auth/email/start", { email, purpose: "signin" }));
@@ -74,8 +76,10 @@ export default function SignInFlow() {
     else { setError(""); setStep("password"); }
   }
 
-  function afterVerified(r: Verified | SessionResponse) {
+  function afterVerified(r: Verified | (SessionResponse & { device?: string })) {
     setCode("");
+    if ("company" in r && r.company) setCompany(r.company);
+    if (r.device) saveTrust(email, r.device);
     if ("accessToken" in r) { finishSignIn(router, r, params.get("next")); return; }
     if (r.needsAuthenticator && r.mfa) { setMfa(r.mfa); setRecovery(false); setStep("mfa"); return; }
     if (r.ticket) {
@@ -86,7 +90,7 @@ export default function SignInFlow() {
 
   async function verifyCode(value = code) {
     if (value.replace(/\s/g, "").length < 6) return;
-    const r = await run(() => authApi.post<Verified>("/auth/email/verify", { email, purpose: "signin", method, code: value }));
+    const r = await run(() => authApi.post<Verified>("/auth/email/verify", { email, purpose: "signin", method, code: value, device: getTrust(email) }));
     if (r) afterVerified(r); else setCode("");
   }
 
@@ -98,7 +102,7 @@ export default function SignInFlow() {
 
   async function submitPassword(e: FormEvent) {
     e.preventDefault();
-    const r = await run(() => authApi.post<SessionResponse | Verified>("/auth/login", ticket ? { ticket, password } : { email, password }));
+    const r = await run(() => authApi.post<SessionResponse | Verified>("/auth/login", ticket ? { ticket, password, device: getTrust(email) } : { email, password, device: getTrust(email) }));
     if (r) afterVerified(r);
   }
 
@@ -111,10 +115,8 @@ export default function SignInFlow() {
     if (r) finishSignIn(router, r, params.get("next"));
   }
 
-  async function demo() {
-    const r = await run(() => authApi.post<SessionResponse>("/auth/demo"));
-    if (r) finishSignIn(router, r, "/dashboard");
-  }
+  const [demoOpen, setDemoOpen] = useState(false);
+  const [company, setCompany] = useState("");
 
   const lockedEmail = (
     <div className="au-locked" aria-label={`Email ${email}${confirmed ? ", confirmed" : ""}`}>
@@ -130,6 +132,8 @@ export default function SignInFlow() {
     <AuthShell>
       <section className="au-card" aria-labelledby="au-title">
         {codesOn && <ol className="au-progress" aria-label={`Step ${stepNo} of 3`}>{["Email", "Code", "Password"].map((s, i) => <li key={s} className={i + 1 < stepNo ? "done" : i + 1 === stepNo ? "now" : ""}><i>{i + 1 < stepNo ? "✓" : i + 1}</i>{s}</li>)}</ol>}
+
+        {company && step !== "email" && <div className="au-company" role="status"><span aria-hidden="true">🏢</span><span>Signing in to <b>{company}</b></span></div>}
 
         {step === "email" && <>
           <h1 id="au-title">Sign in</h1>
@@ -152,8 +156,8 @@ export default function SignInFlow() {
           </form>
           <div className="au-or"><span>or sign in with</span></div>
           <SocialButtons options={options} mode="signin" loading={optLoading} />
-          <button type="button" className="au-demo" onClick={demo} disabled={busy}>
-            <span className="au-demo-ic" aria-hidden="true">▶</span><span><b>Try the demo account</b><small>Look around a sample company. Nothing to fill in, read-only.</small></span>
+          <button type="button" className="au-demo" onClick={() => setDemoOpen(true)} disabled={busy}>
+            <span className="au-demo-ic" aria-hidden="true">▶</span><span><b>Try the demo account</b><small>Look around a sample company. Read-only.</small></span>
           </button>
           <p className="au-alt">New to WHOLESTRA? <Link href="/get-started">Create an account</Link></p>
           {offline && <p className="au-note">We could not reach the server just now. You can still try to sign in.</p>}
@@ -223,6 +227,7 @@ export default function SignInFlow() {
           {!firstPassword && <div className="au-actions"><button type="button" className="au-link" onClick={() => { setError(""); setStep("password"); }}>Back to password</button></div>}
         </>}
       </section>
+      <DemoModal open={demoOpen} onClose={() => setDemoOpen(false)} />
     </AuthShell>
   );
 }

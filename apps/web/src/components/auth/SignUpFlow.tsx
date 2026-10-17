@@ -10,6 +10,7 @@ import { useAuthOptions } from "./useAuthOptions";
 import { finishSignIn } from "./SignInFlow";
 import { authApi, OAUTH_ERRORS, SessionResponse } from "../../lib/authApi";
 import { ApiError } from "../../lib/api";
+import DemoModal from "../landing/DemoModal";
 
 const REF_KEY = "wms_ref";
 
@@ -82,10 +83,7 @@ export default function SignUpFlow() {
     if (s) { try { localStorage.removeItem(REF_KEY); } catch { /* ignore */ } finishSignIn(router, s); }
   }
 
-  async function demo() {
-    const r = await run(() => authApi.post<SessionResponse>("/auth/demo"));
-    if (r) finishSignIn(router, r, "/dashboard");
-  }
+  const [demoOpen, setDemoOpen] = useState(false);
 
   return (
     <AuthShell>
@@ -112,7 +110,7 @@ export default function SignUpFlow() {
           </form>
           <p className="au-safe"><span aria-hidden="true">🔒</span>We confirm your email with a code, and next you can protect your account with an authenticator app by scanning a QR code.</p>
           <div className="au-split">
-            <button type="button" className="au-link" onClick={demo} disabled={busy}>Just looking? Try the demo</button>
+            <button type="button" className="au-link" onClick={() => setDemoOpen(true)} disabled={busy}>Just looking? Try the demo</button>
             <span>Have an account? <Link href="/login">Sign in</Link></span>
           </div>
         </>}
@@ -130,6 +128,7 @@ export default function SignUpFlow() {
           <div className="au-actions"><button type="button" className="au-link" disabled={busy || cooldown > 0} onClick={sendCode}>{cooldown > 0 ? `Send a new code in ${cooldown}s` : "Send a new code"}</button></div>
         </>}
       </section>
+      <DemoModal open={demoOpen} onClose={() => setDemoOpen(false)} />
     </AuthShell>
   );
 }

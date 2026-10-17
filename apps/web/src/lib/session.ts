@@ -18,7 +18,14 @@ export interface SessionUser {
   authenticator?: boolean;
   /** false for someone who signed up with Google/Facebook/LinkedIn and has not chosen a password */
   passwordSet?: boolean;
+  /** in the demo: the shop or company name the visitor typed */
+  demoFor?: string;
 }
+
+/** "Remember this browser for 5 hours" after the authenticator check: the server's signed note, kept per email. */
+const trustKey = (email: string) => `wms_trust:${email.trim().toLowerCase()}`;
+export function saveTrust(email: string, token?: string) { if (!token) return; try { localStorage.setItem(trustKey(email), token); } catch { /* storage unavailable */ } }
+export function getTrust(email: string) { try { return localStorage.getItem(trustKey(email)) || undefined; } catch { return undefined; } }
 
 export function saveSession(accessToken: string, user: SessionUser) {
   localStorage.setItem("wms_access_token", accessToken);
@@ -43,10 +50,10 @@ export function hasPermission(permission: string): boolean {
   return !!user?.permissions.includes(permission);
 }
 
-/** Forgets the session but keeps the light/dark choice. */
+/** Forgets the session but keeps the light/dark choice and the "trusted for 5 hours" notes. */
 export function clearSession() {
-  let theme: string | null = null;
-  try { theme = localStorage.getItem("wms_theme"); } catch { /* storage unavailable */ }
+  const keep: [string, string][] = [];
+  try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i)!; if (k === "wms_theme" || k.startsWith("wms_trust:")) keep.push([k, localStorage.getItem(k) ?? ""]); } } catch { /* storage unavailable */ }
   try { localStorage.clear(); sessionStorage.removeItem("wms_profile"); } catch { /* ignore */ }
-  try { if (theme) localStorage.setItem("wms_theme", theme); } catch { /* ignore */ }
+  try { keep.forEach(([k, v]) => localStorage.setItem(k, v)); } catch { /* ignore */ }
 }
