@@ -74,8 +74,9 @@ export default function SignInFlow() {
     else { setError(""); setStep("password"); }
   }
 
-  function afterVerified(r: Verified) {
+  function afterVerified(r: Verified | SessionResponse) {
     setCode("");
+    if ("accessToken" in r) { finishSignIn(router, r, params.get("next")); return; }
     if (r.needsAuthenticator && r.mfa) { setMfa(r.mfa); setRecovery(false); setStep("mfa"); return; }
     if (r.ticket) {
       setTicket(r.ticket);
@@ -91,14 +92,14 @@ export default function SignInFlow() {
 
   async function verifyMfa(value = code) {
     if (!recovery && value.length < 6) return;
-    const r = await run(() => authApi.post<Verified>("/auth/authenticator", { mfa, code: value }));
+    const r = await run(() => authApi.post<Verified | SessionResponse>("/auth/authenticator", { mfa, code: value }));
     if (r) afterVerified(r); else setCode("");
   }
 
   async function submitPassword(e: FormEvent) {
     e.preventDefault();
-    const r = await run(() => authApi.post<SessionResponse>("/auth/login", ticket ? { ticket, password } : { email, password }));
-    if (r) finishSignIn(router, r, params.get("next"));
+    const r = await run(() => authApi.post<SessionResponse | Verified>("/auth/login", ticket ? { ticket, password } : { email, password }));
+    if (r) afterVerified(r);
   }
 
   async function submitReset(e: FormEvent) {
@@ -141,6 +142,13 @@ export default function SignInFlow() {
             {error && <div className="au-err" role="alert">{error}</div>}
             {slow && <p className="au-note" role="status">The server is waking up after being idle. This can take up to a minute the first time.</p>}
             <button className="au-primary" disabled={busy}>{busy ? "Please wait..." : "Next"}</button>
+            <button type="button" className="au-totp" disabled={busy} onClick={() => {
+              if (!/^\S+@\S+\.\S+$/.test(email.trim())) { setError("Type your email address first."); return; }
+              setError(""); setCode(""); setMethod("authenticator"); setStep("code");
+            }}>
+              <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" strokeWidth="2" /><path d="M12 7v5l3 2" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
+              Sign in with Google Authenticator
+            </button>
           </form>
           <div className="au-or"><span>or sign in with</span></div>
           <SocialButtons options={options} mode="signin" loading={optLoading} />
@@ -165,7 +173,8 @@ export default function SignInFlow() {
             {method === "email"
               ? <><button type="button" className="au-link" disabled={busy || cooldown > 0} onClick={() => sendCode(true)}>{cooldown > 0 ? `Send a new code in ${cooldown}s` : "Send a new code"}</button>
                   <button type="button" className="au-link" onClick={() => { setMethod("authenticator"); setCode(""); setError(""); }}>Use my authenticator app instead</button></>
-              : <button type="button" className="au-link" onClick={() => { setMethod("email"); setCode(""); setError(""); }}>Use the code from my email instead</button>}
+              : codesOn ? <button type="button" className="au-link" onClick={() => { setMethod("email"); setCode(""); setError(""); }}>Use the code from my email instead</button>
+              : <button type="button" className="au-link" onClick={() => { setCode(""); setError(""); setStep("password"); }}>I don&apos;t use an authenticator app</button>}
           </div>
         </>}
 

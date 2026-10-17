@@ -69,7 +69,8 @@ export class ReferralsController {
   @Get("check") check(@Query("code") code: string) { return this.svc.check(code); }
 }
 
-function adminOnly(key: string | undefined) {
+/** WHOLESTRA staff only: the caller must send PLATFORM_ADMIN_KEY in the x-admin-key header. */
+export function adminOnly(key: string | undefined) {
   const want = process.env.PLATFORM_ADMIN_KEY;
   // looks like a page that does not exist unless the owner has set a key and the caller knows it
   if (!want || want.length < 24 || !key) throw new NotFoundException();

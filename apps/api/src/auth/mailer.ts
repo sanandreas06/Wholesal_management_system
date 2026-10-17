@@ -1,6 +1,6 @@
 import { Injectable, Logger, ServiceUnavailableException } from "@nestjs/common";
 
-export interface Mail { to: string; subject: string; text: string; html: string }
+export interface Mail { to: string; subject: string; text: string; html: string; replyTo?: string }
 
 /**
  * Sends email through a web service (Brevo or Resend). Free hosts such as Render block the usual mail ports, so this talks over HTTPS instead.
@@ -18,8 +18,8 @@ export class MailerService {
     const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), 12000);
     try {
       const res = this.provider === "brevo"
-        ? await fetch("https://api.brevo.com/v3/smtp/email", { method: "POST", signal: ctl.signal, headers: { "api-key": key, "content-type": "application/json", accept: "application/json" }, body: JSON.stringify({ sender: { name, email: from }, to: [{ email: m.to }], subject: m.subject, htmlContent: m.html, textContent: m.text }) })
-        : await fetch("https://api.resend.com/emails", { method: "POST", signal: ctl.signal, headers: { authorization: `Bearer ${key}`, "content-type": "application/json" }, body: JSON.stringify({ from: `${name} <${from}>`, to: [m.to], subject: m.subject, html: m.html, text: m.text }) });
+        ? await fetch("https://api.brevo.com/v3/smtp/email", { method: "POST", signal: ctl.signal, headers: { "api-key": key, "content-type": "application/json", accept: "application/json" }, body: JSON.stringify({ sender: { name, email: from }, to: [{ email: m.to }], subject: m.subject, htmlContent: m.html, textContent: m.text, ...(m.replyTo ? { replyTo: { email: m.replyTo } } : {}) }) })
+        : await fetch("https://api.resend.com/emails", { method: "POST", signal: ctl.signal, headers: { authorization: `Bearer ${key}`, "content-type": "application/json" }, body: JSON.stringify({ from: `${name} <${from}>`, to: [m.to], subject: m.subject, html: m.html, text: m.text, ...(m.replyTo ? { reply_to: m.replyTo } : {}) }) });
       if (!res.ok) {
         const body = (await res.text().catch(() => "")).slice(0, 300);
         this.log.error(`${this.provider} refused the email (HTTP ${res.status}): ${body}`);

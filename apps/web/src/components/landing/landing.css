@@ -390,3 +390,133 @@
   .lp-fl{transform:none}.lp-btn,.sb-cell,.lp-top{transition:none}
   .sb-plus{display:none}
 }
+
+/* ===== White-dominant look (Batch 29c): white pages, the blue-black navy as the accent (buttons, cards, footer) ===== */
+.lp{--navy:#0B1B3E;--navy-2:#13285A}
+.lp-top{background:rgba(255,255,255,.94);color:var(--navy,#0B1B3E);border-bottom:1px solid #E3E8F2}
+.lp-top.raised{background:rgba(255,255,255,.97);box-shadow:0 8px 24px rgba(11,27,62,.08)}
+.lp-brand{color:#0B1B3E}
+.lp-links a{color:#4A5878}
+.lp-links a:hover{background:#F1F4FA;color:#0B1B3E}
+.lp-links a[aria-current="page"]{color:#0B1B3E;background:#EDF1F8}
+.lp-burger{border-color:#D5DCEA}
+.lp-burger i{background:#0B1B3E}
+.lp-menu{background:#fff!important;border-bottom-color:#E3E8F2!important}
+.lp-menu>a{border-bottom-color:#EDF1F8!important;color:#0B1B3E}
+:where(.lp a,.lp button,.lp summary,.lp-top a,.lp-top button):focus-visible{outline-color:#0B1B3E}
+
+/* buttons: navy is the main action, outlined navy the second */
+.lp-btn.solid,.lp-btn.kraft{background:#0B1B3E;color:#fff;box-shadow:0 8px 22px rgba(11,27,62,.25)}
+.lp-btn.solid:hover,.lp-btn.kraft:hover{background:#13285A;box-shadow:0 12px 28px rgba(11,27,62,.3)}
+.lp-btn.ghost,.lp-btn.line,.lp-btn.line-dark{color:#0B1B3E;border-color:#0B1B3E;background:transparent}
+.lp-btn.ghost:hover,.lp-btn.line:hover,.lp-btn.line-dark:hover{background:#0B1B3E;color:#fff}
+
+/* hero: white, navy words, the stock board stays a navy card */
+.lp-hero{background:#fff;color:#0B1B3E}
+.lp-hero::before,.lp-page-hero::before{background-image:linear-gradient(rgba(11,27,62,.045) 1px,transparent 1px),linear-gradient(90deg,rgba(11,27,62,.045) 1px,transparent 1px)}
+.lp-glow{background:radial-gradient(640px 420px at calc(70% + var(--mx)*8%) calc(45% + var(--my)*8%),rgba(36,87,255,.08),transparent 70%)}
+.lp-hero h1{color:#0B1B3E}
+.lp-lead{color:#4A5878}
+.lp-fine{color:#6B7895}
+.lp-fine a{color:#0B1B3E}
+.lp-art{filter:drop-shadow(0 12px 18px rgba(11,27,62,.18))}
+.lp-fchip{background:#fff;border-color:#E3E8F2;color:#0B1B3E;box-shadow:0 10px 26px rgba(11,27,62,.12)}
+.lp-window{box-shadow:0 30px 70px rgba(11,27,62,.18);border-color:#E3E8F2}
+
+/* sections that were dark become white; the widgets inside keep a navy card of their own */
+.lp-sec.dark,.lp-sec.ink{background:#fff;color:#0B1B3E}
+.lp-sec.dark .lp-sub,.lp-sec.ink .lp-sub{color:#4A5878}
+.lp-sec.ink .lp-more a,.lp-sec.dark .lp-more a{color:#0B1B3E}
+.lp-more a,.lp-sub a{color:#0B1B3E}
+.lp-sec.tint{background:#F6F8FC}
+.lp-sec.light{background:#fff}
+.ft-list button{color:#0B1B3E;border-left-color:#DCE3F0}
+.ft-list button span{color:#6B7895}
+.ft-list button:hover{background:#F6F8FC}
+.ft-list button.on{border-left-color:#0B1B3E;background:#F1F4FA}
+.ft-panel>p{color:#4A5878}
+.lp-sec.ink .sc{background:#0B1B3E;color:#fff;border-radius:20px;padding:20px;box-shadow:0 24px 60px rgba(11,27,62,.2)}
+.lp-refer-steps li::before{background:#0B1B3E}
+.lp-refer-amt{background:#0B1B3E;color:#fff;box-shadow:0 14px 34px rgba(11,27,62,.25)}
+.lp-steps-list li::before{background:#0B1B3E;color:#fff}
+.lp-ticks li::before{background-color:#0B1B3E;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M5.5 10.5l3 3 6-7' fill='none' stroke='%23fff' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")}
+.lp-trio>div{border-top-color:#0B1B3E}
+.lp-defs>div{border-top-color:#0B1B3E}
+.lp-note-box{border-left-color:#0B1B3E}
+.ba-list.after dd{box-shadow:inset 4px 0 0 #0B1B3E}
+.lp-faq summary::after{color:#0B1B3E}
+
+/* sub-page headers and the closing call to action: white, navy words */
+.lp-page-hero{background:#F6F8FC;color:#0B1B3E;border-bottom:1px solid #E8ECF4}
+.lp-page-hero .lp-lead{color:#4A5878}
+.lp-final{background:#F6F8FC;color:#0B1B3E;border-top:1px solid #E8ECF4}
+.lp-final .lp-sub{color:#4A5878}
+.lp-final .lp-demo-note,.lp-hero .lp-demo-note{color:#6B7895}
+
+/* refer & earn strip: a slim navy band */
+.lp-refbar{background:#0B1B3E;color:#E6ECFA}
+.lp-refbar a,.lp-refbar button{color:#F3D49F}
+.lp-refbar button:hover{background:rgba(255,255,255,.1)}
+
+/* footer stays navy */
+.lp-foot{background:#0B1B3E}
+
+/* contact page: form and other ways */
+.cf-layout{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:clamp(24px,4vw,56px);align-items:start}
+.cf-card{background:#fff;border:1px solid #E3E8F2;border-radius:20px;padding:clamp(20px,3vw,34px);box-shadow:0 20px 50px rgba(11,27,62,.08)}
+.cf-h{font-size:1.5rem;font-weight:800;margin:0 0 6px}
+.cf-note{color:#6B7895;font-size:.9rem;margin:0 0 18px}
+.cf-req{color:#B23B3B;font-weight:700}
+.cf-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.cf-field{display:flex;flex-direction:column;gap:6px}
+.cf-field.span2{grid-column:span 2}
+.cf-field label{font-weight:700;font-size:.9rem}
+.cf-field input,.cf-field select,.cf-field textarea{width:100%;padding:12px 14px;border:1.5px solid #D5DCEA;border-radius:10px;background:#fff;color:#0B1B3E;font:inherit;font-size:.98rem}
+.cf-field textarea{resize:vertical;min-height:120px}
+.cf-field input:focus,.cf-field select:focus,.cf-field textarea:focus{outline:none;border-color:#0B1B3E;box-shadow:0 0 0 4px rgba(11,27,62,.1)}
+.cf-field [aria-invalid="true"]{border-color:#B23B3B}
+.cf-err{color:#B23B3B;font-size:.84rem;font-weight:600}
+.cf-hp{position:absolute;left:-10000px;width:1px;height:1px;overflow:hidden}
+.cf-agree{display:flex;gap:10px;align-items:flex-start;margin:18px 0 6px;font-size:.92rem;color:#4A5878;cursor:pointer}
+.cf-agree input{width:18px;height:18px;margin-top:2px;accent-color:#0B1B3E;flex:none}
+.cf-agree a{color:#0B1B3E;font-weight:700;text-decoration:underline}
+.cf-fail{margin:10px 0;padding:12px 14px;border-radius:10px;background:#FDEDEB;color:#B23B3B;font-weight:600}
+.cf .lp-btn{margin-top:14px}
+.cf-done{text-align:center;padding:28px 10px}
+.cf-done>span{display:inline-grid;place-items:center;width:56px;height:56px;border-radius:50%;background:#E7F7EC;color:#15803D;font-size:1.6rem;font-weight:800}
+.cf-done h3{font-size:1.5rem;margin:14px 0 6px}
+.cf-done p{color:#4A5878;margin:0 0 18px}
+.cf-side .lp-contacts{margin-top:14px}
+.lp-contact-box{display:flex;flex-direction:column;padding:18px 20px;border:1px solid var(--line);border-radius:14px;background:var(--card)}
+.lp-contact-box b{font:700 1.1rem "Bricolage Grotesque",sans-serif}
+.lp-contact-box a{color:#0B1B3E;font-weight:600}
+.cf-hours{margin-top:16px;color:#4A5878;line-height:1.6}
+@media (max-width:900px){.cf-layout{grid-template-columns:minmax(0,1fr)}}
+@media (max-width:560px){.cf-grid{grid-template-columns:minmax(0,1fr)}.cf-field.span2{grid-column:auto}}
+
+/* dark mode keeps its own colours */
+[data-theme="dark"] .lp-top{background:rgba(10,17,38,.94);color:#E9EEFF;border-bottom-color:#22305A}
+[data-theme="dark"] .lp-brand,[data-theme="dark"] .lp-links a[aria-current="page"],[data-theme="dark"] .lp-links a:hover{color:#fff}
+[data-theme="dark"] .lp-links a{color:#9DAAC9}
+[data-theme="dark"] .lp-links a:hover,[data-theme="dark"] .lp-links a[aria-current="page"]{background:#16264A}
+[data-theme="dark"] .lp-burger i{background:#fff}
+[data-theme="dark"] .lp-menu{background:#0A1126!important}
+[data-theme="dark"] .lp-menu>a{color:#E9EEFF}
+[data-theme="dark"] .lp-hero,[data-theme="dark"] .lp-sec.dark,[data-theme="dark"] .lp-sec.ink,[data-theme="dark"] .lp-sec.light{background:#0A1126;color:#E9EEFF}
+[data-theme="dark"] .lp-sec.tint,[data-theme="dark"] .lp-page-hero,[data-theme="dark"] .lp-final{background:#0D1633;color:#E9EEFF;border-color:#22305A}
+[data-theme="dark"] .lp-hero h1{color:#fff}
+[data-theme="dark"] .lp-lead,[data-theme="dark"] .lp-sub,[data-theme="dark"] .ft-panel>p,[data-theme="dark"] .ft-list button span{color:#9DAAC9!important}
+[data-theme="dark"] .ft-list button{color:#E9EEFF}
+[data-theme="dark"] .ft-list button.on,[data-theme="dark"] .ft-list button:hover{background:#16264A}
+[data-theme="dark"] .lp-btn.ghost,[data-theme="dark"] .lp-btn.line,[data-theme="dark"] .lp-btn.line-dark{color:#E9EEFF;border-color:#9DAAC9}
+[data-theme="dark"] .lp-btn.solid,[data-theme="dark"] .lp-btn.kraft{background:#2457FF}
+[data-theme="dark"] .lp-more a,[data-theme="dark"] .lp-sub a,[data-theme="dark"] .lp-fine a{color:#F3D49F}
+[data-theme="dark"] .lp-fchip{background:#111B38;border-color:#22305A;color:#E9EEFF}
+[data-theme="dark"] .cf-card{background:#111B38;border-color:#22305A}
+[data-theme="dark"] .cf-field input,[data-theme="dark"] .cf-field select,[data-theme="dark"] .cf-field textarea{background:#0A1126;color:#E9EEFF;border-color:#22305A}
+[data-theme="dark"] .cf-agree,[data-theme="dark"] .cf-note,[data-theme="dark"] .cf-hours,[data-theme="dark"] .cf-done p{color:#9DAAC9}
+[data-theme="dark"] .cf-agree a,[data-theme="dark"] .lp-contact-box a{color:#F3D49F}
+.cf-field label,.cf-agree{display:block}
+.cf-agree{display:flex}
+.lp-contacts .lp-contact-box a{display:inline;padding:0;border:0;background:none;border-radius:0}
+.lp-contacts .lp-contact-box a:hover{transform:none;text-decoration:underline}

@@ -33,6 +33,7 @@ import { ExcelImportsModule } from "./excel-imports/excel-imports.module";
 import { NotificationsModule } from "./notifications/notifications";
 import { ReferralsModule } from "./referrals/referrals";
 import { HomeModule } from "./home/home";
+import { InquiriesModule } from "./inquiries/inquiries";
 
 @Module({
   imports: [
@@ -64,7 +65,7 @@ import { HomeModule } from "./home/home";
     AuditModule,
     SalesModule,
     FinanceModule,
-    ExcelImportsModule, NotificationsModule, ReferralsModule, HomeModule],
+    ExcelImportsModule, NotificationsModule, ReferralsModule, HomeModule, InquiriesModule],
   controllers: [HealthController, DashboardController],
   providers: [DashboardService]
 })

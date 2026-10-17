@@ -144,6 +144,8 @@ export class AuthService {
       }
       throw new UnauthorizedException("The email or password is not right.");
     }
+    // without an email code (email not set up on this site), an account with an authenticator app still needs a code from it
+    if (!dto.ticket && user.totpEnabledAt) return { needsAuthenticator: true, mfa: await this.tickets.sign({ typ: "mfa", uid: user.id, next: "session" }, 600) };
     return this.session(user, client, "password");
   }
 

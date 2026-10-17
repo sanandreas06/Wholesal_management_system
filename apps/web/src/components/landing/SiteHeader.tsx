@@ -53,7 +53,7 @@ export default function SiteHeader() {
 
   return (
     <header className={"lp-top" + (raised ? " raised" : "")}>
-      <Link href="/" className="lp-brand" aria-label="WHOLESTRA home"><Logo size={44} /></Link>
+      <Link href="/" className="lp-brand" aria-label="WHOLESTRA home"><Logo size={44} tone="dark" /></Link>
       <nav className="lp-links" aria-label="Main">
         {LINKS.map((l) => <Link key={l.href} href={l.href} aria-current={path === l.href ? "page" : undefined}>{l.label}</Link>)}
       </nav>

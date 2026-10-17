@@ -1076,3 +1076,22 @@ model WeeklySale {
   @@index([branchId, saleDate])
   @@index([productId, saleDate])
 }
+
+/// A message sent from the Contact page. Kept for WHOLESTRA staff (not part of any company's data).
+model Inquiry {
+  id        String   @id @default(uuid())
+  name      String
+  email     String
+  phone     String
+  company   String
+  branches  String?
+  subject   String
+  message   String   @db.Text
+  /// NEW, REPLIED or CLOSED
+  status    String   @default("NEW")
+  ip        String?
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([email, createdAt])
+}

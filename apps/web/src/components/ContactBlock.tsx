@@ -1,11 +1,11 @@
-import { CONTACT_EMAIL, CONTACT_HOURS, CONTACT_LOCATION, CONTACT_PHONES, CONTACT_WHATSAPPS, telHref, waLabel, whatsappHref } from "../lib/contact";
+import { CONTACT_EMAIL, CONTACT_HOURS, CONTACT_LOCATION, CONTACT_PHONES, CONTACT_WHATSAPP, telHref, whatsappHref } from "../lib/contact";
 
 /** Our contact details. `variant="strip"` is one line (under the sign-in box); `"footer"` is the block at the bottom of every screen inside the app. Details that have not been set are left out. */
 export default function ContactBlock({ variant = "strip" }: { variant?: "strip" | "footer" }) {
   const items = [
     CONTACT_EMAIL && <a key="e" href={`mailto:${CONTACT_EMAIL}`}><span aria-hidden="true">✉</span>{CONTACT_EMAIL}</a>,
     CONTACT_PHONES.length > 0 && <span key="p" className="contact-phones"><span aria-hidden="true">☎</span>{CONTACT_PHONES.map((n, i) => <span key={n}>{i ? " | " : ""}<a href={telHref(n)}>{n}</a></span>)}</span>,
-    CONTACT_WHATSAPPS.length > 0 && <span key="w" className="contact-phones"><span aria-hidden="true">💬</span>WhatsApp {CONTACT_WHATSAPPS.map((n, i) => <span key={n}>{i ? " or " : ""}<a href={whatsappHref("Hello WHOLESTRA, I need help with", n)} target="_blank" rel="noopener noreferrer">{waLabel(n)}</a></span>)}</span>,
+    CONTACT_WHATSAPP && <a key="w" href={whatsappHref("Hello WHOLESTRA, I need help with")} target="_blank" rel="noopener noreferrer"><span aria-hidden="true">💬</span>WhatsApp</a>,
   ].filter(Boolean);
   if (variant === "strip") {
     return (

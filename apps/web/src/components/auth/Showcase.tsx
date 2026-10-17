@@ -18,7 +18,7 @@ function ProductTile({ kind, size = 38 }: { kind: Glyph; size?: number }) {
     bag: <><path d="M12 18h24l-2 22H14z" fill="#fff" opacity=".92" /><path d="M18 18a6 6 0 0112 0" stroke="#fff" strokeWidth="2.5" fill="none" /></>,
     pipe: <><rect x="8" y="20" width="32" height="10" rx="5" fill="#fff" opacity=".92" /><ellipse cx="38" cy="25" rx="3" ry="5" fill={c} opacity=".6" /></>,
   };
-  return <svg width={size} height={size} viewBox="0 0 48 48" aria-hidden="true" className="sc-tile"><rect width="48" height="48" rx="11" fill={c} />{art[kind]}</svg>;
+  return <svg width={size} height={size} viewBox="0 0 48 48" aria-hidden="true" className="shw-tile"><rect width="48" height="48" rx="11" fill={c} />{art[kind]}</svg>;
 }
 
 function StockSlide() {
@@ -26,12 +26,12 @@ function StockSlide() {
     ["sack", "Cement 50kg", "Tema", 0, "out"], ["bag", "Rice 25kg", "Accra", 14, "low"], ["tin", "Paint 20L white", "Kumasi", 64, "ok"], ["pipe", "PVC pipe 4in", "Accra", 210, "ok"],
   ];
   return (
-    <div className="sc-screen">
-      <div className="sc-head"><b>Stock by branch</b><span className="sc-chip warn">2 need restocking</span></div>
-      <div className="sc-kpis"><div><small>Products</small><strong>248</strong></div><div><small>Stock value</small><strong>GH₵ 412k</strong></div><div><small>Branches</small><strong>3</strong></div></div>
-      <ul className="sc-list">
+    <div className="shw-screen">
+      <div className="shw-head"><b>Stock by branch</b><span className="shw-chip warn">2 need restocking</span></div>
+      <div className="shw-kpis"><div><small>Products</small><strong>248</strong></div><div><small>Stock value</small><strong>GH₵ 412k</strong></div><div><small>Branches</small><strong>3</strong></div></div>
+      <ul className="shw-list">
         {rows.map(([g, n, b, q, l]) => (
-          <li key={n}><ProductTile kind={g} size={34} /><div><b>{n}</b><small>{b} branch</small></div><span className="sc-qty">{q}</span><span className={`sc-pill ${l}`}>{l === "out" ? "Out" : l === "low" ? "Low" : "In stock"}</span></li>
+          <li key={n}><ProductTile kind={g} size={34} /><div><b>{n}</b><small>{b} branch</small></div><span className="shw-qty">{q}</span><span className={`shw-pill ${l}`}>{l === "out" ? "Out" : l === "low" ? "Low" : "In stock"}</span></li>
         ))}
       </ul>
     </div>
@@ -43,17 +43,17 @@ function SalesSlide() {
   const W = 300, H = 84, max = 58, step = W / (pts.length - 1);
   const line = pts.map((v, i) => `${i ? "L" : "M"}${(i * step).toFixed(1)} ${(H - (v / max) * H).toFixed(1)}`).join(" ");
   return (
-    <div className="sc-screen">
-      <div className="sc-head"><b>Sales this month</b><span className="sc-chip ok">▲ 14% on last month</span></div>
-      <div className="sc-kpis"><div><small>Sales</small><strong>GH₵ 86,240</strong></div><div><small>Invoices</small><strong>312</strong></div><div><small>Unpaid</small><strong>GH₵ 6,100</strong></div></div>
-      <svg className="sc-chart" viewBox={`0 0 ${W} ${H + 6}`} aria-hidden="true">
+    <div className="shw-screen">
+      <div className="shw-head"><b>Sales this month</b><span className="shw-chip ok">▲ 14% on last month</span></div>
+      <div className="shw-kpis"><div><small>Sales</small><strong>GH₵ 86,240</strong></div><div><small>Invoices</small><strong>312</strong></div><div><small>Unpaid</small><strong>GH₵ 6,100</strong></div></div>
+      <svg className="shw-chart" viewBox={`0 0 ${W} ${H + 6}`} aria-hidden="true">
         {[0.33, 0.66].map((f) => <line key={f} x1="0" x2={W} y1={H * f} y2={H * f} stroke="rgba(157,184,255,.18)" />)}
         <path d={`${line} L${W} ${H} L0 ${H} Z`} fill="rgba(76,121,255,.22)" />
         <path d={line} fill="none" stroke="#8FB0FF" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
       </svg>
-      <ul className="sc-list compact">
-        <li><ProductTile kind="carton" size={30} /><div><b>INV-00231 · Kwame Trading</b><small>40 × Cement 50kg, 12 × PVC pipe</small></div><span className="sc-pill ok">Paid</span></li>
-        <li><ProductTile kind="bottle" size={30} /><div><b>INV-00230 · Adjoa Stores</b><small>Cooking oil 5L × 24</small></div><span className="sc-pill low">Credit</span></li>
+      <ul className="shw-list compact">
+        <li><ProductTile kind="carton" size={30} /><div><b>INV-00231 · Kwame Trading</b><small>40 × Cement 50kg, 12 × PVC pipe</small></div><span className="shw-pill ok">Paid</span></li>
+        <li><ProductTile kind="bottle" size={30} /><div><b>INV-00230 · Adjoa Stores</b><small>Cooking oil 5L × 24</small></div><span className="shw-pill low">Credit</span></li>
       </ul>
     </div>
   );
@@ -62,17 +62,17 @@ function SalesSlide() {
 function TrackingSlide() {
   const steps = ["Requested", "Approved", "On the road", "Received"];
   return (
-    <div className="sc-screen">
-      <div className="sc-head"><b>Goods on the way</b><span className="sc-chip">TRF-0042</span></div>
-      <div className="sc-route">
+    <div className="shw-screen">
+      <div className="shw-head"><b>Goods on the way</b><span className="shw-chip">TRF-0042</span></div>
+      <div className="shw-route">
         <div><small>From</small><b>Accra warehouse</b></div>
-        <div className="sc-road" aria-hidden="true"><i /><svg viewBox="0 0 64 32" className="sc-truck"><rect x="2" y="6" width="34" height="18" rx="3" fill="#EAF1FF" /><path d="M36 11h12l8 8v5H36z" fill="#4C79FF" /><circle cx="14" cy="26" r="4.5" fill="#0B1B3E" stroke="#EAF1FF" strokeWidth="1.5" /><circle cx="46" cy="26" r="4.5" fill="#0B1B3E" stroke="#EAF1FF" strokeWidth="1.5" /></svg></div>
+        <div className="shw-road" aria-hidden="true"><i /><svg viewBox="0 0 64 32" className="shw-truck"><rect x="2" y="6" width="34" height="18" rx="3" fill="#EAF1FF" /><path d="M36 11h12l8 8v5H36z" fill="#4C79FF" /><circle cx="14" cy="26" r="4.5" fill="#0B1B3E" stroke="#EAF1FF" strokeWidth="1.5" /><circle cx="46" cy="26" r="4.5" fill="#0B1B3E" stroke="#EAF1FF" strokeWidth="1.5" /></svg></div>
         <div className="r"><small>To</small><b>Kumasi branch</b></div>
       </div>
-      <ol className="sc-steps">{steps.map((s, i) => <li key={s} className={i < 2 ? "done" : i === 2 ? "now" : ""}><span>{i < 2 ? "✓" : i + 1}</span>{s}</li>)}</ol>
-      <ul className="sc-list compact">
-        <li><ProductTile kind="sack" size={30} /><div><b>Cement 50kg</b><small>Dispatched 120 · arrives tomorrow</small></div><span className="sc-qty">120</span></li>
-        <li><ProductTile kind="tin" size={30} /><div><b>Paint 20L white</b><small>Dispatched 30</small></div><span className="sc-qty">30</span></li>
+      <ol className="shw-steps">{steps.map((s, i) => <li key={s} className={i < 2 ? "done" : i === 2 ? "now" : ""}><span>{i < 2 ? "✓" : i + 1}</span>{s}</li>)}</ol>
+      <ul className="shw-list compact">
+        <li><ProductTile kind="sack" size={30} /><div><b>Cement 50kg</b><small>Dispatched 120 · arrives tomorrow</small></div><span className="shw-qty">120</span></li>
+        <li><ProductTile kind="tin" size={30} /><div><b>Paint 20L white</b><small>Dispatched 30</small></div><span className="shw-qty">30</span></li>
       </ul>
     </div>
   );
@@ -97,22 +97,22 @@ export default function Showcase() {
   }, [i, paused, still]);
   const go = useCallback((n: number) => setI((n + SLIDES.length) % SLIDES.length), []);
   return (
-    <section className="sc" ref={host} aria-roledescription="carousel" aria-label="What WHOLESTRA does"
+    <section className="shw" ref={host} aria-roledescription="carousel" aria-label="What WHOLESTRA does"
       onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)}
       onFocus={() => setPaused(true)} onBlur={(e) => { if (!host.current?.contains(e.relatedTarget as Node)) setPaused(false); }}
       onKeyDown={(e) => { if (e.key === "ArrowRight") go(i + 1); if (e.key === "ArrowLeft") go(i - 1); }}>
-      <div className="sc-viewport">
-        <div className="sc-track" style={{ transform: `translateX(-${i * 100}%)` }}>
+      <div className="shw-viewport">
+        <div className="shw-track" style={{ transform: `translateX(-${i * 100}%)` }}>
           {SLIDES.map((s, n) => (
-            <div key={s.key} className="sc-slide" role="group" aria-roledescription="slide" aria-label={`${n + 1} of ${SLIDES.length}: ${s.title}`} aria-hidden={n !== i}>
-              <div className="sc-frame">{s.body}<span className="sc-sample">Sample data</span></div>
+            <div key={s.key} className="shw-slide" role="group" aria-roledescription="slide" aria-label={`${n + 1} of ${SLIDES.length}: ${s.title}`} aria-hidden={n !== i}>
+              <div className="shw-frame">{s.body}<span className="shw-sample">Sample data</span></div>
               <h2>{s.title}</h2>
               <p>{s.text}</p>
             </div>
           ))}
         </div>
       </div>
-      <div className="sc-dots" role="tablist" aria-label="Choose a slide">
+      <div className="shw-dots" role="tablist" aria-label="Choose a slide">
         {SLIDES.map((s, n) => (
           <button key={s.key} type="button" role="tab" aria-selected={n === i} aria-label={s.title} className={n === i ? "on" : ""} onClick={() => go(n)}>
             {n === i && !paused && !still && <i key={i} />}

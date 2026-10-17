@@ -7,9 +7,8 @@ export const CONTACT_EMAIL = (process.env.NEXT_PUBLIC_CONTACT_EMAIL || "sanshubs
 export const CONTACT_PHONES = list(process.env.NEXT_PUBLIC_CONTACT_PHONE || "+233 50 989 8272 | +233 54 301 6993");
 /** The first number, for places with room for only one. */
 export const CONTACT_PHONE = CONTACT_PHONES[0] ?? "";
-/** WhatsApp numbers, digits only with the country code. Defaults to the phone numbers above. */
-export const CONTACT_WHATSAPPS = (process.env.NEXT_PUBLIC_CONTACT_WHATSAPP ? list(process.env.NEXT_PUBLIC_CONTACT_WHATSAPP) : CONTACT_PHONES).map((n) => n.replace(/\D/g, "")).filter(Boolean);
-export const CONTACT_WHATSAPP = CONTACT_WHATSAPPS[0] ?? "";
+/** The WhatsApp number, digits only with the country code. Shown only as a "WhatsApp" link. */
+export const CONTACT_WHATSAPP = (process.env.NEXT_PUBLIC_CONTACT_WHATSAPP || "233509898272").replace(/\D/g, "");
 /** When someone answers. */
 export const CONTACT_HOURS = (process.env.NEXT_PUBLIC_CONTACT_HOURS || "Monday to Saturday, 8am to 6pm (GMT)").trim();
 /** Where we are. */
@@ -21,5 +20,3 @@ export const whatsappHref = (text?: string, number: string = CONTACT_WHATSAPP) =
 /** "+233 50 989 8272" → "050 989 8272", the way people in Ghana write a local number. */
 export const localNumber = (n: string) => n.replace(/^\+233\s*/, "0").trim();
 export const hasContact = () => !!(CONTACT_EMAIL || CONTACT_WHATSAPP || CONTACT_PHONE);
-/** "233509898272" → "050 989 8272", for WhatsApp links. */
-export const waLabel = (digits: string) => { const d = digits.replace(/\D/g, ""); const local = d.startsWith("233") ? "0" + d.slice(3) : "+" + d; return local.length === 10 ? `${local.slice(0, 3)} ${local.slice(3, 6)} ${local.slice(6)}` : local; };

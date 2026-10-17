@@ -19,6 +19,6 @@ import { OAuthService } from "./oauth.service";
   })],
   controllers:[AuthController, OAuthController],
   providers:[AuthService, MailerService, OtpService, TicketService, OnboardingService, DemoService, OAuthService],
-  exports:[OnboardingService, TicketService]
+  exports:[OnboardingService, TicketService, MailerService]
 })
 export class AuthModule {}

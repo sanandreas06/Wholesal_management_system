@@ -33,7 +33,7 @@ export default function Refer() {
       </section>
       <section className="lp-sec tint">
         <div className="lp-wrap lp-faq">
-          <h2 className="lp-h2">Questions</h2>
+          <h2 className="lp-h2">FAQs</h2>
           {FAQ.map(([q, a]) => <details key={q}><summary>{q}</summary><p>{a}</p></details>)}
           <p className="lp-more"><Link href="/terms#referrals">Full refer &amp; earn terms</Link></p>
         </div>

@@ -165,7 +165,20 @@ Invoke-RestMethod "$api/admin/referrals/THE-ID" -Method Patch -Headers $h -Conte
 `REFERRAL_MAX_USD` (default 30) is the most a single reward can be.
 Statuses: `REGISTERED` (signed up), `CONFIRMED`, `PAID`, `REJECTED`.
 
-## 8. The demo company
+## 8. Contact page messages
+
+The Contact page has a form (name, email, phone, company, subject and message
+are required). Every message is saved. Once email is set up (section 2), each
+one is also emailed to `INQUIRY_TO` (Render; defaults to `MAIL_FROM`), with
+"reply" going straight to the sender, and the sender gets a short "we received
+your message" email. To list them without email, in PowerShell:
+
+```powershell
+$h = @{ "x-admin-key" = "PASTE-THE-KEY" }
+Invoke-RestMethod "https://wms-api-rcsy.onrender.com/api/admin/inquiries" -Headers $h
+```
+
+## 9. The demo company
 
 "Try the demo" opens a shared sample company (Demo Wholesale Ltd) with three
 branches, twelve products with pictures and six weeks of sales. It is built the
