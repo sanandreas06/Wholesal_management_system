@@ -14,11 +14,11 @@ export class OrganizationController {
 
   @Get()
   @RequirePermissions("ORGANIZATION:READ")
-  get(@CurrentUser() user: AuthUser) { return this.organization.get(user.organizationId); }
+  async get(@CurrentUser() user: AuthUser) { const o = await this.organization.get(user.organizationId); return user.demo && user.demoFor ? { ...o, name: user.demoFor } : o; }
 
   /** Name, logo and contact details for invoices and printouts: no permission needed beyond being signed in. */
   @Get("brand")
-  brand(@CurrentUser() user: AuthUser) { return this.organization.brand(user.organizationId); }
+  async brand(@CurrentUser() user: AuthUser) { const b = await this.organization.brand(user.organizationId); return user.demo && user.demoFor ? { ...b, name: user.demoFor } : b; }
 
   @Put()
   @RequirePermissions("ORGANIZATION:UPDATE")

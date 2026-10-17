@@ -88,7 +88,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     const u = getSessionUser();
-    setFirstName((u?.name ?? "").split(" ")[0]);
+    setFirstName(u?.demo && u.demoFor ? u.demoFor : (u?.name ?? "").split(" ")[0]);
     setPerms(u?.permissions ?? []);
     setCompany(u?.organization ?? "");
     api.get<Branch[]>("/branches?own=1").then(setBranches).catch(() => {});

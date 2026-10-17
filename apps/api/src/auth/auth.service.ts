@@ -198,8 +198,7 @@ export class AuthService {
     if (name.length < 2) throw new BadRequestException("Please type your shop or company name.");
     await this.prisma.demoVisit.create({ data: { company: name.slice(0, 80), ip: c.ip ?? null } }).catch(() => undefined);
     const id = await this.demoSvc.ensure();
-    const s = await this.session((await this.loadById(id)) as LoadedUser, c, "demo");
-    return { ...s, user: { ...s.user, demoFor: name.slice(0, 80) } };
+    return this.session((await this.loadById(id)) as LoadedUser, c, "demo", name.slice(0, 80));
   }
 
   /** The last step of a Google/Facebook/LinkedIn sign-in: swaps the one-time note for a real session. */
@@ -212,7 +211,7 @@ export class AuthService {
   }
 
   // ------------------------------------------------------------------ session
-  async session(user: LoadedUser, client: ClientInfo, via: string) {
+  async session(user: LoadedUser, client: ClientInfo, via: string, demoFor?: string) {
     const demo = !!user.organization.isDemo;
     if (!demo) await this.record(user, "SIGN IN", via === "password" || via === "signup" ? "Signed in" : via === "authenticator" ? "Signed in (authenticator app)" : `Signed in with ${via[0].toUpperCase()}${via.slice(1)}`, client);
     const roles = user.userRoles.map((ur) => ur.role.code);
@@ -221,14 +220,14 @@ export class AuthService {
     const restricted = user.userRoles.some((ur) => ur.role.branchRestricted);
     const branchScope = restricted ? (user.branchId ?? NO_BRANCH) : null;
     const accessToken = await this.jwt.signAsync(
-      { sub: user.id, email: user.email, organizationId: user.organizationId, branchId: user.branchId, branchScope, roles, permissions, ...(demo ? { demo: true } : {}) },
+      { sub: user.id, email: user.email, organizationId: user.organizationId, branchId: user.branchId, branchScope, roles, permissions, ...(demo ? { demo: true, ...(demoFor ? { demoFor } : {}) } : {}) },
       demo ? { expiresIn: "3h" } : undefined,
     );
     return {
       accessToken,
       mustChangePassword: user.mustChangePassword,
       user: {
-        id: user.id, name: user.name, email: user.email, organization: user.organization.name, branch: user.branch?.name ?? null, branchScope, roles, permissions,
+        id: user.id, name: user.name, email: user.email, organization: demo && demoFor ? demoFor : user.organization.name, ...(demo && demoFor ? { demoFor } : {}), branch: user.branch?.name ?? null, branchScope, roles, permissions,
         currency: user.organization.currency, demo, setupPending: user.organization.setupPending, authenticator: !!user.totpEnabledAt, passwordSet: user.passwordSet,
       },
     };

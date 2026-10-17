@@ -189,7 +189,7 @@ export default function AppShell({ title, children }: { title: string; children:
           <div className="org-badge" title="Every record here belongs to this company only">
             <small>{user.demo ? "Demo company" : "Company"}</small>
             <strong>{user.organization}</strong>
-            {user.demo && user.demoFor && <em>Viewing as {user.demoFor}</em>}
+            {user.demo && <em>Sample data, read-only</em>}
           </div>
         )}
         <nav className="sidebar-nav-scroll">

@@ -1,4 +1,5 @@
 'use client';
+import { useState } from "react";
 import { AuthOptions, oauthUrl } from "../../lib/authApi";
 
 const G = <svg viewBox="0 0 48 48" width="20" height="20" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg>;
@@ -7,9 +8,9 @@ const L = <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><re
 
 const LIST = [{ id: "google", label: "Google", icon: G }, { id: "facebook", label: "Facebook", icon: F }, { id: "linkedin", label: "LinkedIn", icon: L }] as const;
 
-/** "Continue with Google / Facebook / LinkedIn". Only the providers switched on for this site are clickable; the others say they are not available yet. */
+/** "Continue with Google / Facebook / LinkedIn". Always shown; a provider that is not switched on yet explains that when clicked instead of doing nothing. */
 export default function SocialButtons({ options, mode, referral, loading }: { options: AuthOptions; mode: "signin" | "signup"; referral?: string; loading?: boolean }) {
-  const any = options.social;
+  const [note, setNote] = useState("");
   return (
     <div className="au-social">
       <div className="au-social-row">
@@ -17,10 +18,10 @@ export default function SocialButtons({ options, mode, referral, loading }: { op
           const on = options.providers[p.id];
           return on && !loading
             ? <a key={p.id} className="au-soc" href={oauthUrl(p.id, mode, referral)}>{p.icon}<span>{p.label}</span></a>
-            : <span key={p.id} className="au-soc off" aria-disabled="true" title={loading ? "Checking..." : `${p.label} sign-in is not switched on yet`}>{p.icon}<span>{p.label}</span></span>;
+            : <button key={p.id} type="button" className="au-soc" aria-describedby="au-soc-note" onClick={() => setNote(loading ? "One moment, still checking..." : `${p.label} sign-in is being set up and will work soon. Please use your email for now.`)}>{p.icon}<span>{p.label}</span></button>;
         })}
       </div>
-      {!loading && !any && <p className="au-note">Google, Facebook and LinkedIn sign-in will appear here once they are switched on for this site.</p>}
+      {note && <p className="au-note" id="au-soc-note" role="status">{note}</p>}
     </div>
   );
 }
