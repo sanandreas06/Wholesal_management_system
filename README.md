@@ -31,7 +31,7 @@ pnpm dev
 Open http://localhost:3000
 
 First sign-in on a fresh database:
-- Email: admin@wholesale.local
+- Email: sanshubster@gmail.com (change it with `SEED_ADMIN_EMAIL` when seeding; an older owner created as admin@wholesale.local is moved to it)
 - Starting password: set with `SEED_ADMIN_PASSWORD` when seeding (the built-in one is in `database/prisma/seed/seed.ts`).
 - You are asked to choose a new password straight away. Never leave the starting one in place on anything other people can reach.
 

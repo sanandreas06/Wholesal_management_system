@@ -29,13 +29,13 @@ On your own server they all go in `deploy/.env.production` (see `deploy/env.prod
    Remove-Item Env:DATABASE_URL
    ```
 
-2. **Give the owner account a real email address.** Once email codes are on,
-   every sign-in starts with a code sent to the account's email. The starting
-   owner account `admin@wholesale.local` is not a real inbox. Sign in, open
-   **Settings → Sign-in and security → Change email** and enter an address you
-   can open. (The app also shows a red "Action needed" bar until you do.)
-   Do the same for any staff account with a made-up email: an owner can now
-   correct it in **Users → Edit**.
+2. **Owner email.** Once email codes are on, every sign-in starts with a code
+   sent to the account's email, so it must be a real inbox. The owner is now
+   `sanshubster@gmail.com`: running `pnpm db:seed` moves an owner still called
+   `admin@wholesale.local` to it. Or sign in and use **Settings → Sign-in and
+   security → Change email** (the app shows a red "Action needed" bar until the
+   email is a real one). Staff with made-up emails can be corrected by the owner
+   in **Users → Edit**.
 
    As a second way in, turn on the **authenticator app** on the same screen:
    the sign-in page always offers "Use my authenticator app instead".
@@ -126,20 +126,21 @@ confirmed email address. Someone who already has an account with that email
 simply signs in; a new email creates a new company and goes to the company
 set-up screen.
 
-## 6. Our contact details (Vercel)
+## 6. Our contact details
 
-Shown in the site footer, the Contact page, under the sign-in box and at the
-bottom of every screen inside the app. Leave out any you do not want shown.
+Built in: sanshubster@gmail.com, +233 50 989 8272 | +233 54 301 6993, with a
+WhatsApp link to each number. They show in the site footer, the Contact page,
+under the sign-in box and at the bottom of every screen inside the app.
+Nothing to set. To change them later without a code change, add these on
+Vercel and **Redeploy**:
 
 | Name | Example |
 | --- | --- |
 | `NEXT_PUBLIC_CONTACT_EMAIL` | `hello@yourcompany.com` |
-| `NEXT_PUBLIC_CONTACT_WHATSAPP` | `233201234567` (digits only, with 233) |
-| `NEXT_PUBLIC_CONTACT_PHONE` | `+233 20 123 4567` |
+| `NEXT_PUBLIC_CONTACT_PHONE` | `+233 50 989 8272 \| +233 54 301 6993` |
+| `NEXT_PUBLIC_CONTACT_WHATSAPP` | `233509898272, 233543016993` (digits only; defaults to the phone numbers) |
 | `NEXT_PUBLIC_CONTACT_HOURS` | `Monday to Saturday, 8am to 6pm (GMT)` |
 | `NEXT_PUBLIC_CONTACT_LOCATION` | `Accra, Ghana` |
-
-Then **Redeploy** on Vercel.
 
 ## 7. Refer & earn: confirming rewards
 

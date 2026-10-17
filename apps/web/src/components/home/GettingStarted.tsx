@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { api } from "../../lib/api";
-import { CONTACT_EMAIL, CONTACT_HOURS, CONTACT_PHONE, CONTACT_WHATSAPP, telHref, whatsappHref } from "../../lib/contact";
+import { CONTACT_EMAIL, CONTACT_HOURS, CONTACT_PHONE, CONTACT_PHONES, CONTACT_WHATSAPP, telHref, whatsappHref } from "../../lib/contact";
 
 type Progress = { profileDone: boolean; hasLogo: boolean; branches: number; products: number; customers: number; suppliers: number; sales: number; users: number; orders: number; imports: number; stockEntries: number; authenticator: boolean; createdAt: string | null; demo: boolean };
 type Mine = { demo: boolean; code: string | null; maxUsd: number; totals: { registered: number } };
@@ -85,6 +85,7 @@ export default function GettingStarted() {
         <article className="card2 gs2-help">
           <h3>Need a hand?</h3>
           <p className="sub">We can set up your products and branches with you. Hours: {CONTACT_HOURS}.</p>
+          {CONTACT_PHONES.length > 0 && <p className="sub gs2-phones">{CONTACT_PHONES.join(" | ")}</p>}
           <div className="gs2-help-actions">
             {CONTACT_WHATSAPP && <a href={whatsappHref("Hello WHOLESTRA, I would like help setting up my account.")} target="_blank" rel="noopener noreferrer">💬 WhatsApp</a>}
             {CONTACT_PHONE && <a href={telHref(CONTACT_PHONE)}>☎ Call us</a>}

@@ -269,3 +269,6 @@ button.danger-solid{background:var(--danger);color:#fff}
 .warn-bar{background:linear-gradient(90deg,#FDEDEB,#FBE0DC);color:#7A1F1F;border-bottom-color:#F3C2BC}
 .warn-bar .demo-tag{background:#B23B3B}
 [data-theme="dark"] .warn-bar{background:linear-gradient(90deg,#3A1A19,#2E1514);color:#F5C2BC;border-bottom-color:#5C2A26}
+.contact-phones{display:inline-flex;flex-wrap:wrap;gap:6px;align-items:center}
+.contact-phones a{display:inline}
+.gs2-phones{font-weight:700;color:var(--text)!important}

@@ -110,6 +110,7 @@ a.au-soc:hover{border-color:var(--primary);transform:translateY(-1px);box-shadow
 .contact-strip{display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:6px 16px;font-size:13px;color:var(--text-muted)}
 .contact-strip>span{font-weight:700}
 .contact-strip a{display:inline-flex;gap:6px;align-items:center;color:var(--primary);font-weight:600;text-decoration:none}
+.contact-phones{display:inline-flex;flex-wrap:wrap;gap:6px;align-items:center;justify-content:center}
 
 /* ---- sliding showcase (sc-) ---- */
 .sc{position:relative;z-index:2;width:min(540px,100%)}

@@ -437,9 +437,16 @@ async function main() {
   // ADMIN USER
   // ============================================================
 
+  // The owner's sign-in email. Sign-in codes are sent here, so it must be a real inbox.
+  // An owner created earlier as admin@wholesale.local is moved to this address (only if nobody uses it yet).
+  const ownerEmail = (process.env.SEED_ADMIN_EMAIL || "sanshubster@gmail.com").trim().toLowerCase();
+  if (!(await prisma.user.findFirst({ where: { email: { equals: ownerEmail, mode: "insensitive" } } }))) {
+    await prisma.user.updateMany({ where: { email: "admin@wholesale.local" }, data: { email: ownerEmail } });
+  }
+
   const admin = await prisma.user.upsert({
     where: {
-      email: "admin@wholesale.local",
+      email: ownerEmail,
     },
     // re-running the seed must never put the owner's password back to the starting one
     update: {
@@ -449,7 +456,7 @@ async function main() {
     create: {
       organizationId: organization.id,
       branchId: branches[0].id,
-      email: "admin@wholesale.local",
+      email: ownerEmail,
       name: "System Administrator",
       passwordHash,
       mustChangePassword: true,

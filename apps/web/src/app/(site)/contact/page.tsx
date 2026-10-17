@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { CONTACT_EMAIL, CONTACT_HOURS, CONTACT_LOCATION, CONTACT_PHONE, CONTACT_WHATSAPP, telHref } from "../../../lib/contact";
+import { CONTACT_EMAIL, CONTACT_HOURS, CONTACT_LOCATION, CONTACT_PHONES, CONTACT_WHATSAPPS, telHref, whatsappHref } from "../../../lib/contact";
 
 export const metadata: Metadata = { title: "Contact | WHOLESTRA", description: "Questions about WHOLESTRA and how it would work for your business." };
 
@@ -24,10 +24,10 @@ export default function Contact() {
         <div className="lp-wrap lp-split">
           <div>
             <h2 className="lp-h2">Reach us</h2>
-            {CONTACT_WHATSAPP || CONTACT_EMAIL || CONTACT_PHONE ? (
+            {CONTACT_WHATSAPPS.length || CONTACT_EMAIL || CONTACT_PHONES.length ? (
               <div className="lp-contacts">
-                {CONTACT_WHATSAPP && <a href={`https://wa.me/${CONTACT_WHATSAPP}`} target="_blank" rel="noreferrer"><b>WhatsApp</b><span>+{CONTACT_WHATSAPP}</span></a>}
-                {CONTACT_PHONE && <a href={telHref(CONTACT_PHONE)}><b>Call us</b><span>{CONTACT_PHONE}</span></a>}
+                {CONTACT_WHATSAPPS.map((n) => <a key={"w" + n} href={whatsappHref("Hello WHOLESTRA", n)} target="_blank" rel="noreferrer"><b>WhatsApp</b><span>+{n.replace(/^(\d{3})(\d{2})(\d{3})(\d+)$/, "$1 $2 $3 $4")}</span></a>)}
+                {CONTACT_PHONES.map((n) => <a key={"c" + n} href={telHref(n)}><b>Call us</b><span>{n}</span></a>)}
                 {CONTACT_EMAIL && <a href={`mailto:${CONTACT_EMAIL}`}><b>Email</b><span>{CONTACT_EMAIL}</span></a>}
               </div>
             ) : <p className="lp-sub">Contact details are not published on this site yet. You can <Link href="/get-started">create an account</Link> or try the demo in the meantime.</p>}
