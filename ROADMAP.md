@@ -215,7 +215,7 @@ Status: ✅ Built (needs `db:push` + `db:seed`, then sign out/in).
 - New Sale dialog redesigned: items table with line totals, per-branch stock under each line, live summary panel (paid now, balance, credit-limit and stock warnings).
 - Product create/edit dialog redesigned: sectioned layout, live margin, read-only on-hand stock when editing.
 
-### Batches 12–29 (all built, in order)
+### Batches 12–31 (all built, in order)
 - ✅ 12 Audit log for non-inventory changes — built (Audit → Change log tab; before/after values for products, prices, customers, suppliers, users, roles, branches, settings, expense decisions). Gaps: login/logout events, sales/finance postings (they have their own trails), tamper-proofing (hash chain), export
 - ✅ 13 Product aliases + review screen — built (aliases on the product form; Excel import matches SKU, exact name, alias, then name ignoring case/punctuation; "Review unmatched products" suggests closest matches, remembers your choice and imports the held-back rows). Gaps: matching is suggestion-only (never auto-guesses), no bulk alias import
 - ✅ 14 Reorder suggestions — built (Purchases → Reorder Suggestions: per branch, from recent sales speed vs on hand and on order; editable quantities and costs; creates a DRAFT purchase order per supplier, never sends one). Gaps: lead time and cover days are global settings you adjust on the page, not per supplier/product; suggestions ignore seasonality and returns; supplier is inferred from the last purchase order
@@ -257,49 +257,14 @@ Status: ✅ Built (needs `db:push` + `db:seed`, then sign out/in).
   - 29h Settings hub (All settings, grouped like Zoho: organization, users and roles, setup, customization, taxes, security, modules, integrations and data) with search; Organization profile, Branding (logo on printed invoices), Sign-in and security, Plan; planned items open an honest "Coming soon" page. Top bar: company name, "+" quick-create menu, settings gear; user menu shows the company and Sign-in & security; contact footer at the bottom of every screen
   - 29i Product pictures (shrunk in the browser; a small copy for lists, the full one only when a product is opened), company currency used for every amount, Terms of use and Privacy notice pages, invoices print the company's logo, address and tax number
   - Gaps: real email sending and Google/Facebook/LinkedIn were tested with stand-ins only (they need your accounts and keys); referral rewards have no staff screen; Terms and Privacy are plain-language drafts for a lawyer to review; Language offers English only; taxes, number series, payment gateways, credit notes, integrations and data export are "Coming soon"
-
----
-
-## Not yet scoped as a batch, but flagged from the technical architecture doc
-
-- **Audit & Security beyond inventory** — we already have genuine audit
-  value today: the Stock Movement ledger (who/what/when/branch/before-after
-  quantity for all inventory activity) and a rule-based fraud/anomaly
-  detection page (large single reductions, frequent reducers, recurring
-  branch shortages, off-hours activity — framed as "worth reviewing," not
-  accusations, every flag traces to real records). *Update:* the non-inventory audit log is built (Batch 12) and tamper-evident
-  (Batches 18, 21), so who edited a supplier's credit limit or changed a role's
-  permissions is now recorded. Still not built: general approval workflows
-  (only expenses have approval) and period locking.
-- **AI & Advanced Analytics** — the fraud detection above is a precursor,
-  not real ML. Demand forecasting, reorder recommendations, and
-  natural-language analytics are explicitly meant to come *after* reliable
-  transactional data exists — matches the architecture doc's own stated
-  principle: "build controls before AI."
-- **Pilot & Rollout** — not relevant until the above batches are further
-  along.
-
----
-
-## Working conventions
-
-- One AI tool driving code changes at a time — a real conflict occurred
-  earlier when two tools edited the repo independently; resolved by
-  consolidating on one driver
-- Changes delivered as git patch files (`git apply`) or, when a file has
-  accumulated too much layered history for a patch to apply reliably, as a
-  complete replacement file
-- Always `cd` to the actual project root before `git add .` — a real
-  mistake was made running it from a subdirectory, silently staging nothing
-- Commit and push frequently — long gaps between commits have repeatedly
-  caused "what's actually on disk vs. what's in git" confusion
-- NestJS style: terse single-line class bodies, `PrismaService` injected
-  directly, `@nestjs/jwt` used directly (no Passport)
-- Next.js style: compact JSX, CSS custom properties for theming (light/dark),
-  `usePermissions()` hook for SSR-safe permission checks, `usePolling()` for
-  live-updating views without a full WebSocket system
-- Secrets (JWT_SECRET, AUDIT_SEAL_KEY) are generated on the owner's own
-  computer and never pasted into chat or committed; `.env`, `.env.backup-*`
-  and `*.patch` are git-ignored
-- Never change AUDIT_SEAL_KEY by hand; use `pnpm secrets:set` then
-  `pnpm audit:rotate-key`
+- ✅ 30 Sign-in check-up and WHOLESTRA as an installable web app — built (no database change):
+  - 30a System status page (`/status`, linked from the footer and from "Having trouble signing in?" on the sign-in page): checks the server, the database (reachable and up to date), email (set up, keys accepted by Gmail/Brevo without sending anything, last send worked), `WEB_URL`/`API_PUBLIC_URL` (and that `WEB_URL` matches the site you are on), and Google, Facebook and LinkedIn; each problem says in plain words what to change and where. Shows only yes/no facts, never keys. Backed by `GET /api/status`
+  - 30b No more silent sign-in failures: when the email with the code cannot be sent, sign-in now says so at once ("We could not send a code... choose Sign in with Google Authenticator instead") instead of "check your inbox"; an email with no account gets the same message while sending is broken, so the page still never reveals who has an account
+  - 30c Installable web app (no app store): name, icons (normal and Android "maskable"), navy title bar, opens on the Dashboard in its own window, shortcuts to Sales and Inventory. "Install app" button in the site's top bar and phone menu and in the user menu inside the app: Chrome/Edge/Android show their own install window, iPhone/iPad and other browsers get short steps (Share → Add to Home Screen). A small service worker keeps the app's files on the device for a fast start and shows a "You are offline" page without internet; business data is never stored on the device
+  - Gaps: the app needs the internet (no offline selling); iPhone shows no install window of its own, people follow the steps; not in Google Play or the App Store (a store version can wrap this web app later)
+- ✅ 31 App name and the WHOLESTRA assistant — built (no database change; smart replies optional):
+  - 31a Installed app: name is just "WHOLESTRA" under the icon and in the window title (the title no longer changes to the page's name, e.g. "Refer & earn"); the refer & earn strip is hidden inside the installed app; the title-bar overlay mode was removed so the window always shows its title. Already-installed apps pick up the new name when opened
+  - 31b Website assistant (every public page and the sign-in pages): answers questions, takes visitors to pages, opens the demo, shows contact details, guided spotlight tour of the page; a friendly hello once per visit
+  - 31c In-app assistant (real accounts and the demo): guided tour of the screen, step-by-step how-tos, sales report for any day or range (`GET /api/assistant/sales-report`), stock of a product, what is running low, open any page; records a sale (with payment), a draft purchase order, an expense or a new customer after asking for anything missing and showing a card to Confirm; uses the person's own permissions and branch limit; the demo shows the cards but cannot save
+  - 31d Smart replies through Claude (Anthropic) when `ANTHROPIC_API_KEY` is set on the API: the browser runs every tool with the person's own sign-in, writes always need Confirm, rate limits per visitor/person plus a daily cap (`ASSISTANT_DAILY_LIMIT`); falls back to the built-in answers if the key is missing or the service fails
+  - Gaps: the built-in understanding knows common phrasings (English) and asks when unsure; smart replies need a paid Anthropic key; the assistant cannot yet do transfers, stock adjustments, payments on old invoices or approvals (it explains them and opens the right screen); conversations are kept per browser tab only

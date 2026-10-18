@@ -33,7 +33,9 @@ import { ExcelImportsModule } from "./excel-imports/excel-imports.module";
 import { NotificationsModule } from "./notifications/notifications";
 import { ReferralsModule } from "./referrals/referrals";
 import { HomeModule } from "./home/home";
+import { AssistantModule } from "./assistant/assistant";
 import { InquiriesModule } from "./inquiries/inquiries";
+import { StatusModule } from "./status/status";
 
 @Module({
   imports: [
@@ -65,7 +67,7 @@ import { InquiriesModule } from "./inquiries/inquiries";
     AuditModule,
     SalesModule,
     FinanceModule,
-    ExcelImportsModule, NotificationsModule, ReferralsModule, HomeModule, InquiriesModule],
+    ExcelImportsModule, NotificationsModule, ReferralsModule, HomeModule, InquiriesModule, AssistantModule, StatusModule],
   controllers: [HealthController, DashboardController],
   providers: [DashboardService]
 })

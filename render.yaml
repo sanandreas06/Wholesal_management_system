@@ -45,6 +45,11 @@ services:
         value: WHOLESTRA
       - key: INQUIRY_TO
         value: sanshubster@gmail.com
+      # Optional: smart replies for the assistant (Anthropic API key). Without it the assistant still works with its built-in answers.
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: ASSISTANT_DAILY_LIMIT
+        value: "3000"
       - key: GOOGLE_CLIENT_ID
         sync: false
       - key: GOOGLE_CLIENT_SECRET

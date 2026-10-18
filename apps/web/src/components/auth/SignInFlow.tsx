@@ -161,6 +161,7 @@ export default function SignInFlow() {
           </button>
           <p className="au-alt">New to WHOLESTRA? <Link href="/get-started">Create an account</Link></p>
           {offline && <p className="au-note">We could not reach the server just now. You can still try to sign in.</p>}
+          <p className="au-note au-center">Having trouble signing in? <Link href="/status">Check the system status</Link>.</p>
         </>}
 
         {step === "code" && <>

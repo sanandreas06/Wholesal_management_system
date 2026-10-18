@@ -38,6 +38,7 @@
 .lp-links a:hover{background:rgba(255,255,255,.08);color:#fff}
 .lp-links a[aria-current="page"]{color:#fff;background:rgba(157,184,255,.16)}
 .lp-acct{display:flex;gap:10px;align-items:center;justify-content:flex-end}
+.lp-install{gap:6px}
 .lp-burger,.lp-menu{display:none}
 .lp-burger{width:44px;height:44px;border:1px solid rgba(255,255,255,.22);border-radius:10px;background:transparent;cursor:pointer;flex-direction:column;align-items:center;justify-content:center;gap:5px;padding:0}
 .lp-burger i{display:block;width:20px;height:2px;background:#fff;border-radius:2px}
@@ -360,7 +361,8 @@
   .lp-menu{position:absolute;left:0;right:0;top:100%;background:#06112E;border-bottom:1px solid rgba(157,184,255,.2);padding:12px clamp(16px,2.2vw,36px) 20px;flex-direction:column;gap:2px}
   .lp-menu.open{display:flex}
   .lp-menu>a{padding:14px 8px;font-weight:600;border-bottom:1px solid rgba(157,184,255,.12)}
-  .lp-menu-acct{display:flex;gap:10px;margin-top:14px}
+  .lp-menu-acct{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px}
+  .lp-menu-acct .lp-btn.lp-install{flex:1 1 100%}
   .lp-menu-acct .lp-btn{flex:1}
   .lp-split,.ft{grid-template-columns:minmax(0,1fr)}
   .lp-split.flip>:first-child{order:0}
@@ -520,3 +522,21 @@
 .cf-agree{display:flex}
 .lp-contacts .lp-contact-box a{display:inline;padding:0;border:0;background:none;border-radius:0}
 .lp-contacts .lp-contact-box a:hover{transform:none;text-decoration:underline}
+
+/* system status page */
+.stc{max-width:760px;display:flex;flex-direction:column;gap:12px}
+.stc-api{color:#4A5878;margin:0}
+.stc-api code{font:600 .9rem ui-monospace,Menlo,monospace;color:#0B1B3E;background:#F1F4FA;padding:2px 8px;border-radius:6px;word-break:break-all}
+.stc-wait{color:#4A5878}
+.stc-row{display:flex;flex-direction:column;gap:4px;padding:14px 18px;border-radius:14px;border:1px solid #E3E8F2;border-left:5px solid #15803D;background:#fff}
+.stc-row b{display:flex;gap:8px;align-items:center;font:700 1.05rem "Bricolage Grotesque",sans-serif}
+.stc-row b span{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;background:#E7F7EC;color:#15803D;font-size:.8rem}
+.stc-row>span{color:#33415F}
+.stc-row em{font-style:normal;font-size:.92rem;color:#7A4A0E;background:#FFF6E6;padding:8px 10px;border-radius:8px}
+.stc-row.bad{border-left-color:#B23B3B}
+.stc-row.bad b span{background:#FDEDEB;color:#B23B3B}
+.stc-row.bad em{color:#8A2020;background:#FDEDEB}
+.stc-row.later{border-left-color:#C9D2E4}
+.stc-row.later b span{background:#F1F4FA;color:#6B7895}
+.stc-summary{font-weight:700;color:#0B1B3E}
+.stc .lp-btn{align-self:flex-start}

@@ -13,6 +13,9 @@ export class MailerService {
   private readonly log = new Logger("Mailer");
   /** the last thing that went wrong, shown on the staff test endpoint so a broken setting is easy to find */
   lastError: string | null = null;
+  /** when sending last failed (cleared by the next success) */
+  lastFailureAt: number | null = null;
+  get recentlyFailed() { return !!this.lastFailureAt && Date.now() - this.lastFailureAt < 10 * 60_000; }
   private gmailToken: { value: string; until: number } | null = null;
   get provider() { return (process.env.MAIL_PROVIDER || "").toLowerCase(); }
   get configured(): boolean {
@@ -23,6 +26,7 @@ export class MailerService {
 
   private fail(why: string): never {
     this.lastError = why;
+    this.lastFailureAt = Date.now();
     this.log.error(why);
     throw new ServiceUnavailableException("We could not send the email just now. Please try again in a minute.");
   }
@@ -50,6 +54,31 @@ export class MailerService {
     return Buffer.from([...head, "", part("text/plain", m.text), part("text/html", m.html), `--${boundary}--`, ""].join("\r\n")).toString("base64url");
   }
 
+  /** Checks the email keys without sending anything (Gmail: can a sign-in token be made; Brevo: is the key accepted). Remembered for 5 minutes. */
+  private verified: { at: number; ok: boolean; reason: string } | null = null;
+  async verify(): Promise<{ ok: boolean; reason: string }> {
+    if (!this.configured) return { ok: false, reason: "not set up" };
+    if (this.verified && Date.now() - this.verified.at < 5 * 60_000) return this.verified;
+    const ctl = new AbortController(), timer = setTimeout(() => ctl.abort(), 12000);
+    let out: { ok: boolean; reason: string };
+    try {
+      if (this.provider === "gmail") {
+        const res = await fetch("https://oauth2.googleapis.com/token", { method: "POST", signal: ctl.signal, headers: { "content-type": "application/x-www-form-urlencoded" },
+          body: new URLSearchParams({ client_id: process.env.GMAIL_CLIENT_ID as string, client_secret: process.env.GMAIL_CLIENT_SECRET as string, refresh_token: process.env.GMAIL_REFRESH_TOKEN as string, grant_type: "refresh_token" }) });
+        const data = (await res.json().catch(() => ({}))) as { access_token?: string; scope?: string; error?: string };
+        out = res.ok && data.access_token
+          ? (data.scope && !data.scope.includes("gmail.send") ? { ok: false, reason: "the Gmail key was made without the gmail.send permission" } : { ok: true, reason: "Google accepted the Gmail key" })
+          : { ok: false, reason: data.error === "invalid_grant" ? "Google rejected GMAIL_REFRESH_TOKEN (expired, revoked, or made with a different client)" : data.error === "invalid_client" ? "Google rejected GMAIL_CLIENT_ID or GMAIL_CLIENT_SECRET" : `Google said: ${data.error ?? res.status}` };
+      } else if (this.provider === "brevo") {
+        const res = await fetch("https://api.brevo.com/v3/account", { signal: ctl.signal, headers: { "api-key": process.env.MAIL_API_KEY as string, accept: "application/json" } });
+        out = res.ok ? { ok: true, reason: "Brevo accepted the API key" } : { ok: false, reason: `Brevo rejected MAIL_API_KEY (HTTP ${res.status})` };
+      } else out = { ok: true, reason: "not checked for this provider" };
+    } catch (e) { out = { ok: false, reason: `could not reach ${this.provider}: ${(e as Error).message}` }; }
+    finally { clearTimeout(timer); }
+    this.verified = { at: Date.now(), ...out };
+    return out;
+  }
+
   async send(m: Mail): Promise<void> {
     if (!this.configured) throw new ServiceUnavailableException("Email is not set up on this server yet.");
     const from = process.env.MAIL_FROM as string, name = process.env.MAIL_FROM_NAME || "WHOLESTRA", key = process.env.MAIL_API_KEY as string;
@@ -66,6 +95,7 @@ export class MailerService {
       }
       if (!res.ok) this.fail(`${this.provider} refused the email (HTTP ${res.status}): ${(await res.text().catch(() => "")).slice(0, 400)}`);
       this.lastError = null;
+      this.lastFailureAt = null;
     } catch (e) {
       if (e instanceof ServiceUnavailableException) throw e;
       this.fail(`could not reach ${this.provider}: ${(e as Error).message}`);

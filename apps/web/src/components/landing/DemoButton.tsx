@@ -7,7 +7,7 @@ export default function DemoButton({ className = "lp-btn line", label = "Try the
   const [open, setOpen] = useState(false);
   return (
     <>
-      <button type="button" className={className} onClick={() => setOpen(true)}>{label}</button>
+      <button type="button" className={className} data-tour="demo" onClick={() => setOpen(true)}>{label}</button>
       <DemoModal open={open} onClose={() => setOpen(false)} />
     </>
   );

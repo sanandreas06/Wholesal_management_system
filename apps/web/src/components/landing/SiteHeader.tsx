@@ -3,6 +3,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import Logo from "../Logo";
+import InstallApp from "../InstallApp";
 import { clearSession, getSessionUser } from "../../lib/session";
 
 const LINKS = [
@@ -57,11 +58,11 @@ export default function SiteHeader() {
       <nav className="lp-links" aria-label="Main">
         {LINKS.map((l) => <Link key={l.href} href={l.href} aria-current={path === l.href ? "page" : undefined}>{l.label}</Link>)}
       </nav>
-      <div className="lp-acct">{account}</div>
+      <div className="lp-acct"><InstallApp className="lp-btn ghost sm lp-install" />{account}</div>
       <button type="button" className="lp-burger" aria-label={open ? "Close menu" : "Open menu"} aria-expanded={open} aria-controls="lp-menu" onClick={() => setOpen(!open)}><i /><i /><i /></button>
       <div id="lp-menu" className={"lp-menu" + (open ? " open" : "")}>
         {LINKS.map((l) => <Link key={l.href} href={l.href} aria-current={path === l.href ? "page" : undefined}>{l.label}</Link>)}
-        <div className="lp-menu-acct">{account}</div>
+        <div className="lp-menu-acct"><InstallApp className="lp-btn ghost sm lp-install" onOpen={() => setOpen(false)} />{account}</div>
       </div>
     </header>
   );

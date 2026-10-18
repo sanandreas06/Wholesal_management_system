@@ -1,4 +1,5 @@
 'use client';
+import Assistant from "../assistant/Assistant";
 import SiteHeader from "../landing/SiteHeader";
 import Showcase from "./Showcase";
 import ContactBlock from "../ContactBlock";
@@ -22,6 +23,7 @@ export default function AuthShell({ children, wide, aside }: { children: React.R
           </div>
         </main>
       </div>
+      <Assistant mode="site" />
     </div>
   );
 }

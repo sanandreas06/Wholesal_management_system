@@ -11,6 +11,9 @@ import Avatar from "./Avatar";
 import Logo from "./Logo";
 import ProfileModal, { Profile } from "./ProfileModal";
 import ContactBlock from "./ContactBlock";
+import Assistant from "./assistant/Assistant";
+import { InstallSteps, startInstall, useCanInstall } from "./InstallApp";
+import type { Platform } from "../lib/install";
 import "./app-extra.css";
 
 type Item = { href: string; label: string; permission: string | null };
@@ -115,6 +118,8 @@ export default function AppShell({ title, children }: { title: string; children:
   const [profileOpen, setProfileOpen] = useState(false);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [quickOpen, setQuickOpen] = useState(false);
+  const canInstall = useCanInstall();
+  const [installHelp, setInstallHelp] = useState<Platform | null>(null);
   useEffect(() => {
     try { const c = sessionStorage.getItem("wms_profile"); if (c) setProfile(JSON.parse(c)); } catch { /* cache is optional */ }
     api.get<Profile>("/profile").then(p => { setProfile(p); try { sessionStorage.setItem("wms_profile", JSON.stringify(p)); } catch { /* ignore */ } }).catch(() => {});
@@ -196,7 +201,7 @@ export default function AppShell({ title, children }: { title: string; children:
           {visibleNav.map(e => {
             if (e.kind === "link") {
               return (
-                <a key={e.item.href} href={e.item.href} className={"nav-row" + (pathname === e.item.href ? " active" : "")}>
+                <a key={e.item.href} href={e.item.href} data-tour={`nav-${e.item.href}`} className={"nav-row" + (pathname === e.item.href ? " active" : "")}>
                   <Icon name={e.icon} /><span>{e.item.label}</span>{badges[e.item.href] ? <span className="nbadge">{badges[e.item.href]}</span> : null}
                 </a>
               );
@@ -204,7 +209,7 @@ export default function AppShell({ title, children }: { title: string; children:
             const hasActive = e.items.some(i => pathname === i.href);
             const isOpen = open[e.label] ?? hasActive;
             return (
-              <div key={e.label} className="nav-group">
+              <div key={e.label} className="nav-group" data-tour={`nav-${e.label}`}>
                 <button type="button" className={"nav-row nav-head" + (hasActive ? " has-active" : "")} onClick={() => setOpen({ ...open, [e.label]: !isOpen })} aria-expanded={isOpen}>
                   <Icon name={e.icon} /><span>{e.label}</span>{!isOpen && e.items.some(i => badges[i.href]) && <span className="ndot" />}<span className={"chev" + (isOpen ? " open" : "")}>▸</span>
                 </button>
@@ -284,6 +289,7 @@ export default function AppShell({ title, children }: { title: string; children:
                     <button type="button" role="menuitem" onClick={() => { setMenuOpen(false); setProfileOpen(true); }}>My profile</button>
                     <button type="button" role="menuitem" onClick={() => { setMenuOpen(false); router.push("/settings/security"); }}>Sign-in & security</button>
                     <button type="button" role="menuitem" onClick={() => { setMenuOpen(false); setHelpOpen(true); }}>Keyboard shortcuts</button>
+                    {canInstall && <button type="button" role="menuitem" onClick={async () => { setMenuOpen(false); setInstallHelp(await startInstall()); }}>Install app</button>}
                     <button type="button" role="menuitem" className="danger" onClick={signOut}>Sign out</button>
                   </div>
                 </>}
@@ -316,6 +322,8 @@ export default function AppShell({ title, children }: { title: string; children:
       </div>
       <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} commands={commands} />
       <ToastHost />
+      {user && <Assistant mode="app" />}
+      {installHelp && <InstallSteps on={installHelp} onClose={() => setInstallHelp(null)} />}
       {(profileOpen || !!profile?.mustChangePassword) && profile && <ProfileModal profile={profile} forced={!!profile.mustChangePassword} onClose={() => setProfileOpen(false)} onSaved={profileSaved} />}
       {helpOpen && (
         <div className="cmd-backdrop" onClick={() => setHelpOpen(false)}>

@@ -267,3 +267,4 @@ a.au-soc:hover{border-color:var(--primary);transform:translateY(-1px);box-shadow
 [data-theme="dark"] .au-company{background:#16264A;border-color:#22305A;color:#E9EEFF}
 button.au-soc{margin:0;cursor:pointer;font-family:inherit}
 button.au-soc:hover{border-color:var(--primary);transform:translateY(-1px);box-shadow:0 6px 16px rgba(15,23,42,.08)}
+.au-center{text-align:center}.au-center a{color:var(--primary);font-weight:700}

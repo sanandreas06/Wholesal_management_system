@@ -14,6 +14,15 @@ Where the settings go on the free demo hosting:
 
 On your own server they all go in `deploy/.env.production` (see `deploy/env.production.example`).
 
+> **Sign-in not working? Start here.** Open your website followed by `/status`
+> (for example `https://your-site.vercel.app/status`, also linked at the bottom
+> of every page as **System status**). It checks the server, the database,
+> email, the two addresses and Google/Facebook/LinkedIn, and says in plain
+> words what to fix for every item marked ✕. Fix those, press **Check again**,
+> and sign-in works once everything is ✓ (Facebook and LinkedIn may stay grey
+> until you switch them on). The free server sleeps, so the first check can take
+> up to a minute.
+
 ---
 
 ## 0. Before anything else
@@ -228,3 +237,69 @@ again. Wrong email codes, authenticator codes and passwords are recorded as
 branches, twelve products with pictures and six weeks of sales. It is built the
 first time someone opens it, its dates move forward so it always looks recent,
 and it is read-only: nothing anyone does there is saved. Nothing to set up.
+
+## 12. WHOLESTRA as an app on phones and computers
+
+WHOLESTRA installs straight from the website, no app store needed. It gets its
+own icon and opens in its own window on the Dashboard, and every update you
+deploy reaches everyone at once.
+
+- **Android (Chrome)** and **Windows/Mac (Chrome or Edge):** press **Install app**
+  (top bar of the website, the phone menu, or the user menu inside the app) and
+  confirm. Chrome may also offer it in the address bar.
+- **iPhone/iPad:** open the site in Safari, tap **Share**, then **Add to Home
+  Screen**. The **Install app** button shows these steps.
+
+The app's name under the icon is **WHOLESTRA** (on Android, Windows and Mac),
+and inside the app window the title bar always reads WHOLESTRA, whatever page
+is open. The refer & earn strip is hidden inside the app.
+
+**Already installed it before this update?** Chrome checks the app's details when
+the app is opened and updates the name and icon by itself (on a computer it may
+ask you to accept the new name; on Android it can take up to a day). If the icon
+still has no name or the wrong one, it was added as a plain shortcut: remove it
+(press and hold the icon, then Remove/Uninstall) and install again from the
+**Install app** button.
+
+Nothing needs setting up: the website must be on `https://` (Vercel already is).
+The app still needs the internet; without it, it shows a "You are offline" page
+and reloads by itself when the connection is back. No business data is kept on
+the device.
+
+## 13. The WHOLESTRA assistant
+
+A chat button sits at the bottom right of every page.
+
+- **On the website** it answers questions (features, pricing, security, sign-up,
+  sign-in problems, the app, refer & earn), takes visitors to the right page,
+  opens the demo, shows our contact details and gives a guided tour that
+  highlights each part of the page.
+- **Inside the app and the demo** it gives a guided tour of the screen, explains
+  how to do things step by step, answers questions from the company's records
+  ("sales today", "sales last week at Kumasi", "what's running low?", "how many
+  rice do we have?") and does tasks: **record a sale** (with payment), **create a
+  purchase order** (saved as a draft), **record an expense** and **add a
+  customer**. It asks for anything missing, then shows a card with every detail;
+  nothing is saved until the person presses **Confirm**. It uses the person's own
+  sign-in, so it can never see or do more than their role allows, and everything
+  it saves goes into the change log like any other change. In the demo it shows
+  the card but cannot save.
+
+It works straight away with its built-in understanding. For **smart replies**
+(it understands any wording, follow-up questions and longer requests), add an
+Anthropic API key:
+
+1. Go to **console.anthropic.com**, sign in, add a payment method under
+   **Billing** and create a key under **API keys**. Copy it (it is shown once).
+2. On **Render** → `wms-api` → **Environment**, add `ANTHROPIC_API_KEY` with the
+   key, then **Save, rebuild and deploy**. Never paste the key into a chat or the
+   code.
+3. Optional: `ASSISTANT_DAILY_LIMIT` (default 3000 smart replies a day for the
+   whole server) caps the bill; `ASSISTANT_MODEL` changes the model (default
+   `claude-haiku-5-5`, the fast and low-cost one).
+
+Each smart reply costs a fraction of a US cent with the default model. Visitors
+on the website are limited to 30 messages every 15 minutes, signed-in people to
+120. If the key is missing, wrong or out of credit, the assistant quietly falls
+back to its built-in answers.
+

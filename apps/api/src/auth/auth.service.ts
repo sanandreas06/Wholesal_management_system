@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, HttpException, HttpStatus, Injectable, Logger, UnauthorizedException } from "@nestjs/common";
+import { BadRequestException, ConflictException, HttpException, HttpStatus, Injectable, Logger, ServiceUnavailableException, UnauthorizedException } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
 import { Prisma } from "@prisma/client";
 import * as bcrypt from "bcryptjs";
@@ -78,13 +78,19 @@ export class AuthService {
       const sent = await this.otp.deliver(email, "signup", code);
       return { ok: true, expiresInSeconds: 600, ...sent };
     }
-    // sign-in: the answer is the same whether or not the email has an account, and a real email is sent without making the caller wait for it
+    // sign-in: the answer does not reveal whether the email has an account. If email sending is broken, everyone gets the same
+    // "could not send" message (never a silent "check your inbox" that nothing will arrive in).
+    const cannotSend = new ServiceUnavailableException("We could not send a code to your email just now. Please try again in a few minutes. If you use Google Authenticator, choose \"Sign in with Google Authenticator\" instead.");
     const user = await this.loadByEmail(email);
+    if (!user && this.mailer.configured && this.mailer.recentlyFailed) throw cannotSend;
     const code = await this.otp.issue(email, "signin", c.ip, !!user);
     if (!user) return { ok: true, expiresInSeconds: 600 };
-    if (this.otp.devEcho && !this.mailer.configured) return { ok: true, expiresInSeconds: 600, ...(await this.otp.deliver(email, "signin", code)) };
-    void this.otp.deliver(email, "signin", code).catch((e) => this.log.error(`sign-in code for an account could not be sent: ${(e as Error).message}`));
-    return { ok: true, expiresInSeconds: 600 };
+    try {
+      return { ok: true, expiresInSeconds: 600, ...(await this.otp.deliver(email, "signin", code)) };
+    } catch (e) {
+      this.log.error(`sign-in code could not be sent: ${(e as Error).message}`);
+      throw cannotSend;
+    }
   }
 
   // ------------------------------------------------------------------ "remember this browser for 5 hours" after the authenticator check
