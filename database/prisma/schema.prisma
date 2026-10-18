@@ -1105,3 +1105,11 @@ model DemoVisit {
 
   @@index([createdAt])
 }
+
+/// Settings that belong to the whole WHOLESTRA server rather than one company, such as the connected Gmail account that sends sign-in codes.
+/// Values are encrypted with the server's key.
+model PlatformSetting {
+  key       String   @id
+  value     String   @db.Text
+  updatedAt DateTime @updatedAt
+}

@@ -540,3 +540,6 @@
 .stc-row.later b span{background:#F1F4FA;color:#6B7895}
 .stc-summary{font-weight:700;color:#0B1B3E}
 .stc .lp-btn{align-self:flex-start}
+.stc-row .stc-act{margin-top:6px}
+.stc-note{padding:12px 16px;border-radius:12px;font-weight:600}
+.stc-note.ok{background:#E7F7EC;color:#14532D}.stc-note.bad{background:#FDEDEB;color:#8A2020}

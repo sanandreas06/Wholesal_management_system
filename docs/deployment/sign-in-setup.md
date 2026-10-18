@@ -59,58 +59,64 @@ On your own server they all go in `deploy/.env.production` (see `deploy/env.prod
 Social sign-in sends people back to `WEB_URL`, and tells Google, Facebook and
 LinkedIn to return to `API_PUBLIC_URL`.
 
-## 2. Email codes from your Gmail (sanshubster@gmail.com)
+## 2. Email codes from your Gmail, and Continue with Google (one set of Google keys)
 
 WHOLESTRA sends the codes straight from your Gmail through Google's Gmail API
-(over HTTPS, so Render's block on mail servers does not matter). Gmail allows
-a few hundred emails a day from a normal account.
+(over HTTPS, so Render's block on mail servers does not matter). The same
+Google keys also switch on **Continue with Google**, so this one section fixes
+both red items on the status page. No OAuth Playground and no refresh token to
+copy any more: you press **Connect Gmail** instead.
 
-1. **console.cloud.google.com** → top bar project picker → **New project** →
-   name it `WHOLESTRA` → **Create** (or reuse the one for Google sign-in).
+**A. In Google (console.cloud.google.com), about 10 minutes**
+
+1. Top bar project picker → **New project** → name it `WHOLESTRA` →
+   **Create** (or open the one you already made).
 2. **APIs & Services → Library** → search **Gmail API** → **Enable**.
 3. **Google Auth Platform** (older screens: *OAuth consent screen*) →
    **Get started**: app name `WHOLESTRA`, support email
    `sanshubster@gmail.com`, audience **External**, contact email the same →
-   **Create**. Then **Audience → Publish app** (*In production*). Without this
-   the key below stops working after 7 days.
-4. **Clients → Create client** → type **Web application**, name
-   `WHOLESTRA mail`. Under **Authorised redirect URIs** add
-   `https://developers.google.com/oauthplayground` → **Create**. Copy the
-   **Client ID** and **Client secret**.
-5. Open **developers.google.com/oauthplayground**. Click the **gear** (top
-   right) → tick **Use your own OAuth credentials** → paste the Client ID and
-   Client secret → **Close**.
-6. In the box under the list on the left (*Input your own scopes*) paste
-   `https://www.googleapis.com/auth/gmail.send` → **Authorize APIs** → choose
-   sanshubster@gmail.com. Google warns the app is not verified: click
-   **Advanced → Go to WHOLESTRA (unsafe)** (it is your own app) → **Continue**.
-7. Back in the playground click **Exchange authorization code for tokens**.
-   Copy the **Refresh token**.
-8. On Render (**wms-api → Environment**) set:
+   **Create**.
+4. **Audience → Publish app** → confirm, so it says **In production**.
+   Important: while it says *Testing*, Google cancels the Gmail permission
+   after 7 days and codes stop arriving.
+5. **Clients → Create client** → type **Web application**, name `WHOLESTRA`.
+   Under **Authorised redirect URIs** add both lines exactly:
 
-   | Name | Value |
-   | --- | --- |
-   | `MAIL_PROVIDER` | `gmail` |
-   | `MAIL_FROM` | `sanshubster@gmail.com` |
-   | `MAIL_FROM_NAME` | `WHOLESTRA` |
-   | `GMAIL_CLIENT_ID` | from step 4 |
-   | `GMAIL_CLIENT_SECRET` | from step 4 |
-   | `GMAIL_REFRESH_TOKEN` | from step 7 |
+   `https://wms-api-rcsy.onrender.com/api/auth/oauth/google/callback`
+   `https://wms-api-rcsy.onrender.com/api/auth/gmail/callback`
 
-   `MAIL_API_KEY` (Brevo) can be deleted. **Save, rebuild and deploy**.
-9. **Test it** (PowerShell; the key is `PLATFORM_ADMIN_KEY` from Render):
+   → **Create**. Copy the **Client ID** and the **Client secret** (keep the
+   secret private: it goes only into Render, never into a chat).
 
-   ```powershell
-   $h = @{ "x-admin-key" = "PASTE-THE-KEY" }
-   Invoke-RestMethod "https://wms-api-rcsy.onrender.com/api/admin/mail-test" -Method Post -Headers $h -ContentType "application/json" -Body '{"to":"sanshubster@gmail.com"}'
-   ```
+**B. On Render (wms-api → Environment)**
 
-   `ok : True` means it works. Otherwise `error` says exactly what Google or
-   the provider refused.
+| Name | Value |
+| --- | --- |
+| `GOOGLE_CLIENT_ID` | the Client ID from step 5 |
+| `GOOGLE_CLIENT_SECRET` | the Client secret from step 5 |
+| `MAIL_PROVIDER` | `gmail` |
+| `MAIL_FROM` | `sanshubster@gmail.com` |
+| `MAIL_FROM_NAME` | `WHOLESTRA` |
+| `API_PUBLIC_URL` | `https://wms-api-rcsy.onrender.com` (already there) |
+
+`GMAIL_CLIENT_ID`, `GMAIL_CLIENT_SECRET` and `GMAIL_REFRESH_TOKEN` are no longer
+needed (if you set them, they are used instead). **Save, rebuild and deploy.**
+
+**C. Connect Gmail**
+
+1. Open your website's **/status** page. *Email codes* now says "Almost there"
+   with a **Connect Gmail** button. Press it.
+2. Choose **sanshubster@gmail.com**. Google warns the app is not verified:
+   **Advanced → Go to WHOLESTRA (unsafe)** (it is your own app). Leave the box
+   **Send email on your behalf** ticked → **Continue**.
+3. You come back to the status page with a green message, a test email arrives
+   in the inbox, and *Email codes* turns ✓.
+
+Only the Google account that is `MAIL_FROM` can do this: if anyone else tries,
+nothing is saved. The permission is kept encrypted in the database. To take it
+back at any time: myaccount.google.com/permissions → WHOLESTRA → Remove.
 
 Brevo or Resend still work too (`MAIL_PROVIDER=brevo` with `MAIL_API_KEY`).
-Note that Brevo replaces a Gmail sender address with its own, which is why
-Gmail is used directly here.
 
 **Trying things out before email is ready:** `OTP_DEV_ECHO=true` on Render
 shows each code on screen ("Test mode") instead of emailing it. Remove it as
@@ -118,19 +124,10 @@ soon as email works.
 
 ## 3. Continue with Google
 
-1. Open **console.cloud.google.com**, create a project called WHOLESTRA.
-2. Open **Google Auth Platform** (older screens call it *APIs & Services →
-   OAuth consent screen*): app name WHOLESTRA, your support email, audience
-   **External**. Add your website address and the privacy page
-   (`WEB_URL/privacy`). When ready for everyone, **Publish app**; until then
-   only the test users you list can sign in.
-3. **Clients → Create client → Web application**. Under *Authorised redirect
-   URIs* add exactly:
-
-   `https://wms-api-rcsy.onrender.com/api/auth/oauth/google/callback`
-
-4. Copy the Client ID and Client secret into Render as `GOOGLE_CLIENT_ID` and
-   `GOOGLE_CLIENT_SECRET`. Redeploy. The Google button turns on by itself.
+Done in section 2: the same `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`
+switch the Google button on. Until the consent screen is *In production*, only
+test users you list can use it. In **Google Auth Platform → Branding** add your
+website address and the privacy page (`WEB_URL/privacy`).
 
 ## 4. Continue with Facebook
 
@@ -302,4 +299,32 @@ Each smart reply costs a fraction of a US cent with the default model. Visitors
 on the website are limited to 30 messages every 15 minutes, signed-in people to
 120. If the key is missing, wrong or out of credit, the assistant quietly falls
 back to its built-in answers.
+
+## 14. Sign-in codes by text message (SMS), optional
+
+Once email codes work, people can also get their sign-in code by text: on the
+sign-in page, **Get the code by text message**, or on the code screen, **Text
+the code to my phone instead**. The text goes to the mobile number saved on
+their account (**My profile → Phone**, or **Users → Edit** for staff). Like
+email, the page never shows whether an account or number exists. New accounts
+still confirm their email (text codes are for signing in only).
+
+Recommended for Ghana: **Arkesel** (sms.arkesel.com), which charges a few
+pesewas per text.
+
+1. Create an account at **sms.arkesel.com** and buy some credit (mobile money
+   works).
+2. **Sender IDs → Request** `WHOLESTRA` (up to 11 letters). Approval usually
+   takes a day; texts fail until it is approved.
+3. **SMS API → API key**: copy it.
+4. On Render add `SMS_PROVIDER` = `arkesel` and `SMS_API_KEY` = the key.
+   **Save, rebuild and deploy.** The status page shows *Text-message codes* ✓.
+
+Other choices: `SMS_PROVIDER=mnotify` with `SMS_API_KEY` (mNotify), or
+`SMS_PROVIDER=twilio` with `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN` and
+`TWILIO_FROM` (worldwide, dearer). `SMS_SENDER` changes the sender name
+(default WHOLESTRA). Numbers typed the local way (024…) get the country code
+from `SMS_COUNTRY_CODE` (default 233). If a text fails (no credit, sender ID not
+approved), the sign-in page says so and the status page shows the provider's
+reason.
 

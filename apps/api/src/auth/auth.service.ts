@@ -6,6 +6,7 @@ import { PrismaService } from "../prisma/prisma.service";
 import { AuditSealService } from "../audit/audit-seal";
 import { AuthUser } from "../common/types/auth-user.type";
 import { NO_BRANCH } from "../common/branch/branch-scope";
+import { SmsService } from "./sms";
 import { MailerService } from "./mailer";
 import { OtpPurpose, OtpService } from "./otp.service";
 import { TicketService } from "./tickets";
@@ -41,6 +42,7 @@ export class AuthService {
     private readonly prisma: PrismaService, private readonly jwt: JwtService, private readonly seal: AuditSealService,
     private readonly tickets: TicketService, private readonly otp: OtpService, private readonly mailer: MailerService,
     private readonly onboarding: OnboardingService, private readonly demoSvc: DemoService, private readonly oauth: OAuthService,
+    private readonly sms: SmsService,
   ) {}
 
   /** Writes a sign-in/sign-out line to the sealed Change log. Never blocks or fails the request. */
@@ -65,13 +67,17 @@ export class AuthService {
 
   options() {
     const providers = this.oauth.available();
-    return { emailCodes: this.otp.enabled, emailSignup: this.otp.enabled, providers, social: Object.values(providers).some(Boolean), demo: true };
+    return { emailCodes: this.otp.enabled, emailSignup: this.otp.enabled, smsCodes: this.otp.enabled && this.otp.smsEnabled, providers, social: Object.values(providers).some(Boolean), demo: true };
   }
 
   // ------------------------------------------------------------------ step 1 and 2: email, then a code
-  async startEmail(dto: { email: string; purpose: OtpPurpose }, c: ClientInfo) {
+  async startEmail(dto: { email: string; purpose: OtpPurpose; channel?: "email" | "sms" }, c: ClientInfo) {
     this.otp.assertEnabled();
     const email = normEmail(dto.email);
+    if (dto.channel === "sms") {
+      if (dto.purpose !== "signin") throw new BadRequestException("Text-message codes are for signing in. To create an account, confirm your email.");
+      return this.startSms(email, c);
+    }
     if (dto.purpose === "signup") {
       if (await this.onboarding.emailTaken(email)) throw new ConflictException("An account with this email already exists. Sign in instead.");
       const code = await this.otp.issue(email, "signup", c.ip, true);
@@ -90,6 +96,22 @@ export class AuthService {
     } catch (e) {
       this.log.error(`sign-in code could not be sent: ${(e as Error).message}`);
       throw cannotSend;
+    }
+  }
+
+  /** The sign-in code by text message, to the mobile number saved on the account (My profile). Like email, the answer never
+   *  reveals whether the account exists or has a number: the code simply arrives, or it does not. */
+  private async startSms(email: string, c: ClientInfo) {
+    if (!this.otp.smsEnabled) throw new BadRequestException("Text-message codes are not switched on for this site.");
+    const user = await this.loadByEmail(email);
+    const phone = this.sms.normalize(user?.phone);
+    const code = await this.otp.issue(email, "signin", c.ip, !!phone);
+    if (!phone) return { ok: true, expiresInSeconds: 600, channel: "sms" };
+    try {
+      return { ok: true, expiresInSeconds: 600, channel: "sms", ...(await this.otp.deliverSms(phone, code)) };
+    } catch (e) {
+      this.log.error(`sign-in text could not be sent: ${(e as Error).message}`);
+      throw new ServiceUnavailableException("We could not send the text message just now. Use the code from your email, or your authenticator app, instead.");
     }
   }
 

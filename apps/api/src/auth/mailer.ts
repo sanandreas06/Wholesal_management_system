@@ -1,26 +1,56 @@
-import { Injectable, Logger, ServiceUnavailableException } from "@nestjs/common";
+import { Injectable, Logger, OnModuleInit, ServiceUnavailableException } from "@nestjs/common";
+import { PrismaService } from "../prisma/prisma.service";
+import { TicketService } from "./tickets";
+import { decryptSecret, encryptSecret } from "./totp";
 
 export interface Mail { to: string; subject: string; text: string; html: string; replyTo?: string }
 
 /**
  * Sends email through a web service over HTTPS (free hosts such as Render block the usual mail ports):
- *  - gmail:  straight from your own Gmail address through the Gmail API. Set GMAIL_CLIENT_ID, GMAIL_CLIENT_SECRET and GMAIL_REFRESH_TOKEN (see docs/deployment/sign-in-setup.md). MAIL_FROM is that Gmail address.
+ *  - gmail:  straight from your own Gmail address through the Gmail API. The Google keys (GOOGLE_CLIENT_ID/SECRET, the same ones that
+ *            switch on "Continue with Google", or separate GMAIL_CLIENT_ID/SECRET) plus a permission to send, which the owner gives once
+ *            with the "Connect Gmail" button on the System status page (kept encrypted in the database), or GMAIL_REFRESH_TOKEN.
+ *            MAIL_FROM is that Gmail address.
  *  - brevo or resend: MAIL_API_KEY and MAIL_FROM.
  * Until one is set up, `configured` is false and the app says so instead of pretending.
  */
 @Injectable()
-export class MailerService {
+export class MailerService implements OnModuleInit {
   private readonly log = new Logger("Mailer");
+  constructor(private readonly prisma: PrismaService, private readonly tickets: TicketService) {}
+  /** the Gmail permission saved with "Connect Gmail" (decrypted, in memory only) */
+  private connected: { refresh: string; email: string } | null = null;
+
+  async onModuleInit() { await this.loadConnected(); }
+  private async loadConnected() {
+    try {
+      const row = await this.prisma.platformSetting.findUnique({ where: { key: "gmail" } });
+      this.connected = row ? JSON.parse(decryptSecret(row.value, this.tickets.keyFor("platform"))) : null;
+    } catch (e) { this.connected = null; if (!/does not exist/i.test(String((e as Error).message))) this.log.warn(`could not read the connected Gmail account: ${(e as Error).message}`); }
+  }
+  /** The Google keys for sending: separate Gmail keys if given, otherwise the same keys as "Continue with Google". */
+  get gmailClient() { const e = process.env; return { id: e.GMAIL_CLIENT_ID || e.GOOGLE_CLIENT_ID || "", secret: e.GMAIL_CLIENT_SECRET || e.GOOGLE_CLIENT_SECRET || "" }; }
+  private get gmailRefresh() { return process.env.GMAIL_REFRESH_TOKEN || this.connected?.refresh || ""; }
+  get gmailConnectedAs() { return this.connected?.email ?? null; }
+  /** "Connect Gmail" can be used: Gmail is the chosen way, and the keys and sender address are there. */
+  get canConnectGmail() { return this.provider === "gmail" && !!(process.env.MAIL_FROM && this.gmailClient.id && this.gmailClient.secret && process.env.API_PUBLIC_URL); }
+  /** Saves the permission given with "Connect Gmail". */
+  async saveGmail(refresh: string, email: string) {
+    const value = encryptSecret(JSON.stringify({ refresh, email }), this.tickets.keyFor("platform"));
+    await this.prisma.platformSetting.upsert({ where: { key: "gmail" }, update: { value }, create: { key: "gmail", value } });
+    this.connected = { refresh, email }; this.gmailToken = null; this.verified = null; this.lastError = null; this.lastFailureAt = null;
+  }
   /** the last thing that went wrong, shown on the staff test endpoint so a broken setting is easy to find */
   lastError: string | null = null;
   /** when sending last failed (cleared by the next success) */
   lastFailureAt: number | null = null;
   get recentlyFailed() { return !!this.lastFailureAt && Date.now() - this.lastFailureAt < 10 * 60_000; }
   private gmailToken: { value: string; until: number } | null = null;
-  get provider() { return (process.env.MAIL_PROVIDER || "").toLowerCase(); }
+  /** gmail, brevo or resend. Gmail is assumed when nothing is chosen but a Gmail account has been connected. */
+  get provider() { return (process.env.MAIL_PROVIDER || (this.connected ? "gmail" : "")).toLowerCase(); }
   get configured(): boolean {
     if (!process.env.MAIL_FROM) return false;
-    if (this.provider === "gmail") return !!(process.env.GMAIL_CLIENT_ID && process.env.GMAIL_CLIENT_SECRET && process.env.GMAIL_REFRESH_TOKEN);
+    if (this.provider === "gmail") return !!(this.gmailClient.id && this.gmailClient.secret && this.gmailRefresh);
     return (this.provider === "brevo" || this.provider === "resend") && !!process.env.MAIL_API_KEY;
   }
 
@@ -35,9 +65,9 @@ export class MailerService {
   private async gmailAccess(signal: AbortSignal) {
     if (this.gmailToken && this.gmailToken.until > Date.now() + 60_000) return this.gmailToken.value;
     const res = await fetch("https://oauth2.googleapis.com/token", { method: "POST", signal, headers: { "content-type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({ client_id: process.env.GMAIL_CLIENT_ID as string, client_secret: process.env.GMAIL_CLIENT_SECRET as string, refresh_token: process.env.GMAIL_REFRESH_TOKEN as string, grant_type: "refresh_token" }) });
+      body: new URLSearchParams({ client_id: this.gmailClient.id, client_secret: this.gmailClient.secret, refresh_token: this.gmailRefresh, grant_type: "refresh_token" }) });
     const data = (await res.json().catch(() => ({}))) as { access_token?: string; expires_in?: number; error?: string; error_description?: string };
-    if (!res.ok || !data.access_token) this.fail(`Google refused the Gmail sign-in (${data.error ?? res.status}: ${data.error_description ?? "no details"}). Check GMAIL_CLIENT_ID, GMAIL_CLIENT_SECRET and GMAIL_REFRESH_TOKEN.`);
+    if (!res.ok || !data.access_token) this.fail(`Google refused the Gmail sign-in (${data.error ?? res.status}: ${data.error_description ?? "no details"}). Press "Connect Gmail" on the System status page again, or check the Google keys on Render.`);
     this.gmailToken = { value: data.access_token as string, until: Date.now() + (data.expires_in ?? 3000) * 1000 };
     return this.gmailToken.value;
   }
@@ -64,11 +94,11 @@ export class MailerService {
     try {
       if (this.provider === "gmail") {
         const res = await fetch("https://oauth2.googleapis.com/token", { method: "POST", signal: ctl.signal, headers: { "content-type": "application/x-www-form-urlencoded" },
-          body: new URLSearchParams({ client_id: process.env.GMAIL_CLIENT_ID as string, client_secret: process.env.GMAIL_CLIENT_SECRET as string, refresh_token: process.env.GMAIL_REFRESH_TOKEN as string, grant_type: "refresh_token" }) });
+          body: new URLSearchParams({ client_id: this.gmailClient.id, client_secret: this.gmailClient.secret, refresh_token: this.gmailRefresh, grant_type: "refresh_token" }) });
         const data = (await res.json().catch(() => ({}))) as { access_token?: string; scope?: string; error?: string };
         out = res.ok && data.access_token
-          ? (data.scope && !data.scope.includes("gmail.send") ? { ok: false, reason: "the Gmail key was made without the gmail.send permission" } : { ok: true, reason: "Google accepted the Gmail key" })
-          : { ok: false, reason: data.error === "invalid_grant" ? "Google rejected GMAIL_REFRESH_TOKEN (expired, revoked, or made with a different client)" : data.error === "invalid_client" ? "Google rejected GMAIL_CLIENT_ID or GMAIL_CLIENT_SECRET" : `Google said: ${data.error ?? res.status}` };
+          ? (data.scope && !data.scope.includes("gmail.send") ? { ok: false, reason: "the Gmail permission does not include sending email" } : { ok: true, reason: "Google accepted the Gmail key" })
+          : { ok: false, reason: data.error === "invalid_grant" ? "Google no longer accepts the Gmail permission (it expired, was removed, or was given to different Google keys)" : data.error === "invalid_client" ? "Google rejected the Google client ID or secret" : `Google said: ${data.error ?? res.status}` };
       } else if (this.provider === "brevo") {
         const res = await fetch("https://api.brevo.com/v3/account", { signal: ctl.signal, headers: { "api-key": process.env.MAIL_API_KEY as string, accept: "application/json" } });
         out = res.ok ? { ok: true, reason: "Brevo accepted the API key" } : { ok: false, reason: `Brevo rejected MAIL_API_KEY (HTTP ${res.status})` };

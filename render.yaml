@@ -45,6 +45,11 @@ services:
         value: WHOLESTRA
       - key: INQUIRY_TO
         value: sanshubster@gmail.com
+      # Optional: sign-in codes by text message (arkesel, mnotify or twilio)
+      - key: SMS_PROVIDER
+        sync: false
+      - key: SMS_API_KEY
+        sync: false
       # Optional: smart replies for the assistant (Anthropic API key). Without it the assistant still works with its built-in answers.
       - key: ANTHROPIC_API_KEY
         sync: false

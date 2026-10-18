@@ -6,7 +6,7 @@ import { AuthUser } from "../common/types/auth-user.type";
 import { AuthService, ClientInfo } from "./auth.service";
 import { OAuthService, isProvider } from "./oauth.service";
 
-class EmailStartDto { @IsEmail() @MaxLength(160) email!: string; @IsIn(["signin", "signup"]) purpose!: "signin" | "signup"; }
+class EmailStartDto { @IsEmail() @MaxLength(160) email!: string; @IsIn(["signin", "signup"]) purpose!: "signin" | "signup"; @IsOptional() @IsIn(["email", "sms"]) channel?: "email" | "sms"; }
 class EmailVerifyDto {
   @IsEmail() @MaxLength(160) email!: string;
   @IsIn(["signin", "signup"]) purpose!: "signin" | "signup";

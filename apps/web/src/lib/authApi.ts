@@ -23,7 +23,7 @@ export const authApi = {
   post: <T>(path: string, body?: unknown, token?: string) => call<T>(path, { method: "POST", body: body === undefined ? undefined : JSON.stringify(body), headers: token ? { Authorization: `Bearer ${token}` } : {} }),
 };
 
-export type AuthOptions = { emailCodes: boolean; emailSignup: boolean; providers: { google: boolean; facebook: boolean; linkedin: boolean }; social: boolean; demo: boolean };
+export type AuthOptions = { emailCodes: boolean; emailSignup: boolean; smsCodes?: boolean; providers: { google: boolean; facebook: boolean; linkedin: boolean }; social: boolean; demo: boolean };
 export const NO_OPTIONS: AuthOptions = { emailCodes: false, emailSignup: false, providers: { google: false, facebook: false, linkedin: false }, social: false, demo: true };
 
 /** Where the "Continue with Google / Facebook / LinkedIn" buttons go. The server does the rest and comes back to /auth/complete. */

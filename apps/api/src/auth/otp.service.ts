@@ -2,6 +2,7 @@ import { BadRequestException, HttpException, HttpStatus, Injectable, Logger } fr
 import { createHmac, randomInt, timingSafeEqual } from "crypto";
 import { PrismaService } from "../prisma/prisma.service";
 import { MailerService, otpEmail } from "./mailer";
+import { SmsService } from "./sms";
 import { TicketService } from "./tickets";
 
 /** "change:<user id>" is a code sent to a new email address someone wants to move their account to; it only works for that person. */
@@ -12,7 +13,10 @@ const TTL_MIN = 10, MAX_TRIES = 5, PER_EMAIL = 5, PER_IP = 30;
 @Injectable()
 export class OtpService {
   private readonly log = new Logger("Otp");
-  constructor(private readonly prisma: PrismaService, private readonly mailer: MailerService, private readonly tickets: TicketService) {}
+  constructor(private readonly prisma: PrismaService, private readonly mailer: MailerService, private readonly tickets: TicketService, private readonly sms: SmsService) {}
+
+  /** Codes by text message, offered as an alternative once email codes are on. */
+  get smsEnabled(): boolean { return this.sms.configured || (this.devEcho && !!process.env.SMS_PROVIDER); }
 
   /** Email codes are on when a mail service is connected. OTP_DEV_ECHO=true shows the code on screen instead: for testing only, never on a live site. */
   get enabled(): boolean { return this.mailer.configured || this.devEcho; }
@@ -40,6 +44,13 @@ export class OtpService {
   async deliver(email: string, purpose: OtpPurpose, code: string): Promise<{ devCode?: string }> {
     if (this.devEcho && !this.mailer.configured) { this.log.warn(`OTP_DEV_ECHO is on: the code for ${email} is shown on screen instead of being emailed. Never leave this on a live site.`); return { devCode: code }; }
     await this.mailer.send({ ...otpEmail(code, purpose, TTL_MIN), to: email });
+    return {};
+  }
+
+  /** Texts the sign-in code to a phone (digits with country code). With OTP_DEV_ECHO and no SMS service, the code is shown on screen instead. */
+  async deliverSms(phone: string, code: string): Promise<{ devCode?: string }> {
+    if (!this.sms.configured) { this.log.warn(`OTP_DEV_ECHO is on: the text-message code is shown on screen instead of being sent.`); return { devCode: code }; }
+    await this.sms.send(phone, `${code.slice(0, 3)} ${code.slice(3)} is your WHOLESTRA sign-in code. It works for ${TTL_MIN} minutes. Never share it with anyone, not even WHOLESTRA staff.`);
     return {};
   }
 

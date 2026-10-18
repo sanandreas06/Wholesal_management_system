@@ -35,7 +35,7 @@ export default function SignInFlow() {
   const [step, setStep] = useState<Step>("email");
   const [email, setEmail] = useState(params.get("email") ?? "");
   const [code, setCode] = useState("");
-  const [method, setMethod] = useState<"email" | "authenticator">("email");
+  const [method, setMethod] = useState<"email" | "sms" | "authenticator">("email");
   const [recovery, setRecovery] = useState(false);
   const [devCode, setDevCode] = useState("");
   const [ticket, setTicket] = useState("");
@@ -62,11 +62,12 @@ export default function SignInFlow() {
 
   function restart() { setCompany(""); setStep("email"); setCode(""); setTicket(""); setMfa(""); setPassword(""); setConfirm(""); setDevCode(""); setMethod("email"); setRecovery(false); setError(""); }
 
-  async function sendCode(again = false) {
-    const r = await run(() => authApi.post<{ devCode?: string }>("/auth/email/start", { email, purpose: "signin" }));
+  /** Sends the sign-in code by email, or by text message to the number saved on the account. */
+  async function sendCode(again = false, channel: "email" | "sms" = "email") {
+    const r = await run(() => authApi.post<{ devCode?: string }>("/auth/email/start", { email, purpose: "signin", ...(channel === "sms" ? { channel } : {}) }));
     if (!r) return;
     setDevCode(r.devCode ?? ""); setCode(""); setCooldown(30);
-    if (!again) { setMethod("email"); setStep("code"); }
+    if (!again) { setMethod(channel); setStep("code"); }
   }
 
   async function submitEmail(e: FormEvent) {
@@ -90,7 +91,7 @@ export default function SignInFlow() {
 
   async function verifyCode(value = code) {
     if (value.replace(/\s/g, "").length < 6) return;
-    const r = await run(() => authApi.post<Verified>("/auth/email/verify", { email, purpose: "signin", method, code: value, device: getTrust(email) }));
+    const r = await run(() => authApi.post<Verified>("/auth/email/verify", { email, purpose: "signin", method: method === "authenticator" ? "authenticator" : "email", code: value, device: getTrust(email) }));
     if (r) afterVerified(r); else setCode("");
   }
 
@@ -153,6 +154,13 @@ export default function SignInFlow() {
               <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" strokeWidth="2" /><path d="M12 7v5l3 2" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
               Sign in with Google Authenticator
             </button>
+            {codesOn && options.smsCodes && <button type="button" className="au-totp" disabled={busy} onClick={() => {
+              if (!/^\S+@\S+\.\S+$/.test(email.trim())) { setError("Type your email address first."); return; }
+              void sendCode(false, "sms");
+            }}>
+              <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><rect x="6" y="2.5" width="12" height="19" rx="2.5" fill="none" stroke="currentColor" strokeWidth="2" /><path d="M10.5 18.5h3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>
+              Get the code by text message
+            </button>}
           </form>
           <div className="au-or"><span>or sign in with</span></div>
           <SocialButtons options={options} mode="signin" loading={optLoading} />
@@ -165,18 +173,22 @@ export default function SignInFlow() {
         </>}
 
         {step === "code" && <>
-          <h1 id="au-title">{method === "email" ? "Check your email" : "Authenticator code"}</h1>
+          <h1 id="au-title">{method === "email" ? "Check your email" : method === "sms" ? "Check your phone" : "Authenticator code"}</h1>
           {lockedEmail}
-          <p className="au-sub">{method === "email" ? <>We sent a 6-digit code to your email. It works for 10 minutes. Check your spam folder if it is not there.</> : <>Open your authenticator app (Google Authenticator, Microsoft Authenticator...) and type the 6-digit code for WHOLESTRA.</>}</p>
-          {devCode && method === "email" && <p className="au-test" role="status">Test mode, no email is sent. Your code is <b>{devCode}</b>.</p>}
+          <p className="au-sub">{method === "email" ? <>We sent a 6-digit code to your email. It works for 10 minutes. Check your spam folder if it is not there.</>
+            : method === "sms" ? <>If your account has a mobile number saved, we have texted a 6-digit code to it. It works for 10 minutes. No text? Use the code from your email instead.</>
+            : <>Open your authenticator app (Google Authenticator, Microsoft Authenticator...) and type the 6-digit code for WHOLESTRA.</>}</p>
+          {devCode && method !== "authenticator" && <p className="au-test" role="status">Test mode, nothing is sent. Your code is <b>{devCode}</b>.</p>}
           <form onSubmit={(e) => { e.preventDefault(); verifyCode(); }}>
-            <OtpBoxes value={code} onChange={setCode} onComplete={(v) => verifyCode(v)} disabled={busy} invalid={!!error} label={method === "email" ? "Code from your email" : "Code from your authenticator app"} />
+            <OtpBoxes value={code} onChange={setCode} onComplete={(v) => verifyCode(v)} disabled={busy} invalid={!!error} label={method === "email" ? "Code from your email" : method === "sms" ? "Code from the text message" : "Code from your authenticator app"} />
             {error && <div className="au-err" role="alert">{error}</div>}
             <button className="au-primary" disabled={busy || code.length < 6}>{busy ? "Checking..." : "Verify"}</button>
           </form>
           <div className="au-actions">
-            {method === "email"
-              ? <><button type="button" className="au-link" disabled={busy || cooldown > 0} onClick={() => sendCode(true)}>{cooldown > 0 ? `Send a new code in ${cooldown}s` : "Send a new code"}</button>
+            {method === "email" || method === "sms"
+              ? <><button type="button" className="au-link" disabled={busy || cooldown > 0} onClick={() => sendCode(true, method)}>{cooldown > 0 ? `Send a new code in ${cooldown}s` : "Send a new code"}</button>
+                  {method === "email" && options.smsCodes && <button type="button" className="au-link" disabled={busy} onClick={() => sendCode(false, "sms")}>Text the code to my phone instead</button>}
+                  {method === "sms" && <button type="button" className="au-link" disabled={busy} onClick={() => sendCode(false, "email")}>Email me the code instead</button>}
                   <button type="button" className="au-link" onClick={() => { setMethod("authenticator"); setCode(""); setError(""); }}>Use my authenticator app instead</button></>
               : codesOn ? <button type="button" className="au-link" onClick={() => { setMethod("email"); setCode(""); setError(""); }}>Use the code from my email instead</button>
               : <button type="button" className="au-link" onClick={() => { setCode(""); setError(""); setStep("password"); }}>I don&apos;t use an authenticator app</button>}
