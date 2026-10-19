@@ -281,3 +281,5 @@ button.au-soc:hover{border-color:var(--primary);transform:translateY(-1px);box-s
 .au-noacct-go:hover{background:#13285A}
 [data-theme="dark"] .au-noacct-go{background:#2563EB}
 .au-noacct-or{margin:10px 0 0!important;font-size:13px!important}
+.au-fix{margin:6px 0 0;padding:6px 12px;border-radius:8px;border:1.5px solid currentColor;background:transparent;color:inherit;font-weight:700;font-size:13.5px;cursor:pointer;display:inline-block}
+.au-fix:hover{background:rgba(0,0,0,.05)}

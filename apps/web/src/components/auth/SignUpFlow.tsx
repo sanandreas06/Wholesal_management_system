@@ -12,6 +12,7 @@ import { authApi, OAUTH_ERRORS, oauthUrl, SessionResponse } from "../../lib/auth
 import { ApiError } from "../../lib/api";
 import DemoModal from "../landing/DemoModal";
 import { LogoMark } from "../Logo";
+import { emailProblem } from "../../lib/emailCheck";
 import "../status/status.css";
 
 const REF_KEY = "wms_ref";
@@ -70,6 +71,9 @@ export default function SignUpFlow() {
   async function submitForm(e: FormEvent) {
     e.preventDefault();
     if (name.trim().length < 2) { setError("Please type your full name."); return; }
+    const bad = emailProblem(email);
+    if (bad && !(bad.soft && warned === email.trim().toLowerCase())) { setError(bad.message); setSuggest(bad.suggestion ?? ""); setWarned(email.trim().toLowerCase()); return; }
+    setSuggest("");
     const p = passwordProblem(password);
     if (p) { setError(p); return; }
     if (!agree) { setError("Please agree to the terms of use and privacy notice."); return; }
@@ -94,6 +98,8 @@ export default function SignUpFlow() {
   }
 
   const [demoOpen, setDemoOpen] = useState(false);
+  const [suggest, setSuggest] = useState("");
+  const [warned, setWarned] = useState("");
   // Came here from "Sign in with Google" (or Facebook / LinkedIn) using an account that has not signed up yet
   const noAcct = params.get("error") === "no-account" && !!params.get("email");
   const prov = params.get("provider");
@@ -119,14 +125,14 @@ export default function SignUpFlow() {
                   <p className="au-noacct-or">Or fill in the form below to sign up with your email.</p>
                 </div>
               </div>
-            : params.get("email") && <p className="au-invite">👋 <b>{params.get("email")}</b> is new to WHOLESTRA. Fill in the rest below to create your account.</p>}
+            : null}
           {!optLoading && !options.emailSignup && <p className="au-test" role="status">{emailOffText}</p>}
           {refInfo?.valid && <p className="au-invite">🎁 Invited by <b>{refInfo.company}</b></p>}
           <SocialButtons options={options} mode="signup" referral={refInfo?.valid ? ref.trim().toUpperCase() : undefined} loading={optLoading} />
           <div className="au-or"><span>or sign up with your email</span></div>
           <form onSubmit={submitForm}>
             <div className="au-field"><label htmlFor="nm">Full name</label><input id="nm" value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" required maxLength={80} /></div>
-            <div className="au-field"><label htmlFor="em">Work email</label><input id="em" type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" required maxLength={160} placeholder="you@company.com" /></div>
+            <div className="au-field"><label htmlFor="em">Work email</label><input id="em" type="email" value={email} onChange={(e) => { setEmail(e.target.value); setSuggest(""); }} autoComplete="email" required maxLength={160} placeholder="you@company.com" /></div>
             <div className="au-field"><label htmlFor="ph">Phone number <em>(optional)</em></label><input id="ph" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} autoComplete="tel" maxLength={40} placeholder="+233 ..." /></div>
             <PasswordInput value={password} onChange={setPassword} autoComplete="new-password" meter id="spw" />
             {showRef
@@ -134,7 +140,7 @@ export default function SignUpFlow() {
                   {refInfo && <small className={refInfo.valid ? "au-good" : "au-warn"}>{refInfo.valid ? `✓ Referred by ${refInfo.company}` : "We don't recognise this code. You can still sign up without it."}</small>}</div>
               : <button type="button" className="au-link au-left" onClick={() => setShowRef(true)}>Have a referral code?</button>}
             <label className="au-check"><input type="checkbox" checked={agree} onChange={(e) => setAgree(e.target.checked)} /><span>I agree to the <Link href="/terms" target="_blank">terms of use</Link> and <Link href="/privacy" target="_blank">privacy notice</Link>.</span></label>
-            {error && <div className="au-err" role="alert">{error}</div>}
+            {error && <div className="au-err" role="alert">{error}{suggest && <> <button type="button" className="au-fix" onClick={() => { setEmail(suggest); setSuggest(""); setError(""); }}>Use {suggest}</button></>}</div>}
             <button className="au-primary" disabled={busy}>{busy ? "Please wait..." : "Review and continue"}</button>
           </form>
           <p className="au-safe"><span aria-hidden="true">🔒</span>We confirm your email with a code, and next you can protect your account with an authenticator app by scanning a QR code.</p>

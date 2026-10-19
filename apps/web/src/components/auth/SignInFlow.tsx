@@ -12,6 +12,7 @@ import { getTrust, saveSession, saveTrust } from "../../lib/session";
 import DemoModal from "../landing/DemoModal";
 import { ApiError } from "../../lib/api";
 import { IDLE_MINUTES } from "../../lib/idle";
+import { emailProblem } from "../../lib/emailCheck";
 
 type Step = "email" | "code" | "mfa" | "password" | "reset";
 type Verified = { ticket?: string; hasPassword?: boolean; needsAuthenticator?: boolean; mfa?: string; company?: string; device?: string };
@@ -58,6 +59,8 @@ export default function SignInFlow() {
   const [slow, setSlow] = useState(false);
   const [cooldown, setCooldown] = useState(0);
   const confirmed = !!ticket;
+  const [suggest, setSuggest] = useState("");
+  const [warned, setWarned] = useState("");
   const [missing, setMissing] = useState("");
   // Someone who opened a page from a link (or whose session ended) is told why they are here and where they will land.
   const nextPath = params.get("next") ?? "";
@@ -95,6 +98,9 @@ export default function SignInFlow() {
   async function submitEmail(e: FormEvent) {
     e.preventDefault();
     if (!email.trim()) return;
+    const bad = emailProblem(email);
+    if (bad && !(bad.soft && warned === email.trim().toLowerCase())) { setMissing(""); setError(bad.message); setSuggest(bad.suggestion ?? ""); setWarned(email.trim().toLowerCase()); return; }
+    setSuggest("");
     if (codesOn) await sendCode();
     else {
       // no codes on this site: still say plainly when the email has no account, before asking for a password
@@ -169,9 +175,9 @@ export default function SignInFlow() {
           <form onSubmit={submitEmail} noValidate={false}>
             <div className="au-field">
               <label htmlFor="em">Email address</label>
-              <input id="em" type="email" value={email} onChange={(e) => { setEmail(e.target.value); setMissing(""); }} autoComplete="username" required autoFocus placeholder="you@company.com" />
+              <input id="em" type="email" value={email} onChange={(e) => { setEmail(e.target.value); setMissing(""); setSuggest(""); }} autoComplete="username" required autoFocus placeholder="you@company.com" />
             </div>
-            {error && <div className="au-err" role="alert">{error}</div>}
+            {error && <div className="au-err" role="alert">{error}{suggest && <> <button type="button" className="au-fix" onClick={() => { setEmail(suggest); setSuggest(""); setError(""); }}>Use {suggest}</button></>}</div>}
             {missing && <div className="au-noacct" role="alert">
               <span className="au-noacct-ic" aria-hidden="true">?</span>
               <div>
@@ -183,7 +189,8 @@ export default function SignInFlow() {
             {slow && <p className="au-note" role="status">The server is waking up after being idle. This can take up to a minute the first time.</p>}
             <button className="au-primary" disabled={busy}>{busy ? "Please wait..." : "Next"}</button>
             <button type="button" className="au-totp" disabled={busy} onClick={() => {
-              if (!/^\S+@\S+\.\S+$/.test(email.trim())) { setError("Type your email address first."); return; }
+              const bad = emailProblem(email);
+              if (bad && !(bad.soft && warned === email.trim().toLowerCase())) { setError(bad.message); setSuggest(bad.suggestion ?? ""); setWarned(email.trim().toLowerCase()); return; }
               setError(""); setCode(""); setMethod("authenticator"); setStep("code");
             }}>
               <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" strokeWidth="2" /><path d="M12 7v5l3 2" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" /></svg>

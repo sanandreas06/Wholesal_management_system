@@ -1,4 +1,5 @@
 import { BadRequestException, ConflictException, ForbiddenException, HttpException, HttpStatus, Injectable, Logger, NotFoundException, ServiceUnavailableException, UnauthorizedException } from "@nestjs/common";
+import { assertRealEmail } from "./email-check";
 import { JwtService } from "@nestjs/jwt";
 import { Prisma } from "@prisma/client";
 import * as bcrypt from "bcryptjs";
@@ -89,6 +90,7 @@ export class AuthService {
 
   /** For the password-only sign-in (when this site sends no codes): the same "no account with this email" answer before the password step. */
   async checkAccount(email: string, c: ClientInfo) {
+    await assertRealEmail(email);
     await this.assertAccount(normEmail(email), c);
     return { ok: true };
   }
@@ -97,6 +99,7 @@ export class AuthService {
   async startEmail(dto: { email: string; purpose: OtpPurpose; channel?: "email" | "sms" }, c: ClientInfo) {
     this.otp.assertEnabled();
     const email = normEmail(dto.email);
+    await assertRealEmail(email);
     if (dto.purpose === "signin") await this.assertAccount(email, c);
     if (dto.channel === "sms") {
       if (dto.purpose !== "signin") throw new BadRequestException("Text-message codes are for signing in. To create an account, confirm your email.");
@@ -293,6 +296,7 @@ export class AuthService {
     if (row.passwordSet && !(await bcrypt.compare(dto.password ?? "", row.passwordHash))) throw new BadRequestException("Your password is not correct.");
     const email = normEmail(dto.email);
     if (email === row.email.toLowerCase()) throw new BadRequestException("That is already your email address.");
+    await assertRealEmail(email);
     if (await this.onboarding.emailTaken(email)) throw new ConflictException("Another account already uses this email address.");
     if (!this.otp.enabled) return { changed: true, email: await this.applyEmailChange(row, email, false, c) };
     const purpose: OtpPurpose = `change:${row.id}`;
