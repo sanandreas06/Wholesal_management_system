@@ -12,6 +12,7 @@ import Logo from "./Logo";
 import ProfileModal, { Profile } from "./ProfileModal";
 import ContactBlock from "./ContactBlock";
 import Assistant from "./assistant/Assistant";
+import PhoneTables from "./PhoneTables";
 import { InstallSteps, startInstall, useCanInstall } from "./InstallApp";
 import type { Platform } from "../lib/install";
 import "./app-extra.css";
@@ -322,6 +323,7 @@ export default function AppShell({ title, children }: { title: string; children:
       </div>
       <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} commands={commands} />
       <ToastHost />
+      <PhoneTables />
       {user && <Assistant mode="app" />}
       {installHelp && <InstallSteps on={installHelp} onClose={() => setInstallHelp(null)} />}
       {(profileOpen || !!profile?.mustChangePassword) && profile && <ProfileModal profile={profile} forced={!!profile.mustChangePassword} onClose={() => setProfileOpen(false)} onSaved={profileSaved} />}

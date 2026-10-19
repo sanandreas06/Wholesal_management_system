@@ -278,3 +278,55 @@ button.danger-solid{background:var(--danger);color:#fff}
 .org-badge strong{display:block;font-size:13.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .org-badge em{display:block;margin-top:2px;font-style:normal;font-size:11.5px;color:#F3D49F;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .company-line b{color:var(--text)}
+
+/* ===== Phones: roomier, less crowded (Batch 34) ===== */
+@media (max-width:640px){
+  .page{padding:14px 12px 28px}
+  /* top bar: search becomes an icon, fewer controls */
+  .topbar{gap:8px!important;padding:8px 12px!important}
+  .search-bar .search-ph,.search-bar kbd{display:none}
+  .search-bar{width:44px;height:44px;padding:0!important;justify-content:center;border-radius:12px}
+  .topbar .gear,.org-chip{display:none}
+  .topbar-actions{gap:6px}
+  .topbar .quick-btn,.topbar .theme-toggle,.topbar .menu-btn{min-width:44px;min-height:44px}
+  /* tabs scroll instead of being cut off */
+  .home-tabs{overflow-x:auto;flex-wrap:nowrap;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+  .home-tabs::-webkit-scrollbar{display:none}
+  .home-tabs>*{flex:0 0 auto;white-space:nowrap}
+  /* number cards two across */
+  .page .kpis,.kpi5{grid-template-columns:1fr 1fr!important;gap:10px}
+  .kpi5>a.kcard:first-child{grid-column:1/-1}
+  .kcard .kval{font-size:17px}
+  .home-tabs button{padding:12px 10px 13px;font-size:13px}
+  .kcard,.kpi{padding:12px}
+  .kcard-top{margin-bottom:8px;font-size:12px}
+  .kval,.kpi strong{font-size:18px}
+  /* toolbars wrap and fill the width */
+  .toolbar{align-items:stretch}
+  .toolbar>div,.toolbar-right{display:flex;flex-wrap:wrap;gap:8px;width:100%}
+  .toolbar>div>select,.toolbar-right>select{flex:1 1 100%;min-width:0}
+  .toolbar>div>button,.toolbar-right>button{flex:1 1 auto;min-width:0}
+  .toolbar .checkbox-row{flex:1 1 100%}
+  .dash-head{margin-bottom:12px}
+  .filters>*{flex:1 1 calc(50% - 8px)}
+  /* tables become one card per row */
+  .table-wrap table.stk{min-width:0;width:100%;display:block}
+  .table-wrap table.stk thead{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+  .table-wrap table.stk tbody{display:block}
+  .table-wrap table.stk tr{display:grid;grid-template-columns:1fr 1fr;gap:6px 14px;padding:12px 14px;border-bottom:1px solid var(--border)}
+  .table-wrap table.stk tr:last-child{border-bottom:0}
+  .table-wrap table.stk td{display:block;padding:0!important;border:0!important;min-width:0;overflow-wrap:anywhere;text-align:left!important;white-space:normal}
+  .table-wrap table.stk td[data-label]::before{content:attr(data-label);display:block;font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--text-muted);margin-bottom:1px}
+  .table-wrap table.stk td.stk-first,.table-wrap table.stk td.stk-wide{grid-column:1/-1}
+  .table-wrap table.stk td.stk-first{font-weight:650}
+  .table-wrap table.stk td.stk-first::before{display:none!important}
+  .table-wrap table.stk td.stk-dash{display:none}
+  .table-wrap table.stk tr{gap:8px 14px}
+  .table-wrap table.stk td.stk-empty{display:none}
+  .table-wrap table.stk td.stk-act{grid-column:1/-1}
+  /* settings links: comfortable to tap */
+  .st-tile li>a{display:flex;align-items:center;gap:8px;min-height:44px}
+  .st-tile li{border-top:1px solid var(--border)}
+  .st-tile li:first-child{border-top:0}
+  .st-tile li small{display:block;margin-top:-6px;padding-bottom:6px}
+}
