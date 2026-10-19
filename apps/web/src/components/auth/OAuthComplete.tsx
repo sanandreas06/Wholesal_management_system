@@ -25,7 +25,7 @@ export default function OAuthComplete() {
     const h = new URLSearchParams(window.location.hash.slice(1));
     history.replaceState(null, "", window.location.pathname);
     const k = h.get("kind"), t = h.get("ticket") ?? "";
-    if (!t || (k !== "oauth" && k !== "mfa")) { setError("This sign-in link is not complete. Please start again."); return; }
+    if (!t || (k !== "oauth" && k !== "mfa")) { router.replace("/link-expired?why=signin"); return; }
     setKind(k); setTicket(t);
     if (k === "oauth") {
       setBusy(true);

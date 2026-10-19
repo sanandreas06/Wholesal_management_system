@@ -24,6 +24,15 @@ export function finishSignIn(router: ReturnType<typeof useRouter>, s: SessionRes
   else router.replace(next && next.startsWith("/") && !next.startsWith("//") ? next : "/dashboard");
 }
 
+/** "/purchase-orders?x=1" -> "Purchase orders". */
+function pageName(path: string) {
+  const seg = path.split(/[?#]/)[0].split("/").filter(Boolean)[0] ?? "";
+  const known: Record<string, string> = { dashboard: "your dashboard", audit: "Audit & fraud signals", imports: "Excel import", insights: "Investment insights" };
+  if (known[seg]) return known[seg];
+  const w = seg.replace(/-/g, " ");
+  return w ? w[0].toUpperCase() + w.slice(1) : "";
+}
+
 /** The sign-in screen, one step at a time:
  *  1. email only;  2. a 6-digit code sent to that email (or a code from the authenticator app);
  *  3. the password, with the email now locked and marked Confirmed.
@@ -48,6 +57,11 @@ export default function SignInFlow() {
   const [slow, setSlow] = useState(false);
   const [cooldown, setCooldown] = useState(0);
   const confirmed = !!ticket;
+  // Someone who opened a page from a link (or whose session ended) is told why they are here and where they will land.
+  const nextPath = params.get("next") ?? "";
+  const nextName = /^\/[a-z]/.test(nextPath) ? pageName(nextPath) : "";
+  const gate = params.get("expired") ? { icon: "⏱", text: `Your session ended, so you were signed out to keep your account safe. Sign in again${nextName ? ` to go back to ${nextName}` : ""}.` }
+    : nextName ? { icon: "🔒", text: `Sign in to open ${nextName}. If someone sent you this link, you will only see it if your account is allowed to.` } : null;
   const codesOn = options.emailCodes;
 
   useEffect(() => { if (!busy) { setSlow(false); return; } const t = setTimeout(() => setSlow(true), 4000); return () => clearTimeout(t); }, [busy]);
@@ -139,6 +153,7 @@ export default function SignInFlow() {
         {step === "email" && <>
           <h1 id="au-title">Sign in</h1>
           <p className="au-sub">to your WHOLESTRA account</p>
+          {gate && <div className="au-gate" role="status"><span aria-hidden="true">{gate.icon}</span><span>{gate.text}</span></div>}
           <form onSubmit={submitEmail} noValidate={false}>
             <div className="au-field">
               <label htmlFor="em">Email address</label>

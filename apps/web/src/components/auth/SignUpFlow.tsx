@@ -11,6 +11,8 @@ import { finishSignIn } from "./SignInFlow";
 import { authApi, OAUTH_ERRORS, SessionResponse } from "../../lib/authApi";
 import { ApiError } from "../../lib/api";
 import DemoModal from "../landing/DemoModal";
+import { LogoMark } from "../Logo";
+import "../status/status.css";
 
 const REF_KEY = "wms_ref";
 
@@ -20,7 +22,7 @@ export default function SignUpFlow() {
   const router = useRouter();
   const params = useSearchParams();
   const { options, loading: optLoading } = useAuthOptions();
-  const [step, setStep] = useState<"form" | "code">("form");
+  const [step, setStep] = useState<"form" | "review" | "code">("form");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
@@ -72,8 +74,16 @@ export default function SignUpFlow() {
     if (p) { setError(p); return; }
     if (!agree) { setError("Please agree to the terms of use and privacy notice."); return; }
     if (!options.emailSignup) { setError(emailOffText); return; }
-    if (await sendCode()) setStep("code");
+    setStep("review");
   }
+
+  // The review screen: everything is shown back before anything is sent. Cancel forgets the details.
+  async function approve() { if (await sendCode()) setStep("code"); }
+  function cancel() {
+    setName(""); setEmail(""); setPhone(""); setPassword(""); setCode(""); setAgree(false);
+    router.push("/signup-cancelled");
+  }
+  const initials = name.trim().split(/\s+/).slice(0, 2).map(w => w[0]?.toUpperCase() ?? "").join("") || "?";
 
   async function verify(value = code) {
     if (value.length < 6) return;
@@ -106,13 +116,52 @@ export default function SignUpFlow() {
               : <button type="button" className="au-link au-left" onClick={() => setShowRef(true)}>Have a referral code?</button>}
             <label className="au-check"><input type="checkbox" checked={agree} onChange={(e) => setAgree(e.target.checked)} /><span>I agree to the <Link href="/terms" target="_blank">terms of use</Link> and <Link href="/privacy" target="_blank">privacy notice</Link>.</span></label>
             {error && <div className="au-err" role="alert">{error}</div>}
-            <button className="au-primary" disabled={busy}>{busy ? "Please wait..." : "Create my account"}</button>
+            <button className="au-primary" disabled={busy}>{busy ? "Please wait..." : "Review and continue"}</button>
           </form>
           <p className="au-safe"><span aria-hidden="true">🔒</span>We confirm your email with a code, and next you can protect your account with an authenticator app by scanning a QR code.</p>
           <div className="au-split">
             <button type="button" className="au-link" onClick={() => setDemoOpen(true)} disabled={busy}>Just looking? Try the demo</button>
             <span>Have an account? <Link href="/login">Sign in</Link></span>
           </div>
+        </>}
+
+        {step === "review" && <>
+          <div className="su-pair" aria-hidden="true">
+            <LogoMark size={56} tone="dark" />
+            <span className="su-dots"><i /><i /><i /></span>
+            <span className="su-avatar">{initials}</span>
+          </div>
+          <h1 id="au-title" className="su-h">Create a <b>WHOLESTRA</b> account</h1>
+          <p className="su-as">as <b>{name.trim()}</b> with <b>{email.trim()}</b></p>
+
+          <div className="su-box">
+            <div className="su-cap">Your details</div>
+            <div className="su-row"><span className="su-ic" aria-hidden="true">👤</span><div><strong>{name.trim()}</strong><small>Shown to your team and on the change log.</small></div></div>
+            <div className="su-row"><span className="su-ic" aria-hidden="true">✉</span><div><strong>{email.trim()}</strong><small>You sign in with this email, and your sign-in codes are sent here.</small></div></div>
+            {phone.trim() && <div className="su-row"><span className="su-ic" aria-hidden="true">☎</span><div><strong>{phone.trim()}</strong><small>Kept on your profile so we can reach you.</small></div></div>}
+            {refInfo?.valid && <div className="su-row"><span className="su-ic" aria-hidden="true">🎁</span><div><strong>Invited by {refInfo.company}</strong><small>Your sign-up counts toward their referral.</small></div></div>}
+          </div>
+
+          <div className="su-box">
+            <div className="su-cap">WHOLESTRA will</div>
+            <div className="su-row"><span className="su-ic ok" aria-hidden="true">✓</span><div><strong>Send a 6-digit code to your email</strong><small>To confirm the address is yours. The code works for 10 minutes.</small></div></div>
+            <div className="su-row"><span className="su-ic ok" aria-hidden="true">✓</span><div><strong>Create your company workspace</strong><small>You become its owner, with full access. Its data is kept separate from every other company.</small></div></div>
+            <div className="su-row"><span className="su-ic ok" aria-hidden="true">✓</span><div><strong>Record sign-ins and changes</strong><small>Each action is saved with who did it and when, in a change log nobody can edit.</small></div></div>
+          </div>
+
+          <div className="su-box">
+            <div className="su-cap">WHOLESTRA will not</div>
+            <div className="su-row"><span className="su-ic no" aria-hidden="true">✕</span><div><strong>Sell your personal data</strong><small>Your company&apos;s records are never used for advertising.</small></div></div>
+            <div className="su-row"><span className="su-ic no" aria-hidden="true">✕</span><div><strong>Ask for your email password</strong><small>We only check that you can receive our code.</small></div></div>
+          </div>
+
+          {error && <div className="au-err" role="alert">{error}</div>}
+          <div className="su-btns">
+            <button type="button" className="su-cancel" onClick={cancel} disabled={busy}>Cancel</button>
+            <button type="button" className="au-primary" onClick={approve} disabled={busy}>{busy ? "Sending code..." : "Continue"}</button>
+          </div>
+          <p className="su-fine">Not you, or something wrong? <button type="button" className="au-link" onClick={() => { setStep("form"); setError(""); }}>Edit your details</button><br />
+            By continuing you agree to the <Link href="/terms" target="_blank">terms of use</Link> and <Link href="/privacy" target="_blank">privacy notice</Link>.</p>
         </>}
 
         {step === "code" && <>
@@ -125,7 +174,8 @@ export default function SignUpFlow() {
             {error && <div className="au-err" role="alert">{error}</div>}
             <button className="au-primary" disabled={busy || code.length < 6}>{busy ? "Creating your account..." : "Verify and continue"}</button>
           </form>
-          <div className="au-actions"><button type="button" className="au-link" disabled={busy || cooldown > 0} onClick={sendCode}>{cooldown > 0 ? `Send a new code in ${cooldown}s` : "Send a new code"}</button></div>
+          <div className="au-actions"><button type="button" className="au-link" disabled={busy || cooldown > 0} onClick={sendCode}>{cooldown > 0 ? `Send a new code in ${cooldown}s` : "Send a new code"}</button>
+            <button type="button" className="au-link" disabled={busy} onClick={cancel}>Cancel sign-up</button></div>
         </>}
       </section>
       <DemoModal open={demoOpen} onClose={() => setDemoOpen(false)} />

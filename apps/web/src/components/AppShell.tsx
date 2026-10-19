@@ -13,6 +13,7 @@ import ProfileModal, { Profile } from "./ProfileModal";
 import ContactBlock from "./ContactBlock";
 import Assistant from "./assistant/Assistant";
 import PhoneTables from "./PhoneTables";
+import AccessNotice from "./status/AccessNotice";
 import { InstallSteps, startInstall, useCanInstall } from "./InstallApp";
 import type { Platform } from "../lib/install";
 import "./app-extra.css";
@@ -153,6 +154,12 @@ export default function AppShell({ title, children }: { title: string; children:
   const allowed = (item: Item) => !item.permission || item.permission.split("|").some(p => user?.permissions.includes(p));
   const visibleNav = NAV.map(e => e.kind === "link" ? (allowed(e.item) ? e : null) : { ...e, items: e.items.filter(allowed) })
     .filter((e): e is Entry => !!e && (e.kind === "link" || e.items.length > 0));
+
+  // A page opened from a shared link that this person's role does not include shows a notice instead of the page.
+  const pageItem = NAV.flatMap(e => e.kind === "link" ? [e.item] : e.items)
+    .filter(i => pathname === i.href || pathname?.startsWith(i.href + "/"))
+    .sort((a, b) => b.href.length - a.href.length)[0];
+  const denied = !!user && !!pageItem && !allowed(pageItem);
 
   const can = (p: string) => !!user?.permissions.includes(p);
   const quick = QUICK.map(g => ({ ...g, items: g.items.filter(i => can(i.permission)) })).filter(g => g.items.length);
@@ -318,7 +325,7 @@ export default function AppShell({ title, children }: { title: string; children:
             <a href="/settings/security">Change email →</a>
           </div>
         )}
-        <main className="page">{children}</main>
+        <main className="page">{denied && pageItem ? <AccessNotice page={pageItem.label} company={user?.organization ?? undefined} /> : children}</main>
         <ContactBlock variant="footer" />
       </div>
       <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} commands={commands} />
