@@ -8,7 +8,7 @@ import PasswordInput, { passwordProblem } from "./PasswordInput";
 import SocialButtons from "./SocialButtons";
 import { useAuthOptions } from "./useAuthOptions";
 import { finishSignIn } from "./SignInFlow";
-import { authApi, OAUTH_ERRORS, SessionResponse } from "../../lib/authApi";
+import { authApi, OAUTH_ERRORS, oauthUrl, SessionResponse } from "../../lib/authApi";
 import { ApiError } from "../../lib/api";
 import DemoModal from "../landing/DemoModal";
 import { LogoMark } from "../Logo";
@@ -24,7 +24,7 @@ export default function SignUpFlow() {
   const { options, loading: optLoading } = useAuthOptions();
   const [step, setStep] = useState<"form" | "review" | "code">("form");
   const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(() => params.get("email") ?? "");
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [ref, setRef] = useState("");
@@ -35,7 +35,7 @@ export default function SignUpFlow() {
   const [devCode, setDevCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [cooldown, setCooldown] = useState(0);
-  const [error, setError] = useState(() => { const e = params.get("error"); return e ? OAUTH_ERRORS[e] ?? "Sign-up did not finish. Please try again." : ""; });
+  const [error, setError] = useState(() => { const e = params.get("error"); return e === "no-account" ? "" : e ? OAUTH_ERRORS[e] ?? "Sign-up did not finish. Please try again." : ""; });
 
   // a referral code from the link (or from an earlier visit in this browser)
   useEffect(() => {
@@ -94,6 +94,12 @@ export default function SignUpFlow() {
   }
 
   const [demoOpen, setDemoOpen] = useState(false);
+  // Came here from "Sign in with Google" (or Facebook / LinkedIn) using an account that has not signed up yet
+  const noAcct = params.get("error") === "no-account" && !!params.get("email");
+  const prov = params.get("provider");
+  const noAcctProvider: "google" | "facebook" | "linkedin" = prov === "facebook" || prov === "linkedin" ? prov : "google";
+  const providerName = { google: "Google", facebook: "Facebook", linkedin: "LinkedIn" }[noAcctProvider];
+  const socialOn = !optLoading && options.providers[noAcctProvider];
 
   return (
     <AuthShell>
@@ -101,6 +107,19 @@ export default function SignUpFlow() {
         {step === "form" && <>
           <h1 id="au-title">Create your account</h1>
           <p className="au-sub">Free to start. Set up your company in a few minutes.</p>
+          {noAcct
+            ? <div className="au-noacct" role="status">
+                <span className="au-noacct-ic" aria-hidden="true">?</span>
+                <div>
+                  <strong>No account for {params.get("email")}</strong>
+                  <p>You chose this {providerName} account to sign in, but it has not been used to sign up for WHOLESTRA yet. Nothing was created. Create your account now: it is free to start.</p>
+                  {socialOn
+                    ? <a href={oauthUrl(noAcctProvider, "signup", refInfo?.valid ? ref.trim().toUpperCase() : undefined, params.get("email") ?? undefined)} className="au-noacct-go">Create my account with {providerName} →</a>
+                    : null}
+                  <p className="au-noacct-or">Or fill in the form below to sign up with your email.</p>
+                </div>
+              </div>
+            : params.get("email") && <p className="au-invite">👋 <b>{params.get("email")}</b> is new to WHOLESTRA. Fill in the rest below to create your account.</p>}
           {!optLoading && !options.emailSignup && <p className="au-test" role="status">{emailOffText}</p>}
           {refInfo?.valid && <p className="au-invite">🎁 Invited by <b>{refInfo.company}</b></p>}
           <SocialButtons options={options} mode="signup" referral={refInfo?.valid ? ref.trim().toUpperCase() : undefined} loading={optLoading} />

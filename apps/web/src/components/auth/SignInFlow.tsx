@@ -58,6 +58,7 @@ export default function SignInFlow() {
   const [slow, setSlow] = useState(false);
   const [cooldown, setCooldown] = useState(0);
   const confirmed = !!ticket;
+  const [missing, setMissing] = useState("");
   // Someone who opened a page from a link (or whose session ended) is told why they are here and where they will land.
   const nextPath = params.get("next") ?? "";
   const nextName = /^\/[a-z]/.test(nextPath) ? pageName(nextPath) : "";
@@ -72,9 +73,12 @@ export default function SignInFlow() {
   useEffect(() => { if (cooldown <= 0) return; const t = setTimeout(() => setCooldown(cooldown - 1), 1000); return () => clearTimeout(t); }, [cooldown]);
 
   async function run<T>(fn: () => Promise<T>): Promise<T | undefined> {
-    setBusy(true); setError("");
+    setBusy(true); setError(""); setMissing("");
     try { return await fn(); }
-    catch (e) { setError(e instanceof ApiError ? e.message : "Something went wrong. Please try again."); return undefined; }
+    catch (e) {
+      // an email with no account: offer to create one instead of a plain error
+      if (e instanceof ApiError && e.status === 404 && step === "email") { setMissing(email.trim()); return undefined; }
+      setError(e instanceof ApiError ? e.message : "Something went wrong. Please try again."); return undefined; }
     finally { setBusy(false); }
   }
 
@@ -92,7 +96,11 @@ export default function SignInFlow() {
     e.preventDefault();
     if (!email.trim()) return;
     if (codesOn) await sendCode();
-    else { setError(""); setStep("password"); }
+    else {
+      // no codes on this site: still say plainly when the email has no account, before asking for a password
+      const ok = await run(() => authApi.post<{ ok: boolean }>("/auth/email/check", { email }));
+      if (ok) { setError(""); setStep("password"); }
+    }
   }
 
   function afterVerified(r: Verified | (SessionResponse & { device?: string })) {
@@ -161,9 +169,17 @@ export default function SignInFlow() {
           <form onSubmit={submitEmail} noValidate={false}>
             <div className="au-field">
               <label htmlFor="em">Email address</label>
-              <input id="em" type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="username" required autoFocus placeholder="you@company.com" />
+              <input id="em" type="email" value={email} onChange={(e) => { setEmail(e.target.value); setMissing(""); }} autoComplete="username" required autoFocus placeholder="you@company.com" />
             </div>
             {error && <div className="au-err" role="alert">{error}</div>}
+            {missing && <div className="au-noacct" role="alert">
+              <span className="au-noacct-ic" aria-hidden="true">?</span>
+              <div>
+                <strong>No account for {missing}</strong>
+                <p>This email has not been used to sign up for WHOLESTRA yet. Check the spelling, or create your account. It is free to start.</p>
+                <Link href={`/get-started?email=${encodeURIComponent(missing)}`} className="au-noacct-go">Create an account →</Link>
+              </div>
+            </div>}
             {slow && <p className="au-note" role="status">The server is waking up after being idle. This can take up to a minute the first time.</p>}
             <button className="au-primary" disabled={busy}>{busy ? "Please wait..." : "Next"}</button>
             <button type="button" className="au-totp" disabled={busy} onClick={() => {

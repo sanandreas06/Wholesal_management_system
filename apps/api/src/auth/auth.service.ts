@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, HttpException, HttpStatus, Injectable, Logger, ServiceUnavailableException, UnauthorizedException } from "@nestjs/common";
+import { BadRequestException, ConflictException, ForbiddenException, HttpException, HttpStatus, Injectable, Logger, NotFoundException, ServiceUnavailableException, UnauthorizedException } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
 import { Prisma } from "@prisma/client";
 import * as bcrypt from "bcryptjs";
@@ -76,10 +76,28 @@ export class AuthService {
     return { emailCodes: this.otp.enabled, emailSignup: this.otp.enabled, smsCodes: this.otp.enabled && this.otp.smsEnabled, providers, social: Object.values(providers).some(Boolean), demo: true };
   }
 
+  /** Sign-in tells people plainly when an email has no account, so they can create one instead (sign-up already says when an email is taken).
+   *  Each miss still counts toward the per-network limit on codes, so the page cannot be used to test long lists of addresses. */
+  private async assertAccount(email: string, c: ClientInfo) {
+    const u = await this.prisma.user.findFirst({ where: { email: { equals: email, mode: "insensitive" } }, select: { status: true, organization: { select: { isDemo: true } } } });
+    if (!u || u.organization.isDemo) {
+      await this.otp.issue(email, "signin", c.ip, false);
+      throw new NotFoundException({ statusCode: 404, error: "NO_ACCOUNT", message: "There is no WHOLESTRA account with this email. Check the spelling, or create an account." });
+    }
+    if (u.status !== "ACTIVE") throw new ForbiddenException("This account is switched off. Ask your company's owner or administrator to switch it back on.");
+  }
+
+  /** For the password-only sign-in (when this site sends no codes): the same "no account with this email" answer before the password step. */
+  async checkAccount(email: string, c: ClientInfo) {
+    await this.assertAccount(normEmail(email), c);
+    return { ok: true };
+  }
+
   // ------------------------------------------------------------------ step 1 and 2: email, then a code
   async startEmail(dto: { email: string; purpose: OtpPurpose; channel?: "email" | "sms" }, c: ClientInfo) {
     this.otp.assertEnabled();
     const email = normEmail(dto.email);
+    if (dto.purpose === "signin") await this.assertAccount(email, c);
     if (dto.channel === "sms") {
       if (dto.purpose !== "signin") throw new BadRequestException("Text-message codes are for signing in. To create an account, confirm your email.");
       return this.startSms(email, c);
@@ -90,8 +108,8 @@ export class AuthService {
       const sent = await this.otp.deliver(email, "signup", code);
       return { ok: true, expiresInSeconds: 600, ...sent };
     }
-    // sign-in: the answer does not reveal whether the email has an account. If email sending is broken, everyone gets the same
-    // "could not send" message (never a silent "check your inbox" that nothing will arrive in).
+    // sign-in (the account was checked above). If email sending is broken, say so plainly
+    // (never a silent "check your inbox" that nothing will arrive in).
     const cannotSend = new ServiceUnavailableException("We could not send a code to your email just now. Please try again in a few minutes. If you use Google Authenticator, choose \"Sign in with Google Authenticator\" instead.");
     const user = await this.loadByEmail(email);
     if (!user && this.mailer.configured && this.mailer.recentlyFailed) throw cannotSend;

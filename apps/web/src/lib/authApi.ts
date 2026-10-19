@@ -27,9 +27,10 @@ export type AuthOptions = { emailCodes: boolean; emailSignup: boolean; smsCodes?
 export const NO_OPTIONS: AuthOptions = { emailCodes: false, emailSignup: false, providers: { google: false, facebook: false, linkedin: false }, social: false, demo: true };
 
 /** Where the "Continue with Google / Facebook / LinkedIn" buttons go. The server does the rest and comes back to /auth/complete. */
-export function oauthUrl(provider: "google" | "facebook" | "linkedin", mode: "signin" | "signup", ref?: string) {
+export function oauthUrl(provider: "google" | "facebook" | "linkedin", mode: "signin" | "signup", ref?: string, hint?: string) {
   const q = new URLSearchParams({ mode });
   if (ref) q.set("ref", ref);
+  if (hint) q.set("hint", hint);
   return `${API_URL}/auth/oauth/${provider}?${q}`;
 }
 
@@ -41,6 +42,7 @@ export const OAUTH_ERRORS: Record<string, string> = {
   "no-email": "That account did not share an email address with us. Please use your email instead.",
   "email-unverified": "That account's email address is not confirmed yet. Please confirm it with the provider, or use your email instead.",
   blocked: "This account is switched off. Ask your owner or administrator.",
+  "no-account": "There is no WHOLESTRA account for that account yet. Create one below.",
 };
 
 export type SessionResponse = { accessToken: string; mustChangePassword?: boolean; user: import("./session").SessionUser };

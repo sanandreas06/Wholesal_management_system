@@ -7,6 +7,7 @@ import { AuthService, ClientInfo } from "./auth.service";
 import { OAuthService, isProvider } from "./oauth.service";
 
 class EmailStartDto { @IsEmail() @MaxLength(160) email!: string; @IsIn(["signin", "signup"]) purpose!: "signin" | "signup"; @IsOptional() @IsIn(["email", "sms"]) channel?: "email" | "sms"; }
+class EmailCheckDto { @IsEmail() @MaxLength(160) email!: string; }
 class EmailVerifyDto {
   @IsEmail() @MaxLength(160) email!: string;
   @IsIn(["signin", "signup"]) purpose!: "signin" | "signup";
@@ -47,6 +48,7 @@ export class AuthController {
   @Get("options") options() { return this.auth.options(); }
 
   @Post("email/start") @HttpCode(200) start(@Body() dto: EmailStartDto, @Req() req: Req) { return this.auth.startEmail(dto, client(req)); }
+  @Post("email/check") @HttpCode(200) check(@Body() dto: EmailCheckDto, @Req() req: Req) { return this.auth.checkAccount(dto.email, client(req)); }
   @Post("email/verify") @HttpCode(200) verify(@Body() dto: EmailVerifyDto, @Req() req: Req) { return this.auth.verifyEmail(dto, client(req)); }
   @Post("authenticator") @HttpCode(200) mfa(@Body() dto: MfaDto, @Req() req: Req) { return this.auth.verifyAuthenticator(dto, client(req)); }
   @Post("login") @HttpCode(201) login(@Body() dto: LoginDto, @Req() req: Req) { return this.auth.login(dto, client(req)); }
@@ -81,9 +83,9 @@ export class OAuthController {
     return `${base}/api/auth/oauth/${provider}/callback`;
   }
   @Get(":provider")
-  async begin(@Param("provider") provider: string, @Query("mode") mode: string | undefined, @Query("ref") ref: string | undefined, @Req() req: Req, @Res() res: Res) {
+  async begin(@Param("provider") provider: string, @Query("mode") mode: string | undefined, @Query("ref") ref: string | undefined, @Query("hint") hint: string | undefined, @Req() req: Req, @Res() res: Res) {
     if (!isProvider(provider) || !this.oauth.available()[provider]) throw new NotFoundException("That sign-in method is not switched on for this site.");
-    const { url, nonce } = await this.oauth.begin(provider, this.redirectUri(provider, req), { mode, ref });
+    const { url, nonce } = await this.oauth.begin(provider, this.redirectUri(provider, req), { mode, ref, hint });
     res.cookie(COOKIE, nonce, { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", maxAge: 600_000, path: COOKIE_PATH });
     res.redirect(302, url);
   }

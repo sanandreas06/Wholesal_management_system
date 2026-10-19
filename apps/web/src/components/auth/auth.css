@@ -271,3 +271,13 @@ button.au-soc:hover{border-color:var(--primary);transform:translateY(-1px);box-s
 
 /* why someone landed on sign-in: a shared link, or a session that ended */
 .au-gate{display:flex;gap:10px;align-items:flex-start;margin:0 0 16px;padding:11px 14px;border-radius:12px;background:var(--bg);border:1px solid var(--border-strong);font-size:14px;line-height:1.5;color:var(--text)}
+
+/* sign-in: this email has no account yet */
+.au-noacct{display:grid;grid-template-columns:34px minmax(0,1fr);gap:12px;margin:0 0 14px;padding:14px 16px;border-radius:14px;background:var(--bg);border:1.5px solid #E5B340}
+.au-noacct-ic{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:#0B1B3E;color:#E5B340;font-weight:800}
+.au-noacct strong{display:block;font-size:15px;overflow-wrap:anywhere}
+.au-noacct p{margin:4px 0 10px;color:var(--text-muted);font-size:14px;line-height:1.5}
+.au-noacct-go{display:inline-flex;align-items:center;min-height:42px;padding:0 16px;border-radius:10px;background:#0B1B3E;color:#fff;font-weight:700;font-size:14.5px;text-decoration:none}
+.au-noacct-go:hover{background:#13285A}
+[data-theme="dark"] .au-noacct-go{background:#2563EB}
+.au-noacct-or{margin:10px 0 0!important;font-size:13px!important}

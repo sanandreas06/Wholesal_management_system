@@ -40,12 +40,15 @@ export class OAuthService {
   }
 
   /** Where the person is sent to approve the sign-in, plus the cookie that ties the answer to this browser. */
-  async begin(provider: Provider, redirectUri: string, opts: { mode?: string; ref?: string }) {
+  async begin(provider: Provider, redirectUri: string, opts: { mode?: string; ref?: string; hint?: string }) {
     const c = CFG[provider];
     const nonce = randomBytes(18).toString("base64url");
     const state = await this.tickets.sign({ typ: "oauth-state", p: provider, n: nonce, mode: opts.mode === "signup" ? "signup" : "signin", ref: (opts.ref ?? "").slice(0, 20) }, 600);
     const q = new URLSearchParams({ client_id: process.env[c.id] as string, redirect_uri: redirectUri, response_type: "code", scope: c.scope, state });
     if (provider === "google") q.set("prompt", "select_account");
+    // "Create an account with Google" after a sign-in found no account: pre-select the Google account they just used
+    const hint = (opts.hint ?? "").trim().toLowerCase();
+    if (provider === "google" && hint.length <= 160 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(hint)) q.set("login_hint", hint);
     return { url: `${c.auth}?${q}`, nonce };
   }
 
@@ -73,7 +76,12 @@ export class OAuthService {
       if (!user) {
         const existing = await this.prisma.user.findFirst({ where: { email: { equals: email, mode: "insensitive" } }, include: { organization: { select: { isDemo: true } } } });
         if (existing) user = existing;
-        else {
+        else if (mode !== "signup") {
+          // Signing in with an account nobody has signed up with: nothing is created; the person is sent to create an account instead.
+          const back = new URLSearchParams({ error: "no-account", provider, email });
+          if (st.ref) back.set("ref", st.ref);
+          return `${webBase()}/get-started?${back}`;
+        } else {
           const name = (profile.name || email.split("@")[0]).trim().replace(/\s+/g, " ");
           const made = await this.onboarding.createCompany({ companyName: `${name.split(" ")[0]}'s company`, email, name, passwordHash: await bcrypt.hash(randomBytes(24).toString("hex"), 8), passwordSet: false, referralCode: st.ref, via: CFG[provider].label });
           user = await this.prisma.user.findUniqueOrThrow({ where: { id: made.userId }, include: { organization: { select: { isDemo: true } } } });
