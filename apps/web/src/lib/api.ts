@@ -22,7 +22,8 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   });
   if (res.status === 401) {
     localStorage.clear();
-    if (typeof window !== "undefined") window.location.href = `/login?expired=1&next=${encodeURIComponent(window.location.pathname + window.location.search)}`;
+    // "your session ended" only for someone who was signed in; a visitor with no session is simply asked to sign in
+    if (typeof window !== "undefined") window.location.href = `/login?${t ? "expired=1&" : ""}next=${encodeURIComponent(window.location.pathname + window.location.search)}`;
     throw new ApiError("Session expired", 401);
   }
   const data = res.status === 204 ? null : await res.json().catch(() => null);

@@ -60,6 +60,7 @@ export class AuthController {
 
   @Post("email-change/start") @HttpCode(200) @UseGuards(JwtAuthGuard) emailChange(@CurrentUser() u: AuthUser, @Body() dto: EmailChangeDto, @Req() req: Req) { return this.auth.emailChangeStart(u, dto, client(req)); }
   @Post("email-change/verify") @HttpCode(200) @UseGuards(JwtAuthGuard) emailChangeVerify(@CurrentUser() u: AuthUser, @Body() dto: EmailChangeVerifyDto, @Req() req: Req) { return this.auth.emailChangeVerify(u, dto, client(req)); }
+  @Get("workspace") @UseGuards(JwtAuthGuard) workspace(@CurrentUser() u: AuthUser) { return this.auth.workspace(u); }
   @Get("security") @UseGuards(JwtAuthGuard) security(@CurrentUser() u: AuthUser) { return this.auth.security(u); }
   @Post("totp/setup") @HttpCode(200) @UseGuards(JwtAuthGuard) setup(@CurrentUser() u: AuthUser) { return this.auth.totpSetup(u); }
   @Post("totp/enable") @HttpCode(200) @UseGuards(JwtAuthGuard) enable(@CurrentUser() u: AuthUser, @Body() dto: CodeDto, @Req() req: Req) { return this.auth.totpEnable(u, dto.code, client(req)); }

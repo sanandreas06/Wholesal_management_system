@@ -11,6 +11,7 @@ import { authApi, OAUTH_ERRORS, SessionResponse } from "../../lib/authApi";
 import { getTrust, saveSession, saveTrust } from "../../lib/session";
 import DemoModal from "../landing/DemoModal";
 import { ApiError } from "../../lib/api";
+import { IDLE_MINUTES } from "../../lib/idle";
 
 type Step = "email" | "code" | "mfa" | "password" | "reset";
 type Verified = { ticket?: string; hasPassword?: boolean; needsAuthenticator?: boolean; mfa?: string; company?: string; device?: string };
@@ -26,7 +27,7 @@ export function finishSignIn(router: ReturnType<typeof useRouter>, s: SessionRes
 
 /** "/purchase-orders?x=1" -> "Purchase orders". */
 function pageName(path: string) {
-  const seg = path.split(/[?#]/)[0].split("/").filter(Boolean)[0] ?? "";
+  const seg = path.split(/[?#]/)[0].replace(/^\/w\/[^/]+/i, "").split("/").filter(Boolean)[0] ?? "dashboard";
   const known: Record<string, string> = { dashboard: "your dashboard", audit: "Audit & fraud signals", imports: "Excel import", insights: "Investment insights" };
   if (known[seg]) return known[seg];
   const w = seg.replace(/-/g, " ");
@@ -60,7 +61,10 @@ export default function SignInFlow() {
   // Someone who opened a page from a link (or whose session ended) is told why they are here and where they will land.
   const nextPath = params.get("next") ?? "";
   const nextName = /^\/[a-z]/.test(nextPath) ? pageName(nextPath) : "";
-  const gate = params.get("expired") ? { icon: "⏱", text: `Your session ended, so you were signed out to keep your account safe. Sign in again${nextName ? ` to go back to ${nextName}` : ""}.` }
+  const back = nextName ? ` to go back to ${nextName}` : "";
+  const gate = params.get("why") === "idle" ? { icon: "⏱", text: `You were signed out after ${IDLE_MINUTES} minutes without activity, to keep your company's data safe. Sign in again${back}.` }
+    : params.get("why") === "elsewhere" ? { icon: "🔒", text: `You signed out in another tab or window. Sign in again${back}.` }
+    : params.get("expired") ? { icon: "⏱", text: `Your session ended, so you were signed out to keep your account safe. Sign in again${back}.` }
     : nextName ? { icon: "🔒", text: `Sign in to open ${nextName}. If someone sent you this link, you will only see it if your account is allowed to.` } : null;
   const codesOn = options.emailCodes;
 

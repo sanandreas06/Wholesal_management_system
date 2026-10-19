@@ -58,6 +58,12 @@ export class AuthService {
     return { ok: true };
   }
 
+  /** The company's workspace ID, used in app addresses (/w/<id>/...). For sessions started before it was part of the sign-in answer. */
+  async workspace(user: AuthUser) {
+    const org = await this.prisma.organization.findUnique({ where: { id: user.organizationId }, select: { code: true } });
+    return { workspace: org?.code.toLowerCase() ?? null };
+  }
+
   loadById(id: string) { return this.prisma.user.findUnique({ where: { id }, include: userInclude }); }
   /** A person who may sign in with an email: active, and not part of the shared demo company. */
   private async loadByEmail(email: string) {
@@ -256,7 +262,7 @@ export class AuthService {
       mustChangePassword: user.mustChangePassword,
       user: {
         id: user.id, name: user.name, email: user.email, organization: demo && demoFor ? demoFor : user.organization.name, ...(demo && demoFor ? { demoFor } : {}), branch: user.branch?.name ?? null, branchScope, roles, permissions,
-        currency: user.organization.currency, demo, setupPending: user.organization.setupPending, authenticator: !!user.totpEnabledAt, passwordSet: user.passwordSet,
+        currency: user.organization.currency, workspace: user.organization.code.toLowerCase(), demo, setupPending: user.organization.setupPending, authenticator: !!user.totpEnabledAt, passwordSet: user.passwordSet,
       },
     };
   }

@@ -20,6 +20,8 @@ export interface SessionUser {
   passwordSet?: boolean;
   /** in the demo: the shop or company name the visitor typed */
   demoFor?: string;
+  /** the company's workspace ID, shown in app addresses: /w/<workspace>/dashboard */
+  workspace?: string;
 }
 
 /** "Remember this browser for 5 hours" after the authenticator check: the server's signed note, kept per email. */
@@ -30,6 +32,8 @@ export function getTrust(email: string) { try { return localStorage.getItem(trus
 export function saveSession(accessToken: string, user: SessionUser) {
   localStorage.setItem("wms_access_token", accessToken);
   localStorage.setItem("wms_user", JSON.stringify(user));
+  // a fresh sign-in counts as activity, so an old idle time never signs someone straight back out
+  localStorage.setItem("wms_last_active", String(Date.now()));
 }
 
 /** Changes a few details of the signed-in person without signing in again. */

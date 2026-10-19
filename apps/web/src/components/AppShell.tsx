@@ -1,7 +1,9 @@
 'use client';
-import { ReactNode, useEffect, useState } from "react";
+import { ReactNode, useCallback, useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { clearSession, getSessionUser, SessionUser } from "../lib/session";
+import { clearSession, getSessionUser, SessionUser, updateSessionUser } from "../lib/session";
+import { splitWorkspace, withWorkspace } from "../lib/workspace";
+import IdleGuard from "./IdleGuard";
 import { useTheme } from "../hooks/useTheme";
 import { api } from "../lib/api";
 import { useNotifications } from "../hooks/useNotifications";
@@ -13,7 +15,7 @@ import ProfileModal, { Profile } from "./ProfileModal";
 import ContactBlock from "./ContactBlock";
 import Assistant from "./assistant/Assistant";
 import PhoneTables from "./PhoneTables";
-import AccessNotice from "./status/AccessNotice";
+import AccessNotice, { WorkspaceNotice } from "./status/AccessNotice";
 import { InstallSteps, startInstall, useCanInstall } from "./InstallApp";
 import type { Platform } from "../lib/install";
 import "./app-extra.css";
@@ -107,7 +109,8 @@ function Icon({ name }: { name: string }) {
 
 export default function AppShell({ title, children }: { title: string; children: ReactNode }) {
   const router = useRouter();
-  const pathname = usePathname();
+  // The address carries the company's workspace ID (/w/<id>/sales). `pathname` is the page part, which is what the menus compare against.
+  const { ws: linkWs, path: pathname } = splitWorkspace(usePathname());
   const [user, setUser] = useState<SessionUser | null>(null);
   const { theme, toggle } = useTheme();
   const [online, setOnline] = useState<boolean | null>(null);
@@ -142,13 +145,31 @@ export default function AppShell({ title, children }: { title: string; children:
     // a brand-new company fills in its profile first
     if (u.setupPending && !u.demo) { router.replace("/setup"); return; }
     setUser(u);
+    // sessions started before workspace addresses existed: fetch the ID once
+    if (!u.workspace) api.get<{ workspace: string | null }>("/auth/workspace").then(r => { if (r.workspace) { updateSessionUser({ workspace: r.workspace }); setUser(x => (x ? { ...x, workspace: r.workspace! } : x)); } }).catch(() => undefined);
   }, [router]);
 
+  // Put the workspace ID in the address bar, so a copied link says which company it belongs to.
+  const myWs = user?.workspace;
+  useEffect(() => {
+    if (!myWs || linkWs) return;
+    window.history.replaceState(null, "", withWorkspace(pathname, myWs) + window.location.search + window.location.hash);
+  }, [myWs, linkWs, pathname]);
+  const wrongWs = !!myWs && !!linkWs && linkWs !== myWs;
+
   // Tell the server first (so the Change log shows the sign-out), but never keep someone waiting more than a moment.
-  function signOut() {
-    const done = () => { clearSession(); router.replace("/login"); };
+  function signOut(to = "/login") {
+    const done = () => { clearSession(); router.replace(to); };
     Promise.race([api.post("/auth/logout").catch(() => undefined), new Promise(r => setTimeout(r, 1200))]).then(done, done);
   }
+  // After a quiet spell (or a sign-out in another tab): back to sign in, which explains why and returns to this page afterwards.
+  const timedOut = useCallback((why: "idle" | "elsewhere") => {
+    const next = encodeURIComponent(window.location.pathname + window.location.search);
+    const to = `/login?expired=1&why=${why}&next=${next}`;
+    if (why === "elsewhere") { clearSession(); window.location.replace(to); return; }
+    const done = () => { clearSession(); window.location.replace(to); };
+    Promise.race([api.post("/auth/logout").catch(() => undefined), new Promise(r => setTimeout(r, 1200))]).then(done, done);
+  }, []);
 
   const [open, setOpen] = useState<Record<string, boolean>>({});
   const allowed = (item: Item) => !item.permission || item.permission.split("|").some(p => user?.permissions.includes(p));
@@ -298,7 +319,7 @@ export default function AppShell({ title, children }: { title: string; children:
                     <button type="button" role="menuitem" onClick={() => { setMenuOpen(false); router.push("/settings/security"); }}>Sign-in & security</button>
                     <button type="button" role="menuitem" onClick={() => { setMenuOpen(false); setHelpOpen(true); }}>Keyboard shortcuts</button>
                     {canInstall && <button type="button" role="menuitem" onClick={async () => { setMenuOpen(false); setInstallHelp(await startInstall()); }}>Install app</button>}
-                    <button type="button" role="menuitem" className="danger" onClick={signOut}>Sign out</button>
+                    <button type="button" role="menuitem" className="danger" onClick={() => signOut()}>Sign out</button>
                   </div>
                 </>}
               </div>
@@ -325,12 +346,15 @@ export default function AppShell({ title, children }: { title: string; children:
             <a href="/settings/security">Change email →</a>
           </div>
         )}
-        <main className="page">{denied && pageItem ? <AccessNotice page={pageItem.label} company={user?.organization ?? undefined} /> : children}</main>
+        <main className="page">{wrongWs && linkWs && myWs
+          ? <WorkspaceNotice linkWs={linkWs} company={user?.organization ?? undefined} home={withWorkspace("/dashboard", myWs)} onSwitch={() => signOut(`/login?next=${encodeURIComponent(window.location.pathname + window.location.search)}`)} />
+          : denied && pageItem ? <AccessNotice page={pageItem.label} company={user?.organization ?? undefined} /> : children}</main>
         <ContactBlock variant="footer" />
       </div>
       <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} commands={commands} />
       <ToastHost />
       <PhoneTables />
+      {user && !user.demo && <IdleGuard onTimeout={timedOut} />}
       {user && <Assistant mode="app" />}
       {installHelp && <InstallSteps on={installHelp} onClose={() => setInstallHelp(null)} />}
       {(profileOpen || !!profile?.mustChangePassword) && profile && <ProfileModal profile={profile} forced={!!profile.mustChangePassword} onClose={() => setProfileOpen(false)} onSaved={profileSaved} />}
