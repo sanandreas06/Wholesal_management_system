@@ -70,7 +70,6 @@ const SITE_PAGES: { keys: string[]; path: string; label: string }[] = [
   { keys: ["sign in", "login", "log in", "signin"], path: "/login", label: "Sign in" },
   { keys: ["privacy", "privacy notice", "privacy policy"], path: "/privacy", label: "Privacy notice" },
   { keys: ["terms", "terms of use", "terms and conditions"], path: "/terms", label: "Terms of use" },
-  { keys: ["status", "system status"], path: "/status", label: "System status" },
 ];
 function pageFor(text: string, list: { keys: string[]; path: string; label: string; need?: string }[]) {
   const t = ` ${norm(text)} `;

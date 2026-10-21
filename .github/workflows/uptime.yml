@@ -1,0 +1,58 @@
+# Checks every 5 minutes that the WHOLESTRA API and website answer, and records each good check on the Platform monitor.
+# If the API does not answer, this run fails and GitHub emails you (Settings > Notifications > Actions on github.com).
+# Setup (once): GitHub repository > Settings > Secrets and variables > Actions:
+#   Secret   MONITOR_KEY = the same long random value as MONITOR_KEY on Render
+#   Variable API_URL     = https://wms-api-rcsy.onrender.com      (optional; this is the default)
+#   Variable WEB_URL     = https://wholesal-management-system.vercel.app   (optional; this is the default)
+# GitHub may run scheduled checks a few minutes late when it is busy; the monitor allows for that.
+name: Uptime check
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch: {}
+permissions: {}
+concurrency:
+  group: uptime
+  cancel-in-progress: false
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    env:
+      API_URL: ${{ vars.API_URL || 'https://wms-api-rcsy.onrender.com' }}
+      WEB_URL: ${{ vars.WEB_URL || 'https://wholesal-management-system.vercel.app' }}
+      MONITOR_KEY: ${{ secrets.MONITOR_KEY }}
+    steps:
+      - name: Check the API and the website
+        run: |
+          set -u
+          now_ms() { date +%s%3N; }
+          # A sleeping free server can take up to a minute to wake, so try three times before calling it down.
+          code=000; ms=0
+          for i in 1 2 3; do
+            t=$(now_ms)
+            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 75 "$API_URL/api/health" || echo 000)
+            ms=$(( $(now_ms) - t ))
+            [ "$code" = "200" ] && break
+            sleep 15
+          done
+          t=$(now_ms)
+          webcode=$(curl -s -o /dev/null -w '%{http_code}' --max-time 30 -L "$WEB_URL/" || echo 000)
+          webms=$(( $(now_ms) - t ))
+          webok=false; [ "$webcode" = "200" ] && webok=true
+          echo "API answered $code in ${ms} ms; website answered $webcode in ${webms} ms"
+          if [ "$code" != "200" ]; then
+            echo "::error title=WHOLESTRA API is not answering::$API_URL/api/health answered $code"
+            exit 1
+          fi
+          if [ -n "$MONITOR_KEY" ]; then
+            curl -s -o /dev/null -w 'recorded: %{http_code}\n' --max-time 30 -X POST "$API_URL/api/monitor/ping" \
+              -H "content-type: application/json" -H "x-monitor-key: $MONITOR_KEY" \
+              -d "{\"ms\":$ms,\"webOk\":$webok,\"webMs\":$webms}"
+          else
+            echo "::warning::MONITOR_KEY is not set, so this check is not recorded on the Platform monitor."
+          fi
+          if [ "$webok" != "true" ]; then
+            echo "::error title=WHOLESTRA website is not answering::$WEB_URL answered $webcode"
+            exit 1
+          fi

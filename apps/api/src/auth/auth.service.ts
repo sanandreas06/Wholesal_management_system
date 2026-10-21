@@ -1,14 +1,16 @@
 import { BadRequestException, ConflictException, ForbiddenException, HttpException, HttpStatus, Injectable, Logger, NotFoundException, ServiceUnavailableException, UnauthorizedException } from "@nestjs/common";
 import { assertRealEmail } from "./email-check";
+import { isPlatformAdmin } from "../monitor/admins";
 import { JwtService } from "@nestjs/jwt";
 import { Prisma } from "@prisma/client";
 import * as bcrypt from "bcryptjs";
+import { createHash } from "crypto";
 import { PrismaService } from "../prisma/prisma.service";
 import { AuditSealService } from "../audit/audit-seal";
 import { AuthUser } from "../common/types/auth-user.type";
 import { NO_BRANCH } from "../common/branch/branch-scope";
 import { SmsService } from "./sms";
-import { MailerService } from "./mailer";
+import { MailerService, passwordChangedEmail, resetEmail } from "./mailer";
 import { OtpPurpose, OtpService } from "./otp.service";
 import { TicketService } from "./tickets";
 import { OnboardingService } from "./onboarding.service";
@@ -164,7 +166,7 @@ export class AuthService {
     if (dto.method === "authenticator") {
       if (!user || !user.totpEnabledAt || !user.totpSecret) throw wrong;
       await this.checkAuthenticator(user, dto.code, c);
-      return { ticket: await this.tickets.sign({ typ: "email", email: user.email, purpose: "signin", uid: user.id }, 900), hasPassword: user.passwordSet, company: user.organization.name, device: await this.deviceToken(user.id) };
+      return { ticket: await this.tickets.sign({ typ: "email", email: user.email, purpose: "signin", uid: user.id, via: "totp" }, 900), hasPassword: user.passwordSet, authenticator: true, company: user.organization.name, device: await this.deviceToken(user.id) };
     }
     const ok = await this.otp.check(email, "signin", dto.code);
     if (user && !ok) await this.failedAttempt(user, "Failed sign-in: wrong email code", c);
@@ -174,7 +176,7 @@ export class AuthService {
     // an account with an authenticator app also needs a code from it: an inbox alone is not enough to get in
     // (unless this browser passed that check in the last few hours)
     if (user.totpEnabledAt && !(await this.trusted(user.id, dto.device))) return { needsAuthenticator: true, mfa: await this.tickets.sign({ typ: "mfa", uid: user.id, next: "password" }, 600), company: user.organization.name };
-    return { ticket: await this.tickets.sign({ typ: "email", email: user.email, purpose: "signin", uid: user.id }, 900), hasPassword: user.passwordSet, company: user.organization.name };
+    return { ticket: await this.tickets.sign({ typ: "email", email: user.email, purpose: "signin", uid: user.id, via: "email" }, 900), hasPassword: user.passwordSet, authenticator: !!user.totpEnabledAt, company: user.organization.name };
   }
 
   async verifyAuthenticator(dto: { mfa: string; code: string }, c: ClientInfo) {
@@ -184,7 +186,8 @@ export class AuthService {
     await this.checkAuthenticator(user, dto.code, c);
     const device = await this.deviceToken(user.id);
     if (t.next === "session") return { ...(await this.session(user, c, "authenticator")), device };
-    return { ticket: await this.tickets.sign({ typ: "email", email: user.email, purpose: "signin", uid: user.id }, 900), hasPassword: user.passwordSet, company: user.organization.name, device };
+    // reached after the email code and then the authenticator app (the "next: password" path), or the app alone
+    return { ticket: await this.tickets.sign({ typ: "email", email: user.email, purpose: "signin", uid: user.id, via: "email+totp" }, 900), hasPassword: user.passwordSet, authenticator: true, company: user.organization.name, device };
   }
 
   // ------------------------------------------------------------------ step 3: password
@@ -227,8 +230,77 @@ export class AuthService {
     if (problem) throw new BadRequestException(problem);
     const user = await this.loadByEmail(t.email);
     if (!user) throw new BadRequestException("That step has expired. Please start again.");
+    // Changing a password someone already has needs the emailed reset link (and the authenticator app, if any): a sign-in code alone is not enough.
+    if (user.passwordSet) throw new BadRequestException("To reset a forgotten password, use the reset link we email you.");
     await this.prisma.user.update({ where: { id: user.id }, data: { passwordHash: await bcrypt.hash(dto.password, 11), passwordSet: true, mustChangePassword: false, emailVerifiedAt: user.emailVerifiedAt ?? new Date() } });
     await this.record(user, "PASSWORD CHANGED", user.passwordSet ? "Password was reset using an email code" : "Chose a first password", c);
+    return this.session((await this.loadById(user.id)) as LoadedUser, c, "password");
+  }
+
+  // ------------------------------------------------------------------ forgot password
+  private resetSent = new Map<string, number[]>();
+  /** A short fingerprint of the current password: the reset link stops working as soon as the password changes, so it works once. */
+  private passwordVersion(hash: string) { return createHash("sha256").update(hash).digest("hex").slice(0, 16); }
+  private mask(email: string) { const [n, d] = email.split("@"); return `${n.slice(0, 2)}${"•".repeat(Math.max(1, Math.min(6, n.length - 2)))}@${d}`; }
+
+  /** Step 1 of a forgotten password: email a one-time link (30 minutes). Needs the ticket from the sign-in code, so only someone who has reached the password step can ask. */
+  async forgotPassword(dto: { ticket: string }, c: ClientInfo) {
+    const t = await this.tickets.verify<{ typ: "email"; email: string; purpose: string; uid?: string }>(dto.ticket, "email");
+    if (t.purpose !== "signin") throw new BadRequestException("That step has expired. Please start again.");
+    const user = await this.loadByEmail(t.email);
+    if (!user || !user.passwordSet) throw new BadRequestException("That step has expired. Please start again.");
+    const recent = (this.resetSent.get(user.id) ?? []).filter((at) => Date.now() - at < 30 * 60_000);
+    if (recent.length >= 3) throw new HttpException("We have already sent you 3 reset links. Please use the latest one, or wait 30 minutes.", HttpStatus.TOO_MANY_REQUESTS);
+    this.resetSent.set(user.id, [...recent, Date.now()]);
+    const token = await this.tickets.sign({ typ: "reset", uid: user.id, pv: this.passwordVersion(user.passwordHash) }, 30 * 60);
+    const link = `${(process.env.WEB_URL ?? "http://localhost:3000").replace(/\/$/, "")}/reset-password#token=${token}`;
+    await this.record(user, "PASSWORD RESET ASKED", "A password reset link was sent to the account's email", c);
+    if (this.otp.devEcho && !this.mailer.configured) return { ok: true, sentTo: this.mask(user.email), devLink: link };
+    await this.mailer.send({ ...resetEmail(link, user.organization.name, 30), to: user.email });
+    return { ok: true, sentTo: this.mask(user.email) };
+  }
+
+  /** The other way out of a forgotten password: the sign-in code from the inbox plus a code from the authenticator app (two separate things only the owner has). */
+  async signInWithAuthenticator(dto: { ticket: string; code: string }, c: ClientInfo) {
+    const t = await this.tickets.verify<{ typ: "email"; email: string; purpose: string; via?: string }>(dto.ticket, "email");
+    if (t.purpose !== "signin") throw new BadRequestException("That step has expired. Please start again.");
+    if (!String(t.via ?? "").includes("email")) throw new BadRequestException("Please start again and confirm your email with a code first.");
+    const user = await this.loadByEmail(t.email);
+    if (!user || !user.totpEnabledAt || !user.totpSecret) throw new BadRequestException("This account does not use an authenticator app. Use the reset link instead.");
+    await this.checkAuthenticator(user, dto.code, c);
+    const s = await this.session(user, c, "authenticator");
+    return { ...s, device: await this.deviceToken(user.id) };
+  }
+
+  private async readReset(token: string) {
+    const t = await this.tickets.verify<{ typ: "reset"; uid: string; pv: string }>(token, "reset", "This reset link has expired or was already used. Please ask for a new one.");
+    const user = await this.loadById(t.uid);
+    if (!user || user.status !== "ACTIVE" || user.organization.isDemo || this.passwordVersion(user.passwordHash) !== t.pv)
+      throw new BadRequestException("This reset link has expired or was already used. Please ask for a new one.");
+    return user;
+  }
+
+  /** What the reset page shows before anything is changed. */
+  async resetInfo(dto: { token: string }) {
+    const user = await this.readReset(dto.token);
+    return { email: this.mask(user.email), company: user.organization.name, needsAuthenticator: !!user.totpEnabledAt };
+  }
+
+  /** Step 2: the new password, from the emailed link (plus the authenticator app, when the account has one). */
+  async resetWithLink(dto: { token: string; password: string; code?: string }, c: ClientInfo) {
+    const user = await this.readReset(dto.token);
+    const problem = passwordProblem(dto.password);
+    if (problem) throw new BadRequestException(problem);
+    if (user.totpEnabledAt) {
+      if (!dto.code) throw new BadRequestException("Type the 6-digit code from your authenticator app.");
+      await this.checkAuthenticator(user, dto.code, c);
+    }
+    await this.prisma.user.update({ where: { id: user.id }, data: { passwordHash: await bcrypt.hash(dto.password, 11), passwordSet: true, mustChangePassword: false, emailVerifiedAt: user.emailVerifiedAt ?? new Date() } });
+    await this.record(user, "PASSWORD CHANGED", user.totpEnabledAt ? "Password was reset with the emailed link and the authenticator app" : "Password was reset with the emailed link", c);
+    if (this.mailer.configured) {
+      const when = new Date().toISOString().replace("T", " ").slice(0, 16);
+      await this.mailer.send({ ...passwordChangedEmail(user.organization.name, when), to: user.email }).catch(() => undefined);
+    }
     return this.session((await this.loadById(user.id)) as LoadedUser, c, "password");
   }
 
@@ -283,7 +355,7 @@ export class AuthService {
       mustChangePassword: user.mustChangePassword,
       user: {
         id: user.id, name: user.name, email: user.email, organization: demo && demoFor ? demoFor : user.organization.name, ...(demo && demoFor ? { demoFor } : {}), branch: user.branch?.name ?? null, branchScope, roles, permissions,
-        currency: user.organization.currency, workspace: user.organization.code.toLowerCase(), demo, setupPending: user.organization.setupPending, authenticator: !!user.totpEnabledAt, passwordSet: user.passwordSet,
+        currency: user.organization.currency, workspace: user.organization.code.toLowerCase(), ...(!demo && isPlatformAdmin(user.email) ? { platformAdmin: true } : {}), demo, setupPending: user.organization.setupPending, authenticator: !!user.totpEnabledAt, passwordSet: user.passwordSet,
       },
     };
   }

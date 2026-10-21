@@ -44,7 +44,6 @@ export default function StatusPage({ code, art, title, text, actions, extra, chi
           <Link href="/features">Features</Link>
           <Link href="/security">How we keep your data safe</Link>
           <Link href="/contact">Contact us</Link>
-          <Link href="/status">Service status</Link>
         </nav>
         <ContactBlock />
       </main>

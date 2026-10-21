@@ -14,8 +14,8 @@ import { ApiError } from "../../lib/api";
 import { IDLE_MINUTES } from "../../lib/idle";
 import { emailProblem } from "../../lib/emailCheck";
 
-type Step = "email" | "code" | "mfa" | "password" | "reset";
-type Verified = { ticket?: string; hasPassword?: boolean; needsAuthenticator?: boolean; mfa?: string; company?: string; device?: string };
+type Step = "email" | "code" | "mfa" | "password" | "reset" | "forgot" | "forgot-app" | "sent";
+type Verified = { ticket?: string; hasPassword?: boolean; authenticator?: boolean; needsAuthenticator?: boolean; mfa?: string; company?: string; device?: string };
 
 /** Sends a freshly signed-in person to the right place: company set-up for a brand-new company, otherwise where they were going. */
 export function finishSignIn(router: ReturnType<typeof useRouter>, s: SessionResponse & { device?: string }, next?: string | null) {
@@ -38,7 +38,8 @@ function pageName(path: string) {
 /** The sign-in screen, one step at a time:
  *  1. email only;  2. a 6-digit code sent to that email (or a code from the authenticator app);
  *  3. the password, with the email now locked and marked Confirmed.
- *  An account protected by an authenticator app also needs a code from it. "Forgot password" after step 2 simply lets the person choose a new one, because the email is already proven. */
+ *  An account protected by an authenticator app also needs a code from it.
+ *  "Forgot password" never changes the password on the spot: it emails a one-time reset link, or (for accounts with an authenticator app) lets the person sign in with the app instead. */
 export default function SignInFlow() {
   const router = useRouter();
   const params = useSearchParams();
@@ -117,6 +118,7 @@ export default function SignInFlow() {
     if (r.needsAuthenticator && r.mfa) { setMfa(r.mfa); setRecovery(false); setStep("mfa"); return; }
     if (r.ticket) {
       setTicket(r.ticket);
+      setHasApp(!!r.authenticator);
       if (r.hasPassword === false) { setFirstPassword(true); setStep("reset"); } else { setFirstPassword(false); setStep("password"); }
     }
   }
@@ -150,6 +152,21 @@ export default function SignInFlow() {
 
   const [demoOpen, setDemoOpen] = useState(false);
   const [company, setCompany] = useState("");
+  const [hasApp, setHasApp] = useState(false);
+  const [sentTo, setSentTo] = useState("");
+  const [devLink, setDevLink] = useState("");
+
+  // Forgot password, way 1: a one-time link by email (30 minutes)
+  async function sendResetLink() {
+    const r = await run(() => authApi.post<{ sentTo: string; devLink?: string }>("/auth/password/forgot", { ticket }));
+    if (r) { setSentTo(r.sentTo); setDevLink(r.devLink ?? ""); setCooldown(60); setStep("sent"); }
+  }
+  // Forgot password, way 2: the email code already given, plus a code from the authenticator app
+  async function signInWithApp(value = code) {
+    if (!recovery && value.length < 6) return;
+    const r = await run(() => authApi.post<SessionResponse & { device?: string }>("/auth/password/authenticator", { ticket, code: value }));
+    if (r) finishSignIn(router, r, params.get("next")); else setCode("");
+  }
 
   const lockedEmail = (
     <div className="au-locked" aria-label={`Email ${email}${confirmed ? ", confirmed" : ""}`}>
@@ -211,7 +228,6 @@ export default function SignInFlow() {
           </button>
           <p className="au-alt">New to WHOLESTRA? <Link href="/get-started">Create an account</Link></p>
           {offline && <p className="au-note">We could not reach the server just now. You can still try to sign in.</p>}
-          <p className="au-note au-center">Having trouble signing in? <Link href="/status">Check the system status</Link>.</p>
         </>}
 
         {step === "code" && <>
@@ -263,7 +279,7 @@ export default function SignInFlow() {
           </form>
           <div className="au-actions">
             {confirmed
-              ? <button type="button" className="au-link" onClick={() => { setFirstPassword(false); setPassword(""); setConfirm(""); setError(""); setStep("reset"); }}>Forgot password?</button>
+              ? <button type="button" className="au-link" onClick={() => { setPassword(""); setError(""); setStep("forgot"); }}>Forgot password?</button>
               : <span className="au-note">Forgot your password? Ask your owner or administrator to set a new one for you in Users.</span>}
           </div>
         </>}
@@ -271,7 +287,7 @@ export default function SignInFlow() {
         {step === "reset" && <>
           <h1 id="au-title">{firstPassword ? "Choose a password" : "Choose a new password"}</h1>
           {lockedEmail}
-          <p className="au-sub">{firstPassword ? "You signed up with Google, Facebook or LinkedIn. Choose a password so you can also sign in with your email." : "Your email is confirmed, so you can set a new password now. Anyone signed in with the old one keeps their session until it ends."}</p>
+          <p className="au-sub">{firstPassword ? "You signed up with Google, Facebook or LinkedIn. Choose a password so you can also sign in with your email." : "Choose a new password. Anyone signed in with the old one keeps their session until it ends."}</p>
           <form onSubmit={submitReset}>
             <input type="email" value={email} readOnly autoComplete="username" hidden />
             <PasswordInput label="New password" value={password} onChange={setPassword} autoComplete="new-password" meter autoFocus id="npw" />
@@ -280,6 +296,54 @@ export default function SignInFlow() {
             <button className="au-primary" disabled={busy}>{busy ? "Saving..." : "Save and sign in"}</button>
           </form>
           {!firstPassword && <div className="au-actions"><button type="button" className="au-link" onClick={() => { setError(""); setStep("password"); }}>Back to password</button></div>}
+        </>}
+
+        {step === "forgot" && <>
+          <h1 id="au-title">Forgot your password?</h1>
+          {lockedEmail}
+          <p className="au-sub">To keep your account safe, a password cannot be changed straight from here. Choose one of these:</p>
+          <div className="au-ways">
+            <button type="button" className="au-way" disabled={busy} onClick={sendResetLink}>
+              <span className="au-way-ic" aria-hidden="true">✉</span>
+              <span><b>Email me a reset link</b><small>We send a link to your inbox. It works once, for 30 minutes.{hasApp ? " You will also need your authenticator app." : ""}</small></span>
+            </button>
+            {hasApp && <button type="button" className="au-way" disabled={busy} onClick={() => { setCode(""); setRecovery(false); setError(""); setStep("forgot-app"); }}>
+              <span className="au-way-ic" aria-hidden="true">⏱</span>
+              <span><b>Sign in with your authenticator app</b><small>Use the 6-digit code from Google Authenticator (or a recovery code) instead of your password.</small></span>
+            </button>}
+          </div>
+          {!hasApp && <p className="au-note">Tip: once you are in, turn on an authenticator app in Sign-in &amp; security. Then you can sign in with it if you forget your password again.</p>}
+          {error && <div className="au-err" role="alert">{error}</div>}
+          <div className="au-actions"><button type="button" className="au-link" onClick={() => { setError(""); setStep("password"); }}>Back to password</button></div>
+        </>}
+
+        {step === "forgot-app" && <>
+          <h1 id="au-title">Sign in with your authenticator app</h1>
+          {lockedEmail}
+          <p className="au-sub">{recovery ? "Type one of the recovery codes you saved when you set up the app. Each one works once." : "Type the 6-digit code your authenticator app shows for WHOLESTRA. Together with the email code, it proves it is you."}</p>
+          <form onSubmit={(e) => { e.preventDefault(); signInWithApp(); }}>
+            {recovery
+              ? <div className="au-field"><label htmlFor="frc">Recovery code</label><input id="frc" value={code} onChange={(e) => setCode(e.target.value)} autoComplete="off" autoFocus placeholder="xxxxx-xxxxx" required /></div>
+              : <OtpBoxes value={code} onChange={setCode} onComplete={(v) => signInWithApp(v)} disabled={busy} invalid={!!error} label="Code from your authenticator app" />}
+            {error && <div className="au-err" role="alert">{error}</div>}
+            <button className="au-primary" disabled={busy || (!recovery && code.length < 6) || (recovery && !code.trim())}>{busy ? "Checking..." : "Sign in"}</button>
+          </form>
+          <div className="au-actions">
+            <button type="button" className="au-link" onClick={() => { setRecovery(!recovery); setCode(""); setError(""); }}>{recovery ? "Use the app instead" : "Use a recovery code"}</button>
+            <button type="button" className="au-link" onClick={() => { setError(""); setStep("forgot"); }}>Back</button>
+          </div>
+        </>}
+
+        {step === "sent" && <>
+          <h1 id="au-title">Check your email</h1>
+          <p className="au-sub">We sent a reset link to <b>{sentTo}</b>. Open it on any device to choose a new password. It works once, for 30 minutes.{hasApp ? " Keep your authenticator app close: the link will ask for a code from it." : ""}</p>
+          {devLink && <p className="au-test" role="status">Test mode, no email is sent. <a href={devLink}>Open the reset link</a></p>}
+          <p className="au-note">Not there? Check your spam folder. The link only works for the address above.</p>
+          {error && <div className="au-err" role="alert">{error}</div>}
+          <div className="au-actions">
+            <button type="button" className="au-link" disabled={busy || cooldown > 0} onClick={sendResetLink}>{cooldown > 0 ? `Send again in ${cooldown}s` : "Send the link again"}</button>
+            <button type="button" className="au-link" onClick={() => { setError(""); setStep("password"); }}>Back to sign in</button>
+          </div>
         </>}
       </section>
       <DemoModal open={demoOpen} onClose={() => setDemoOpen(false)} />

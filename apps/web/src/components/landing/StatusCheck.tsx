@@ -30,9 +30,10 @@ export default function StatusCheck() {
     setReport(null); setError(""); setSlow(false);
     const t = setTimeout(() => setSlow(true), 5000);
     const ctl = new AbortController(), stop = setTimeout(() => ctl.abort(), 90000);
-    fetch(`${API_URL}/status`, { signal: ctl.signal, cache: "no-store" })
-      .then(async (r) => { if (r.status === 404) throw new Error("old"); if (!r.ok) throw new Error(String(r.status)); setReport(await r.json()); })
-      .catch((e) => setError((e as Error).message === "old" ? "old" : "unreachable"))
+    let token = ""; try { token = localStorage.getItem("wms_access_token") ?? ""; } catch { /* storage unavailable */ }
+    fetch(`${API_URL}/status`, { signal: ctl.signal, cache: "no-store", headers: token ? { Authorization: `Bearer ${token}` } : {} })
+      .then(async (r) => { if (r.status === 401 || r.status === 403) throw new Error("denied"); if (r.status === 404) throw new Error("old"); if (!r.ok) throw new Error(String(r.status)); setReport(await r.json()); })
+      .catch((e) => setError(["old", "denied"].includes((e as Error).message) ? (e as Error).message : "unreachable"))
       .finally(() => { clearTimeout(t); clearTimeout(stop); });
     return () => { clearTimeout(t); clearTimeout(stop); ctl.abort(); };
   }, [n]);
@@ -51,6 +52,7 @@ export default function StatusCheck() {
       {gmail && <div className={"stc-note " + (GMAIL[gmail][0] ? "ok" : "bad")} role="status">{GMAIL[gmail][1]}</div>}
       {!report && !error && <p className="stc-wait" role="status">Checking...{slow && " The server is waking up after being idle; this can take up to a minute."}</p>}
       {error === "unreachable" && <div className="stc-row bad"><b>Server</b><span>This website cannot reach the server.</span><em>Check that the Render service is running (its Events page says &quot;Deploy live&quot;), and that NEXT_PUBLIC_API_URL on Vercel is exactly the server address above ending in /api. Redeploy Vercel after changing it.</em></div>}
+      {error === "denied" && <div className="stc-row bad"><b>Not allowed</b><span>Only platform owners can run these checks.</span><em>Sign in with an email listed in PLATFORM_ADMINS on Render (or the Gmail address that sends codes).</em></div>}
       {error === "old" && <div className="stc-row bad"><b>Server</b><span>The server is running an older version of WHOLESTRA.</span><em>On Render open the service and click Manual Deploy, then Deploy latest commit. Check the deploy log for a red error if it fails.</em></div>}
       {rows.map(([k, c]) => (
         <div key={k} className={"stc-row " + (c.ok ? "ok" : OPTIONAL.includes(k) ? "later" : "bad")}>

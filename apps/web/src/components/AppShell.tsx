@@ -48,6 +48,10 @@ const NAV: Entry[] = [
   { kind: "link", icon: "trend", item: { href: "/insights", label: "Investment Insights", permission: "PROFIT:READ" } },
   { kind: "link", icon: "sheet", item: { href: "/imports", label: "Excel Import", permission: "EXCEL_IMPORT:READ" } },
   { kind: "link", icon: "shield", item: { href: "/audit", label: "Audit & Fraud Signals", permission: "AUDIT:READ" } },
+  { kind: "group", icon: "trend", label: "Platform", items: [
+    { href: "/platform/monitor", label: "Monitor", permission: "PLATFORM" },
+    { href: "/status", label: "System checks", permission: "PLATFORM" }
+  ] },
   { kind: "group", icon: "gear", label: "Administration", items: [
     { href: "/settings", label: "All settings", permission: null },
     { href: "/organization", label: "Organization", permission: "ORGANIZATION:READ" },
@@ -172,7 +176,8 @@ export default function AppShell({ title, children }: { title: string; children:
   }, []);
 
   const [open, setOpen] = useState<Record<string, boolean>>({});
-  const allowed = (item: Item) => !item.permission || item.permission.split("|").some(p => user?.permissions.includes(p));
+  // "PLATFORM" pages are only for the people who run WHOLESTRA, not for any role inside a company
+  const allowed = (item: Item) => !item.permission || (item.permission === "PLATFORM" ? !!user?.platformAdmin : item.permission.split("|").some(p => user?.permissions.includes(p)));
   const visibleNav = NAV.map(e => e.kind === "link" ? (allowed(e.item) ? e : null) : { ...e, items: e.items.filter(allowed) })
     .filter((e): e is Entry => !!e && (e.kind === "link" || e.items.length > 0));
 

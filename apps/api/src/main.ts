@@ -4,6 +4,7 @@ import { ConfigService } from "@nestjs/config";
 import { AppModule } from "./app.module";
 import { checkSecrets } from "./common/secrets-check";
 import { SchemaOutOfDateFilter } from "./common/schema-out-of-date.filter";
+import { MonitorService } from "./monitor/monitor";
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -18,7 +19,7 @@ async function bootstrap() {
     if (process.env.NODE_ENV === "production") throw new Error("Refusing to start with weak secrets. See the messages above.");
   }
   app.setGlobalPrefix("api");
-  app.useGlobalFilters(new SchemaOutOfDateFilter(app.get(HttpAdapterHost).httpAdapter));
+  app.useGlobalFilters(new SchemaOutOfDateFilter(app.get(HttpAdapterHost).httpAdapter, app.get(MonitorService)));
   app.enableCors({ origin: true, credentials: true });
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
   // hosts such as Render tell the app which port to use through PORT

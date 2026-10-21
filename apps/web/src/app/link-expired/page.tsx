@@ -6,6 +6,7 @@ export const metadata: Metadata = { title: "Link expired | WHOLESTRA", robots: {
 const WHY: Record<string, { title: string; text: string; again: { label: string; href: string } }> = {
   signin: { title: "This sign-in link has expired", text: "Sign-in links work once and only for a few minutes, to keep your account safe. This one has already been used, took too long, or was opened in a different browser.", again: { label: "Sign in again", href: "/login" } },
   signup: { title: "This sign-up did not finish", text: "Sign-up codes and links work only for a few minutes, and only in the browser where you started. Nothing was created, so you can simply start again.", again: { label: "Start sign-up again", href: "/get-started" } },
+  reset: { title: "This reset link has expired", text: "Password reset links work once and only for 30 minutes, to keep your account safe. This one has already been used, is too old, or the password was changed since it was sent.", again: { label: "Sign in to ask for a new link", href: "/login" } },
   invite: { title: "This invitation is no longer valid", text: "The invitation may have been used already or withdrawn. Ask the person who invited you to send a new one.", again: { label: "Sign in", href: "/login" } },
 };
 

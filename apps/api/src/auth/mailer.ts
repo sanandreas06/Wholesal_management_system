@@ -152,3 +152,26 @@ export function otpEmail(code: string, purpose: string, minutes: number): Mail &
 </table></td></tr></table></body></html>`,
   };
 }
+
+/** The email with the one-time link that lets someone choose a new password. */
+export function resetEmail(link: string, company: string, minutes: number): Mail & { to?: string } {
+  return {
+    to: "",
+    subject: "Reset your WHOLESTRA password",
+    text: `Someone asked to reset the password of your WHOLESTRA account at ${company}.\n\nTo choose a new password, open this link within ${minutes} minutes:\n${link}\n\nThe link works once. If your account uses an authenticator app, you will also need a code from it.\n\nIf you did not ask for this, ignore this email: your password stays the same. If it keeps happening, tell your company's owner.`,
+    html: `<!doctype html><html><body style="margin:0;background:#F3F6FB;font-family:Segoe UI,Helvetica,Arial,sans-serif;color:#1A2332">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:28px 12px">
+<table role="presentation" width="480" cellpadding="0" cellspacing="0" style="max-width:480px;background:#fff;border-radius:16px;border:1px solid #E2E7F0">
+<tr><td style="padding:26px 30px 0;font:800 20px Segoe UI,Arial,sans-serif;letter-spacing:.04em;color:#0B1B3E">WHOLESTRA</td></tr>
+<tr><td style="padding:14px 30px 0;font-size:15px;line-height:1.55">Someone asked to reset the password of your WHOLESTRA account at <b>${esc(company)}</b>.</td></tr>
+<tr><td align="center" style="padding:22px 30px"><a href="${esc(link)}" style="display:inline-block;background:#0B1B3E;color:#fff;text-decoration:none;font-weight:700;font-size:15px;padding:13px 26px;border-radius:10px">Choose a new password</a></td></tr>
+<tr><td style="padding:0 30px 26px;font-size:13px;line-height:1.6;color:#55627F">The link works once and expires in ${minutes} minutes. If your account uses an authenticator app, you will also need a code from it.<br><br>If you did not ask for this, ignore this email: your password stays the same.</td></tr>
+</table></td></tr></table></body></html>`,
+  };
+}
+
+/** Sent after a password changes, so the owner of the account notices if it was not them. */
+export function passwordChangedEmail(company: string, when: string): Mail & { to?: string } {
+  const t = `The password of your WHOLESTRA account at ${company} was changed on ${when} (GMT).\n\nIf this was you, there is nothing to do.\nIf it was not you, reply to this email or contact your company's owner straight away.`;
+  return { to: "", subject: "Your WHOLESTRA password was changed", text: t, html: `<pre style="font:15px/1.55 Segoe UI,Arial,sans-serif;white-space:pre-wrap;color:#1A2332">${esc(t)}</pre>` };
+}

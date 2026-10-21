@@ -36,6 +36,7 @@ import { HomeModule } from "./home/home";
 import { AssistantModule } from "./assistant/assistant";
 import { InquiriesModule } from "./inquiries/inquiries";
 import { StatusModule } from "./status/status";
+import { MonitorModule } from "./monitor/monitor";
 
 @Module({
   imports: [
@@ -67,7 +68,7 @@ import { StatusModule } from "./status/status";
     AuditModule,
     SalesModule,
     FinanceModule,
-    ExcelImportsModule, NotificationsModule, ReferralsModule, HomeModule, InquiriesModule, AssistantModule, StatusModule],
+    ExcelImportsModule, NotificationsModule, ReferralsModule, HomeModule, InquiriesModule, AssistantModule, StatusModule, MonitorModule],
   controllers: [HealthController, DashboardController],
   providers: [DashboardService]
 })

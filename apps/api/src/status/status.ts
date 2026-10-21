@@ -1,4 +1,8 @@
-import { Controller, Get, Injectable, Module } from "@nestjs/common";
+import { Controller, ForbiddenException, Get, Injectable, Module, UseGuards } from "@nestjs/common";
+import { JwtAuthGuard } from "../common/guards/jwt-auth.guard";
+import { CurrentUser } from "../common/decorators/current-user.decorator";
+import type { AuthUser } from "../common/types/auth-user.type";
+import { isPlatformAdmin } from "../monitor/admins";
 import { Prisma } from "@prisma/client";
 import { PrismaService } from "../prisma/prisma.service";
 import { AuthModule } from "../auth/auth.module";
@@ -72,7 +76,12 @@ export class StatusService {
 @Controller("status")
 export class StatusController {
   constructor(private readonly svc: StatusService) {}
-  @Get() status() { return this.svc.report(); }
+  /** Only for the people who run WHOLESTRA: it shows how sign-in and email are set up. */
+  @Get() @UseGuards(JwtAuthGuard)
+  status(@CurrentUser() u: AuthUser) {
+    if (u.demo || !isPlatformAdmin(u.email)) throw new ForbiddenException("Only the people who run WHOLESTRA can see the system checks.");
+    return this.svc.report();
+  }
 }
 
 @Module({ imports: [AuthModule], controllers: [StatusController], providers: [StatusService] })

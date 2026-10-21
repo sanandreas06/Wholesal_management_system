@@ -22,6 +22,8 @@ export interface SessionUser {
   demoFor?: string;
   /** the company's workspace ID, shown in app addresses: /w/<workspace>/dashboard */
   workspace?: string;
+  /** one of the people who run WHOLESTRA (PLATFORM_ADMINS on the server): may open the Platform monitor */
+  platformAdmin?: boolean;
 }
 
 /** "Remember this browser for 5 hours" after the authenticator check: the server's signed note, kept per email. */

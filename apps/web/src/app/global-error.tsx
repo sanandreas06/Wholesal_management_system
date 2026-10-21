@@ -1,7 +1,10 @@
 'use client';
+import { useEffect } from "react";
+import { reportError } from "../lib/report";
 
 /** Last resort when even the main frame of the site fails. It has to bring its own page and styles. */
-export default function GlobalError({ reset }: { error: Error & { digest?: string }; reset: () => void }) {
+export default function GlobalError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
+  useEffect(() => { reportError(error); }, [error]);
   return (
     <html lang="en">
       <body style={{ margin: 0, minHeight: "100vh", display: "grid", placeItems: "center", background: "#F3F6FB", color: "#0E1A3A", fontFamily: "system-ui, sans-serif", padding: 16 }}>

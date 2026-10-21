@@ -1113,3 +1113,45 @@ model PlatformSetting {
   value     String   @db.Text
   updatedAt DateTime @updatedAt
 }
+
+/// Errors from the website and the API, grouped: the same error happening again raises `count` instead of adding a row.
+/// Seen only by the platform owners (PLATFORM_ADMINS) on the Platform monitor page.
+model ErrorEvent {
+  id          String    @id @default(uuid())
+  /// short hash of where the error came from and what it said, so repeats group together
+  fingerprint String    @unique
+  /// "web" or "api"
+  source      String
+  message     String    @db.Text
+  stack       String?   @db.Text
+  path        String?
+  method      String?
+  status      Int?
+  /// which deploy it happened on (a short commit id), when the host tells us
+  release     String?
+  userAgent   String?
+  /// the company and person it last happened to, to help reproduce it (never passwords or form contents)
+  lastOrg     String?
+  lastUserId  String?
+  count       Int       @default(1)
+  firstSeen   DateTime  @default(now())
+  lastSeen    DateTime  @default(now())
+  resolvedAt  DateTime?
+  lastAlertAt DateTime?
+
+  @@index([lastSeen])
+}
+
+/// One row per successful outside check of the API (and the website), plus one row each time the API starts.
+/// Hours with no successful check show as down on the Platform monitor page.
+model UptimeCheck {
+  id     String   @id @default(uuid())
+  at     DateTime @default(now())
+  /// "watcher" (the scheduled check from GitHub) or "start" (the API started: a deploy, a restart or a wake-up)
+  source String
+  ms     Int?
+  webOk  Boolean?
+  webMs  Int?
+
+  @@index([at])
+}

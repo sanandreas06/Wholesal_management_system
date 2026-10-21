@@ -1,6 +1,7 @@
 import "./globals.css";
 import type { Metadata, Viewport } from "next";
 import WebAppSetup from "../components/WebAppSetup";
+import ErrorReporter from "../components/ErrorReporter";
 
 export const metadata: Metadata = {
   title: "WHOLESTRA — wholesale management for every branch",
@@ -26,6 +27,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         {children}
         <WebAppSetup />
+        <ErrorReporter />
       </body>
     </html>
   );

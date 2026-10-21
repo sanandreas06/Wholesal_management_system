@@ -283,3 +283,14 @@ button.au-soc:hover{border-color:var(--primary);transform:translateY(-1px);box-s
 .au-noacct-or{margin:10px 0 0!important;font-size:13px!important}
 .au-fix{margin:6px 0 0;padding:6px 12px;border-radius:8px;border:1.5px solid currentColor;background:transparent;color:inherit;font-weight:700;font-size:13.5px;cursor:pointer;display:inline-block}
 .au-fix:hover{background:rgba(0,0,0,.05)}
+
+/* forgot password: the two safe ways out */
+.au-ways{display:grid;gap:10px;margin:0 0 14px}
+.au-way{display:grid;grid-template-columns:40px minmax(0,1fr);gap:12px;align-items:center;width:100%;margin:0;padding:14px 16px;border-radius:14px;border:1.5px solid var(--border-strong);background:var(--surface);color:var(--text);text-align:left;cursor:pointer;box-shadow:none}
+.au-way:hover{border-color:#0B1B3E}
+[data-theme="dark"] .au-way:hover{border-color:#6B9BFF}
+.au-way:disabled{opacity:.6;cursor:default}
+.au-way-ic{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;background:#0B1B3E;color:#E5B340;font-size:18px}
+.au-way b{display:block;font-size:15px}
+.au-way small{display:block;margin-top:2px;color:var(--text-muted);font-size:13px;line-height:1.45;font-weight:400}
+.au-btnlink{display:block;text-align:center;text-decoration:none}

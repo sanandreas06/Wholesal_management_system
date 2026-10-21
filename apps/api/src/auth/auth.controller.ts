@@ -7,6 +7,10 @@ import { AuthService, ClientInfo } from "./auth.service";
 import { OAuthService, isProvider } from "./oauth.service";
 
 class EmailStartDto { @IsEmail() @MaxLength(160) email!: string; @IsIn(["signin", "signup"]) purpose!: "signin" | "signup"; @IsOptional() @IsIn(["email", "sms"]) channel?: "email" | "sms"; }
+class ForgotDto { @IsString() @MaxLength(2000) ticket!: string; }
+class TicketCodeDto { @IsString() @MaxLength(2000) ticket!: string; @IsString() @MaxLength(40) code!: string; }
+class ResetInfoDto { @IsString() @MaxLength(2000) token!: string; }
+class ResetLinkDto { @IsString() @MaxLength(2000) token!: string; @IsString() @MinLength(8) @MaxLength(100) password!: string; @IsOptional() @IsString() @MaxLength(40) code?: string; }
 class EmailCheckDto { @IsEmail() @MaxLength(160) email!: string; }
 class EmailVerifyDto {
   @IsEmail() @MaxLength(160) email!: string;
@@ -53,6 +57,10 @@ export class AuthController {
   @Post("authenticator") @HttpCode(200) mfa(@Body() dto: MfaDto, @Req() req: Req) { return this.auth.verifyAuthenticator(dto, client(req)); }
   @Post("login") @HttpCode(201) login(@Body() dto: LoginDto, @Req() req: Req) { return this.auth.login(dto, client(req)); }
   @Post("password/reset") @HttpCode(200) reset(@Body() dto: ResetDto, @Req() req: Req) { return this.auth.resetPassword(dto, client(req)); }
+  @Post("password/forgot") @HttpCode(200) forgot(@Body() dto: ForgotDto, @Req() req: Req) { return this.auth.forgotPassword(dto, client(req)); }
+  @Post("password/authenticator") @HttpCode(200) withApp(@Body() dto: TicketCodeDto, @Req() req: Req) { return this.auth.signInWithAuthenticator(dto, client(req)); }
+  @Post("password/reset-info") @HttpCode(200) resetInfo(@Body() dto: ResetInfoDto) { return this.auth.resetInfo(dto); }
+  @Post("password/reset-link") @HttpCode(200) resetLink(@Body() dto: ResetLinkDto, @Req() req: Req) { return this.auth.resetWithLink(dto, client(req)); }
   @Post("signup") @HttpCode(201) signup(@Body() dto: SignupDto, @Req() req: Req) { return this.auth.signup(dto, client(req)); }
   @Post("demo") @HttpCode(200) demo(@Body() dto: DemoDto, @Req() req: Req) { return this.auth.demo(client(req), dto.company); }
   @Post("oauth/exchange") @HttpCode(200) exchange(@Body() dto: ExchangeDto, @Req() req: Req) { return this.auth.exchangeOAuth(dto.ticket, client(req)); }

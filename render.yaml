@@ -67,6 +67,12 @@ services:
         sync: false
       - key: LINKEDIN_CLIENT_SECRET
         sync: false
+      # Platform monitor: emails allowed to open it (and who get error alerts), comma-separated
+      - key: PLATFORM_ADMINS
+        sync: false
+      # Platform monitor: the shared key the scheduled uptime check sends (set the same value as a GitHub secret)
+      - key: MONITOR_KEY
+        sync: false
       - key: PLATFORM_ADMIN_KEY
         generateValue: true
       - key: REFERRAL_MAX_USD
