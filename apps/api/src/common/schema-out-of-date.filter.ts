@@ -21,7 +21,7 @@ export class SchemaOutOfDateFilter extends BaseExceptionFilter {
     if (e instanceof Prisma.PrismaClientKnownRequestError && (e.code === "P2021" || e.code === "P2022")) {
       this.log.error(`The database is older than the code (${e.code}: ${String(e.meta?.table ?? e.meta?.column ?? e.message).slice(0, 200)}). Run: pnpm db:generate, then pnpm db:push, then restart the API.`);
       const res = host.switchToHttp().getResponse<{ status(n: number): { json(b: unknown): void } }>();
-      res.status(HttpStatus.SERVICE_UNAVAILABLE).json({ statusCode: 503, message: "The database needs updating. Run pnpm db:push on the server, then restart it." });
+      res.status(HttpStatus.SERVICE_UNAVAILABLE).json({ statusCode: 503, message: "WHOLESTRA is finishing an update. Please try again in a few minutes." });
       return;
     }
     super.catch(e, host);

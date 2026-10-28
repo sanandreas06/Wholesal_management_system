@@ -7,4 +7,5 @@ RUN pnpm install --frozen-lockfile && pnpm db:generate && pnpm --filter @wms/api
 ENV NODE_ENV=production
 WORKDIR /app/apps/api
 EXPOSE 4000
-CMD ["node", "dist/src/main.js"]
+# start-api.sh updates the database first (prisma db push), then starts the server
+CMD ["sh", "/app/deploy/start-api.sh"]

@@ -94,7 +94,8 @@ export class AuthService {
   async checkAccount(email: string, c: ClientInfo) {
     await assertRealEmail(email);
     await this.assertAccount(normEmail(email), c);
-    return { ok: true };
+    // tell the page whether a code is needed, so a page that could not load the site options still asks for one
+    return { ok: true, codes: this.otp.enabled };
   }
 
   // ------------------------------------------------------------------ step 1 and 2: email, then a code

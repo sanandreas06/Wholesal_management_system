@@ -23,6 +23,9 @@ services:
         generateValue: true
       - key: DATABASE_URL
         sync: false
+      # Optional: Neon's direct (non-pooled) link, used only when the server updates the database at start-up
+      - key: DIRECT_DATABASE_URL
+        sync: false
       # ---- Batch 29: sign-in emails, social sign-in, refer & earn. See docs/deployment/sign-in-setup.md.
       # Anything marked sync: false is typed into Render's dashboard (Environment tab), never into this file.
       - key: WEB_URL

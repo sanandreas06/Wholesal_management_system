@@ -103,12 +103,13 @@ export default function SignInFlow() {
     const bad = emailProblem(email);
     if (bad && !(bad.soft && warned === email.trim().toLowerCase())) { setMissing(""); setError(bad.message); setSuggest(bad.suggestion ?? ""); setWarned(email.trim().toLowerCase()); return; }
     setSuggest("");
-    if (codesOn) await sendCode();
-    else {
-      // no codes on this site: still say plainly when the email has no account, before asking for a password
-      const ok = await run(() => authApi.post<{ ok: boolean }>("/auth/email/check", { email }));
-      if (ok) { setError(""); setStep("password"); }
-    }
+    if (codesOn) { await sendCode(); return; }
+    // The page may not know yet whether codes are on (a sleeping server, or the options call failed),
+    // so ask the server: it says plainly when the email has no account, and whether a code is needed first.
+    const r = await run(() => authApi.post<{ ok: boolean; codes?: boolean }>("/auth/email/check", { email }));
+    if (!r) return;
+    if (r.codes) await sendCode();
+    else { setError(""); setStep("password"); }
   }
 
   function afterVerified(r: Verified | (SessionResponse & { device?: string })) {
@@ -138,7 +139,16 @@ export default function SignInFlow() {
 
   async function submitPassword(e: FormEvent) {
     e.preventDefault();
-    const r = await run(() => authApi.post<SessionResponse | Verified>("/auth/login", ticket ? { ticket, password, device: getTrust(email) } : { email, password, device: getTrust(email) }));
+    let needCode = false;
+    const r = await run(async () => {
+      try { return await authApi.post<SessionResponse | Verified>("/auth/login", ticket ? { ticket, password, device: getTrust(email) } : { email, password, device: getTrust(email) }); }
+      catch (err) {
+        // the server wants the email confirmed first: send the code instead of showing an error
+        if (!ticket && err instanceof ApiError && err.status === 400 && /code we send you/i.test(err.message)) { needCode = true; return undefined; }
+        throw err;
+      }
+    });
+    if (needCode) { setPassword(""); await sendCode(); return; }
     if (r) afterVerified(r);
   }
 
@@ -179,9 +189,20 @@ export default function SignInFlow() {
 
   const stepNo = step === "email" ? 1 : step === "code" || step === "mfa" ? 2 : 3;
 
+  // One clear way back from every step. Steps inside "forgot password" go back one step;
+  // code, authenticator and password steps go back to the email (the sign-in starts again cleanly).
+  function goBack() {
+    setError(""); setCode("");
+    if (step === "forgot-app") { setRecovery(false); setStep("forgot"); return; }
+    if (step === "forgot" || step === "sent" || (step === "reset" && !firstPassword)) { setStep("password"); return; }
+    restart();
+  }
+  const backLabel = step === "forgot-app" ? "Back" : step === "forgot" || step === "sent" || (step === "reset" && !firstPassword) ? "Back to password" : "Back to email";
+
   return (
     <AuthShell>
       <section className="au-card" aria-labelledby="au-title">
+        {step !== "email" && <button type="button" className="au-back" onClick={goBack} disabled={busy}><span aria-hidden="true">←</span> {backLabel}</button>}
         {codesOn && <ol className="au-progress" aria-label={`Step ${stepNo} of 3`}>{["Email", "Code", "Password"].map((s, i) => <li key={s} className={i + 1 < stepNo ? "done" : i + 1 === stepNo ? "now" : ""}><i>{i + 1 < stepNo ? "✓" : i + 1}</i>{s}</li>)}</ol>}
 
         {company && step !== "email" && <div className="au-company" role="status"><span aria-hidden="true">🏢</span><span>Signing in to <b>{company}</b></span></div>}

@@ -294,3 +294,10 @@ button.au-soc:hover{border-color:var(--primary);transform:translateY(-1px);box-s
 .au-way b{display:block;font-size:15px}
 .au-way small{display:block;margin-top:2px;color:var(--text-muted);font-size:13px;line-height:1.45;font-weight:400}
 .au-btnlink{display:block;text-align:center;text-decoration:none}
+
+/* Batch 42b: a plain way back from every sign-in step */
+.au-back { display: inline-flex; align-items: center; gap: 6px; margin: -4px 0 14px; padding: 6px 10px 6px 6px; border: 0; border-radius: 8px; background: none; color: var(--text-muted, #5b6478); font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; }
+.au-back:hover, .au-back:focus-visible { background: rgba(11, 27, 62, 0.06); color: #0B1B3E; }
+.au-back span { font-size: 16px; line-height: 1; }
+.au-back:disabled { opacity: 0.5; cursor: default; }
+[data-theme="dark"] .au-back:hover, [data-theme="dark"] .au-back:focus-visible { background: rgba(255, 255, 255, 0.08); color: #fff; }

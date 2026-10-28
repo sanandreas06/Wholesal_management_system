@@ -328,3 +328,10 @@ from `SMS_COUNTRY_CODE` (default 233). If a text fails (no credit, sender ID not
 approved), the sign-in page says so and the status page shows the provider's
 reason.
 
+
+## Database updates are automatic on Render (from Batch 42a)
+
+When Render starts a new release, `deploy/start-api.sh` runs `prisma db push` first, so the Neon database gets the new tables and columns by itself.
+- It never deletes data: if a change would drop something, it stops, the server still starts, and the Render log says to run `pnpm db:push` by hand.
+- Optional: add `DIRECT_DATABASE_URL` in Render (Neon → Connect → turn off "Connection pooling", copy the link). The update then uses it.
+- To switch it off, set `AUTO_DB_PUSH=off`.
