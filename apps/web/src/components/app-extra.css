@@ -389,3 +389,25 @@ button.danger-solid{background:var(--danger);color:#fff}
 @media(max-width:900px){.mon-tiles{grid-template-columns:1fr 1fr}}
 .mon-cell.future{background:transparent}
 .mon-hours b{font-size:10.5px;font-weight:600;color:var(--text-muted);white-space:nowrap;overflow:visible}
+
+/* ===== Camera scanner ===== */
+.cam-back{position:fixed;inset:0;z-index:120;display:grid;place-items:center;padding:16px;background:rgba(6,17,46,.75)}
+.cam{width:min(460px,100%);background:var(--surface);color:var(--text);border-radius:16px;overflow:hidden;box-shadow:0 30px 80px rgba(0,0,0,.4)}
+.cam-head{display:flex;justify-content:space-between;align-items:center;padding:12px 14px;border-bottom:1px solid var(--border)}
+.cam-x{margin:0;width:36px;height:36px;padding:0;border-radius:10px;background:var(--bg);color:var(--text);font-size:22px;line-height:1}
+.cam-view{position:relative;background:#000;aspect-ratio:4/3;max-width:100%}
+.cam-view video{width:100%;height:100%;object-fit:cover;display:block}
+.cam-frame{position:absolute;left:12%;right:12%;top:28%;bottom:28%;border:3px solid #E5B340;border-radius:12px;box-shadow:0 0 0 999px rgba(0,0,0,.35)}
+.cam-tip,.cam-err{margin:0;padding:12px 14px;font-size:14px}
+.cam-err{color:var(--danger)}
+.cam-done{margin:0 14px 14px;width:calc(100% - 28px)}
+
+/* product barcodes */
+.pm-codes{display:grid;gap:8px}
+.pm-code-in{display:flex;gap:8px}
+.pm-code-in input{flex:1;min-width:0}
+.pm-code-in button{margin:0;white-space:nowrap}
+.pm-code-list{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:6px}
+.pm-code-list li{display:inline-flex;align-items:center;gap:4px;padding:4px 4px 4px 10px;border-radius:999px;background:var(--bg);border:1px solid var(--border)}
+.pm-code-list code{font-size:13px}
+.pm-code-list button{margin:0;width:26px;height:26px;padding:0;border-radius:50%;background:transparent;color:var(--text-muted);font-size:16px;box-shadow:none}

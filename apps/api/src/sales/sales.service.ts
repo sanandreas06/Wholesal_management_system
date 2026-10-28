@@ -106,7 +106,12 @@ export class SalesService {
     }
 
     const total = dto.items.reduce((s, i) => s + i.quantity * i.unitPrice, 0);
-    if (dto.customerId) await this.assertWithinCreditLimit(organizationId, dto.customerId, total);
+    const pays = (dto.payments ?? []).filter(p => p.amount > 0);
+    if (pays.some(p => p.method === "CREDIT")) throw new BadRequestException("A sale on credit is a sale with no payment yet: leave the payment out and choose the customer.");
+    const paidNow = pays.reduce((s, p) => s + p.amount, 0);
+    if (paidNow > total + 0.01) throw new BadRequestException(`Payments (${paidNow.toFixed(2)}) are more than the sale total (${total.toFixed(2)}).`);
+    if (dto.customerId && paidNow < total - 0.01) await this.assertWithinCreditLimit(organizationId, dto.customerId, total - paidNow);
+    if (!dto.customerId && dto.payments && paidNow < total - 0.01) throw new BadRequestException("A walk-in customer must pay the full amount. Choose a customer to sell on credit.");
     const invoiceNumber = await this.nextInvoiceNumber(organizationId);
 
     return this.prisma.$transaction(async tx => {
@@ -118,6 +123,9 @@ export class SalesService {
           items: { create: dto.items.map(i => ({ productId: i.productId, quantity: i.quantity, unitPrice: i.unitPrice, unitCost: products.find(p => p.id === i.productId)?.costPrice ?? null, lineTotal: i.quantity * i.unitPrice })) }
         }
       });
+      for (const p of pays) {
+        await tx.payment.create({ data: { organizationId, saleId: sale.id, method: p.method, amount: p.amount, reference: p.reference ?? null, receivedByUserId: userId } });
+      }
       for (const i of dto.items) {
         await this.inventory.adjustStock(tx, {
           organizationId, productId: i.productId, branchId: dto.branchId, type: "SALE",

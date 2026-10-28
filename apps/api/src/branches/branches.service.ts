@@ -47,4 +47,18 @@ export class BranchesService {
     await this.prisma.branch.delete({ where:{id} });
     return { deleted:true };
   }
+
+  /** Mobile money details of one branch (with the QR picture, which lists leave out). */
+  async payment(organizationId: string, id: string) {
+    const b = await this.prisma.branch.findFirst({ where:{ id, organizationId }, select:{ id:true, name:true, momoNumber:true, momoName:true, momoMerchantId:true, momoQr:true } });
+    if (!b) throw new NotFoundException("Branch not found");
+    return b;
+  }
+
+  async setPayment(organizationId: string, id: string, dto: { momoNumber?: string; momoName?: string; momoMerchantId?: string; momoQr?: string }) {
+    await this.payment(organizationId, id);
+    const v = (x?: string) => (x === undefined ? undefined : x.trim() || null);
+    await this.prisma.branch.update({ where:{ id }, data:{ momoNumber: v(dto.momoNumber), momoName: v(dto.momoName), momoMerchantId: v(dto.momoMerchantId), momoQr: v(dto.momoQr) } });
+    return this.payment(organizationId, id);
+  }
 }

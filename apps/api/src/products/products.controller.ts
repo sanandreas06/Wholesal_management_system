@@ -16,8 +16,16 @@ export class ProductsController {
 
   @Get()
   @RequirePermissions("PRODUCTS:READ")
-  list(@CurrentUser() user: AuthUser, @Query("lowStock") lowStock?: string) {
-    return this.products.list(user.organizationId, lowStock === "true", user.permissions.includes("PROFIT:READ"), scopeOf(user));
+  list(@CurrentUser() user: AuthUser, @Query("lowStock") lowStock?: string, @Query("branchId") branchId?: string) {
+    // ?branchId= shows that branch's stock on each product (the counter); a person limited to one branch always gets their own
+    return this.products.list(user.organizationId, lowStock === "true", user.permissions.includes("PROFIT:READ"), scopeOf(user) ?? branchId ?? null);
+  }
+
+  /** What a scanned barcode is. `branchId` gives that branch's stock (a person limited to one branch always gets their own). */
+  @Get("lookup")
+  @RequirePermissions("PRODUCTS:READ")
+  lookup(@CurrentUser() user: AuthUser, @Query("code") code: string, @Query("branchId") branchId?: string) {
+    return this.products.lookup(user.organizationId, code, scopeOf(user) ?? branchId ?? null, user.permissions.includes("PROFIT:READ"));
   }
 
   @Get(":id")

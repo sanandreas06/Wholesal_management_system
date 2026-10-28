@@ -10,6 +10,7 @@ import { usePermissions } from "../hooks/usePermissions";
 import { currencySymbol, money } from "../lib/format";
 import { shrinkImage } from "../lib/image";
 import ProductThumb from "./home/ProductThumb";
+import CameraScanner from "./CameraScanner";
 
 interface Ref { id: string; name: string }
 interface Product {
@@ -17,6 +18,8 @@ interface Product {
   categoryRef: Ref | null; brand: Ref | null; unit: Ref | null;
   /** small picture for lists; the full one comes from /products/:id */
   imageThumb?: string | null;
+  /** barcodes on the product or its carton; scanning any of them finds it */
+  barcodes?: string[];
 }
 
 
@@ -133,6 +136,10 @@ function ProductModal({ product, categories, brands, units, canProfit, onClose, 
   const [image, setImage] = useState<{ full: string; thumb: string } | undefined>(undefined);
   const [current, setCurrent] = useState<string | null>(product?.imageThumb ?? null);
   const [picking, setPicking] = useState(false);
+  const [barcodes, setBarcodes] = useState<string[]>(product?.barcodes ?? []);
+  const [code, setCode] = useState("");
+  const [camera, setCamera] = useState(false);
+  const addCode = (c: string) => { const v = c.trim(); if (v && !barcodes.includes(v)) setBarcodes(b => [...b, v].slice(0, 10)); setCode(""); };
   useEffect(() => {
     if (!product?.imageThumb) return;
     api.get<{ imageUrl?: string | null }>(`/products/${product.id}`).then(p => { if (p.imageUrl) setCurrent(p.imageUrl); }).catch(() => {});
@@ -160,6 +167,7 @@ function ProductModal({ product, categories, brands, units, canProfit, onClose, 
       categoryId: categoryId || undefined, brandId: brandId || undefined, unitId: unitId || undefined,
       unitPrice: Number(unitPrice), ...(canProfit && costPrice !== "" ? { costPrice: Number(costPrice) } : {}),
       reorderLevel: Number(reorderLevel),
+      barcodes: code.trim() && !barcodes.includes(code.trim()) ? [...barcodes, code.trim()] : barcodes,
       ...(image !== undefined ? { imageUrl: image.full, imageThumb: image.thumb } : {}),
       // stock on an existing product changes only through stock adjustments, so it stays in the ledger
       ...(product ? {} : { stockQuantity: Number(stockQuantity) })
@@ -197,6 +205,20 @@ function ProductModal({ product, categories, brands, units, canProfit, onClose, 
               <label>SKU<input value={sku} onChange={e => setSku(e.target.value.toUpperCase())} placeholder="e.g. RICE-003" required autoFocus={!product} /><span className="field-hint">A short code that is unique to this product.</span></label>
               <label>Product name<input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Premium Rice 25kg" required /></label>
             </div>
+          </section>
+
+          <section>
+            <h4>Barcodes</h4>
+            <div className="pm-codes">
+              <div className="pm-code-in">
+                {/* a USB scanner types the code and presses Enter: Enter adds it here instead of saving the form */}
+                <input value={code} onChange={e => setCode(e.target.value)} onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); addCode(code); } }} placeholder="Scan or type the barcode, then Enter" aria-label="Barcode" maxLength={64} />
+                <button type="button" className="secondary" onClick={() => setCamera(true)}>📷 Camera</button>
+              </div>
+              {barcodes.length > 0 && <ul className="pm-code-list">{barcodes.map(b => <li key={b}><code>{b}</code><button type="button" aria-label={`Remove barcode ${b}`} onClick={() => setBarcodes(x => x.filter(y => y !== b))}>×</button></li>)}</ul>}
+              <p className="muted fine">Use the barcode already printed on the item or its carton. Add both if the single item and the carton have different codes. No barcode? Print a label with the SKU ({sku || "the product code"}): scanning it works too.</p>
+            </div>
+            {camera && <CameraScanner title="Scan the product's barcode" onScan={addCode} onClose={() => setCamera(false)} />}
           </section>
 
           <section>

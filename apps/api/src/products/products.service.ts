@@ -58,11 +58,36 @@ export class ProductsService {
     }
   }
 
+  /** Clean barcodes (trimmed, no repeats) and make sure no other product in the company already uses one of them. */
+  private async cleanBarcodes(organizationId: string, codes: string[] | undefined, exceptId?: string) {
+    if (codes === undefined) return undefined;
+    const clean = [...new Set(codes.map(c => c.trim()).filter(Boolean))];
+    if (!clean.length) return clean;
+    const clash = await this.prisma.product.findFirst({ where:{ organizationId, barcodes:{ hasSome: clean }, ...(exceptId ? { NOT:{ id: exceptId } } : {}) }, select:{ name:true, barcodes:true } });
+    if (clash) {
+      const code = clean.find(c => clash.barcodes.includes(c));
+      throw new ConflictException(`Barcode ${code} is already on "${clash.name}". One barcode can only belong to one product.`);
+    }
+    return clean;
+  }
+
+  /** Finds the product a scanned barcode belongs to: one of its barcodes, or its SKU (for WHOLESTRA labels printed from the SKU). */
+  async lookup(organizationId: string, code: string, branchId: string | null, canSeeCost = false) {
+    const c = (code ?? "").trim();
+    if (!c) throw new NotFoundException("No barcode was read.");
+    let product = await this.prisma.product.findFirst({ where:{ organizationId, barcodes:{ has: c } }, include:productInclude })
+      ?? await this.prisma.product.findFirst({ where:{ organizationId, sku:{ equals: c, mode:"insensitive" } }, include:productInclude });
+    if (!product) throw new NotFoundException(`No product has the barcode ${c}. Add it to the product first.`);
+    if (branchId) [product] = await this.atBranch(organizationId, branchId, [product]);
+    return scrub(product, canSeeCost);
+  }
+
   async create(organizationId: string, dto: CreateProductDto, canSeeCost = false) {
     if(dto.costPrice !== undefined && !canSeeCost) throw new ForbiddenException("You do not have permission to set cost prices");
     await this.assertRefsBelongToOrg(organizationId, dto);
     const existing = await this.prisma.product.findFirst({ where:{organizationId,sku:dto.sku} });
     if(existing) throw new ConflictException(`SKU "${dto.sku}" already exists`);
+    dto = { ...dto, barcodes: await this.cleanBarcodes(organizationId, dto.barcodes) };
     return scrub(await this.prisma.product.create({ data:{ ...dto, imageUrl: dto.imageUrl || null, imageThumb: dto.imageThumb || null, organizationId }, include:productInclude, omit:{imageUrl:true} }), canSeeCost);
   }
 
@@ -74,6 +99,7 @@ export class ProductsService {
       const existing = await this.prisma.product.findFirst({ where:{organizationId,sku:dto.sku,NOT:{id}} });
       if(existing) throw new ConflictException(`SKU "${dto.sku}" already exists`);
     }
+    dto = { ...dto, barcodes: await this.cleanBarcodes(organizationId, dto.barcodes, id) };
     const { imageUrl, imageThumb, ...rest } = dto;
     return scrub(await this.prisma.product.update({ where:{id}, data:{ ...rest, ...(imageUrl !== undefined ? { imageUrl: imageUrl || null } : {}), ...(imageThumb !== undefined ? { imageThumb: imageThumb || null } : {}) }, include:productInclude, omit:{imageUrl:true} }), canSeeCost);
   }

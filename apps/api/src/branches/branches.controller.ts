@@ -8,6 +8,7 @@ import { scopeOf } from "../common/branch/branch-scope";
 import { BranchesService } from "./branches.service";
 import { CreateBranchDto } from "./dto/create-branch.dto";
 import { UpdateBranchDto } from "./dto/update-branch.dto";
+import { BranchPaymentDto } from "./dto/branch-payment.dto";
 
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 @Controller("branches")
@@ -21,6 +22,21 @@ export class BranchesController {
     const all = await this.branches.list(user.organizationId);
     const mine = scopeOf(user);
     return own && mine ? (all as { id: string }[]).filter(b => b.id === mine) : all;
+  }
+
+  /** The branch's mobile money details, for the counter and its customer screen. Anyone who sells at the branch may read them. */
+  @Get(":id/payment")
+  @RequirePermissions("SALES:CREATE")
+  payment(@CurrentUser() user: AuthUser, @Param("id") id: string) {
+    const mine = scopeOf(user);
+    return this.branches.payment(user.organizationId, mine && mine !== id ? "__none__" : id);
+  }
+
+  @Put(":id/payment")
+  @RequirePermissions("BRANCHES:UPDATE")
+  setPayment(@CurrentUser() user: AuthUser, @Param("id") id: string, @Body() dto: BranchPaymentDto) {
+    const mine = scopeOf(user);
+    return this.branches.setPayment(user.organizationId, mine && mine !== id ? "__none__" : id, dto);
   }
 
   @Get(":id")

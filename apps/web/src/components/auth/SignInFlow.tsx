@@ -23,7 +23,8 @@ export function finishSignIn(router: ReturnType<typeof useRouter>, s: SessionRes
   if (s.device) saveTrust(s.user.email, s.device);
   try { sessionStorage.removeItem("wms_profile"); } catch { /* ignore */ }
   if (s.user.setupPending && !s.user.demo) router.replace("/setup");
-  else router.replace(next && next.startsWith("/") && !next.startsWith("//") ? next : "/dashboard");
+  // staff whose only role is selling start at the counter
+  else router.replace(next && next.startsWith("/") && !next.startsWith("//") ? next : s.user.roles?.length === 1 && s.user.roles[0] === "SALES_USER" ? "/counter" : "/dashboard");
 }
 
 /** "/purchase-orders?x=1" -> "Purchase orders". */

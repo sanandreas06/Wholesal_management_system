@@ -131,6 +131,12 @@ model Branch {
   name           String
   code           String
   location       String?
+  /// How customers pay this branch by mobile money, shown on the customer screen at the counter
+  momoNumber     String?
+  momoName       String?
+  momoMerchantId String?
+  /// a small picture of the branch's mobile money QR code (data URL)
+  momoQr         String?         @db.Text
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
   regionId       String?
@@ -210,6 +216,8 @@ model Product {
   id                 String              @id @default(uuid())
   organizationId     String
   sku                String
+  /// Barcodes printed on the product (maker's EAN/UPC on the item or carton), or WHOLESTRA labels. Scanning any of them finds this product.
+  barcodes           String[]           @default([])
   name               String
   category           String?
   categoryId         String?

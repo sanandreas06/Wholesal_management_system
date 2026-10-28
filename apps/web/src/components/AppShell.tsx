@@ -36,6 +36,7 @@ const NAV: Entry[] = [
     { href: "/stock-counts", label: "Stock Counts", permission: "STOCK_COUNTS:READ" }
   ] },
   { kind: "group", icon: "cart", label: "Sales", items: [
+    { href: "/counter", label: "Counter (POS)", permission: "SALES:CREATE" },
     { href: "/sales", label: "Sales & Invoices", permission: "SALES:READ" },
     { href: "/customers", label: "Customers", permission: "CUSTOMERS:READ" }
   ] },
