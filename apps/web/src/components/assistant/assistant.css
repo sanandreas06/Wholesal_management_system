@@ -129,3 +129,6 @@
   .ac{max-width:100%}
 }
 @media print{.ast,.tr{display:none!important}}
+
+/* the greeting bubble never covers an open dialog (its buttons sit at the bottom right too) */
+body:has(.modal-backdrop) .ast-nudge, body:has(.pos-dlg-back) .ast-nudge { display: none; }

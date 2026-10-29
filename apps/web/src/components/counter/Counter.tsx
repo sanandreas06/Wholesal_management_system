@@ -16,7 +16,7 @@ import { isNetworkError, newClientRef, newConfirmToken, offlineCache, QueuedSale
 import "./counter.css";
 import "../app-extra.css";
 
-type Product = { id: string; sku: string; name: string; unitPrice: string | number; stockQuantity: number; imageThumb?: string | null; barcodes?: string[]; categoryRef?: { id: string; name: string } | null; unit?: { name: string } | null; trackItems?: boolean; item?: { code: string; status: string; here: boolean } };
+type Product = { id: string; sku: string; name: string; unitPrice: string | number; stockQuantity: number; imageThumb?: string | null; barcodes?: string[]; categoryRef?: { id: string; name: string } | null; unit?: { name: string } | null; trackItems?: boolean; needsPrice?: boolean; item?: { code: string; status: string; here: boolean } };
 type Branch = { id: string; name: string };
 type Customer = { id: string; name: string; phone: string | null; code?: string };
 type Payment = { momoNumber: string | null; momoName: string | null; momoMerchantId: string | null; momoQr: string | null };
@@ -157,6 +157,7 @@ export default function Counter() {
   // tapping sets how many; scanning confirms them (a scan beyond the number adds one more)
   const add = useCallback((p: Product, qty = 1, code?: string, viaScan = false) => {
     if (done) { setDone(null); }
+    if (p.needsPrice) { scanFeedback(false); say(`${p.name} has no selling price yet. Ask your manager to set it.`, true); return; }
     setCart(c => {
       const have = c.find(l => l.id === p.id);
       const scanned = (have?.scanned ?? 0) + (viaScan ? 1 : 0);
@@ -204,6 +205,7 @@ export default function Counter() {
     }
     const line = cart.find(l => l.id === p!.id);
     if (p.trackItems) { scanFeedback(false); say(`${p.name} has a WHOLESTRA label on each item. Scan the item's own label.`, true); return false; }
+    if (p.needsPrice) { add(p); return false; } // says why it cannot be sold yet
     scanFeedback(true); add(p, 1, undefined, true);
     say(line && (line.scanned ?? 0) < line.qty ? `${p.name}: ${(line.scanned ?? 0) + 1} of ${line.qty} scanned` : `Scanned ${p.name}`);
     return true;
@@ -382,13 +384,13 @@ export default function Counter() {
                   const inCart = cart.find(l => l.id === p.id)?.qty ?? 0;
                   const out = p.stockQuantity <= 0;
                   return (
-                    <button key={p.id} type="button" className={"pos-card" + (out ? " out" : "")} onClick={() => add(p)} disabled={out} aria-label={`${p.name}, ${n2(p.unitPrice)}, ${out ? "out of stock" : `${p.stockQuantity} in stock`}`}>
+                    <button key={p.id} type="button" className={"pos-card" + (out || p.needsPrice ? " out" : "")} onClick={() => add(p)} disabled={out} aria-label={`${p.name}, ${n2(p.unitPrice)}, ${out ? "out of stock" : `${p.stockQuantity} in stock`}`}>
                       <span className="pos-pic" style={p.imageThumb ? undefined : { background: tint(p.categoryRef?.name ?? p.name) }}>
                         {p.imageThumb ? <img src={p.imageThumb} alt="" /> : <b>{initials(p.name)}</b>}
                         {inCart > 0 && <i className="pos-badge">{inCart}</i>}
                       </span>
                       <span className="pos-name">{p.name}</span>
-                      <span className="pos-row"><b className="pos-price">{n2(p.unitPrice)}</b><small className={out ? "bad" : p.stockQuantity <= 5 ? "low" : ""}>{out ? "Out" : `${p.stockQuantity} left`}</small></span>
+                      <span className="pos-row"><b className="pos-price">{p.needsPrice ? "No price" : n2(p.unitPrice)}</b><small className={out ? "bad" : p.stockQuantity <= 5 ? "low" : ""}>{out ? "Out" : `${p.stockQuantity} left`}</small></span>
                     </button>
                   );
                 })}

@@ -74,3 +74,19 @@ The counter keeps working when the internet drops:
 - If an offline sale sold more than the stock on record, it is still saved, because the goods and money already changed hands, and a question asks the branch to count that product.
 - **Do not clear the browser's data** on a counter device while sales are waiting.
 - The counter page opens without internet once it has been opened online on that device. Install the app (Install app at the top of the site) for the best result.
+
+# New products while scanning (Batch 47)
+
+A barcode is only a number, so the first time a product arrives someone has to say what it is. That now happens on the spot:
+
+- At **Goods in**, scanning a barcode WHOLESTRA has never seen opens **New barcode**:
+  - **It's a new product:** type the name (and category), then save. The scan is counted, and every later scan of that barcode counts straight away.
+    - Packaged goods (drinks, food, toiletries, household items) are looked up in the free public product lists (Open Food Facts, Open Beauty Facts, Open Products Facts), and the name is filled in for you. Check it and change it to what your shop calls it.
+    - Spare parts and local goods are usually not in those lists, so type their name.
+  - **We already have it:** pick the product and the barcode is added to it, for example a carton code nobody recorded.
+- **Who sets the price:**
+  - Owners and managers (people who can create products) type the selling price, and the cost price if they can see costs, in the same form.
+  - A storekeeper can add the product but not price it. The product goes into stock marked **needs a price**. The counter shows it as "No price" and will not sell it. Managers see it on the bell and at the top of Products, and setting its selling price makes it sellable.
+- On send, receive and release screens, an unknown barcode can be added to one of the products on that list.
+- On **Products, New product**, scanning the barcode first fills in the name when it is a known packaged product.
+- To turn the public lookup off, set `BARCODE_LOOKUP=off` on Render. Only the barcode number is sent; nothing about your business.

@@ -1,6 +1,8 @@
 'use client';
 import { useRef, useState } from "react";
 import CameraScanner from "../CameraScanner";
+import NewBarcodeDialog, { AddedProduct } from "./NewBarcodeDialog";
+import { getSessionUser } from "../../lib/session";
 import { api, ApiError } from "../../lib/api";
 import { scanFeedback, useScanner } from "../../lib/scanner";
 import "./scan.css";
@@ -46,6 +48,7 @@ export default function ScanSession({ lines, setLines, allowAdd = false, labelsR
 }) {
   const [flash, setFlash] = useState<{ text: string; ok: boolean } | null>(null);
   const [camera, setCamera] = useState(false);
+  const [unknown, setUnknown] = useState<string | null>(null);
   const cache = useRef(new Map<string, Looked | null>());
   const latest = useRef(lines); latest.current = lines;
   const timer = useRef(0);
@@ -83,7 +86,14 @@ export default function ScanSession({ lines, setLines, allowAdd = false, labelsR
     let found: Looked | null = null;
     if (!line) {
       try { found = await lookup(label ? up : code); } catch { say("Could not check this code. Check your connection.", false); return; }
-      if (!found) { say(allowAdd ? `No product has the barcode ${code}. Add it to a product first (Products, then Edit).` : `${code} is not a product in WHOLESTRA.`, false); return; }
+      if (!found) {
+        // a barcode nobody has recorded: add the product (goods in), or add the code to a product on the list
+        const perms = getSessionUser()?.permissions ?? [];
+        const canNew = allowAdd && (perms.includes("PRODUCTS:CREATE") || perms.includes("GOODS_RECEIVING:CREATE"));
+        const canAttach = perms.includes("PRODUCTS:UPDATE") || perms.includes("GOODS_RECEIVING:CREATE") || perms.includes("STOCK_TRANSFERS:UPDATE");
+        if (!label && (canNew || (canAttach && (allowAdd || list.length > 0)))) { scanFeedback(false); setFlash({ text: `New barcode ${code}: say what it is.`, ok: false }); setUnknown(code); return; }
+        say(allowAdd ? `No product has the barcode ${code}. Add it to a product first (Products, then Edit).` : `${code} is not a product in WHOLESTRA.`, false); return;
+      }
       line = latest.current.find(l => l.productId === found!.id);
       if (!line) {
         if (!allowAdd) { say(`${found.name} is not on this list.`, false); return; }
@@ -102,7 +112,22 @@ export default function ScanSession({ lines, setLines, allowAdd = false, labelsR
     say(`${line.name}: ${line.scanned + 1}${line.quantity ? ` of ${Math.max(line.quantity, countUp && !line.typed ? line.scanned + 1 : 0)}` : ""} scanned`, true);
   }
 
-  useScanner((c) => { void onScan(c); }, !disabled);
+  useScanner((c) => { void onScan(c); }, !disabled && !unknown);
+
+  /** The barcode now belongs to a product: count this scan for it. */
+  function added(p: AddedProduct) {
+    const code = unknown!;
+    setUnknown(null); cache.current.delete(code);
+    const have = latest.current.find(l => l.productId === p.id);
+    if (have) {
+      setLines(prev => prev.map(l => l.productId === p.id ? { ...l, barcodes: [...new Set([...l.barcodes, ...p.barcodes])] } : l));
+      if (have.trackItems && labelsRequired) { say(`Barcode added to ${p.name}. It has a label on each item: scan the item's label.`, true); return; }
+      bump(have.key); say(`Barcode added to ${p.name}: ${have.scanned + 1} scanned`, true); return;
+    }
+    if (!allowAdd) { say(`Barcode added to ${p.name}.`, true); return; }
+    setLines(prev => [{ key: p.id, productId: p.id, name: p.name, sku: p.sku, barcodes: p.barcodes, trackItems: p.trackItems, quantity: countUp ? 1 : 0, scanned: 1, codes: [] }, ...prev]);
+    say(`${p.name}${p.needsPrice ? " added (the manager sets its price)" : " added"}: 1 scanned`, true);
+  }
 
   function setQty(key: string, v: string) {
     const n = Math.max(0, Math.floor(Number(v) || 0));
@@ -155,6 +180,8 @@ export default function ScanSession({ lines, setLines, allowAdd = false, labelsR
           );
         })}
       </ul>
+      {unknown && <NewBarcodeDialog code={unknown} allowNew={allowAdd} choices={allowAdd ? undefined : lines.map(l => ({ id: l.productId, name: l.name, sku: l.sku, barcodes: l.barcodes, trackItems: l.trackItems }))}
+        onDone={added} onClose={() => { setUnknown(null); setFlash(null); }} />}
       {camera && <CameraScanner keepOpen title="Scan each item" onScan={(c) => void onScan(c)} onClose={() => setCamera(false)} />}
     </div>
   );

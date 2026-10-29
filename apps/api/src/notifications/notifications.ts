@@ -80,6 +80,13 @@ export class NotificationsService {
         }),
       );
     }
+    if (can("PRODUCTS:UPDATE")) {
+      jobs.push(
+        this.prisma.product.count({ where: { organizationId: org, needsPrice: true } }).then((n: number) => {
+          if (n) notices.push({ id: "needs-price", severity: "high", count: n, href: "/products?needsPrice=1", title: `${n} new product${n === 1 ? " needs" : "s need"} a selling price`, detail: "Added by the store while scanning goods in. They cannot be sold until priced" });
+        }),
+      );
+    }
     if (can("BRANCH_CLOSING:READ")) {
       const longAgo = new Date(Date.now() - 16 * 3600 * 1000);
       jobs.push(

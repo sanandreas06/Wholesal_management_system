@@ -108,7 +108,8 @@ export class ProductsService {
     }
     dto = { ...dto, barcodes: await this.cleanBarcodes(organizationId, dto.barcodes, id) };
     const { imageUrl, imageThumb, ...rest } = dto;
-    return scrub(await this.prisma.product.update({ where:{id}, data:{ ...rest, ...(imageUrl !== undefined ? { imageUrl: imageUrl || null } : {}), ...(imageThumb !== undefined ? { imageThumb: imageThumb || null } : {}) }, include:productInclude, omit:{imageUrl:true} }), canSeeCost);
+    // setting a selling price on a product the store added while scanning makes it sellable
+    return scrub(await this.prisma.product.update({ where:{id}, data:{ ...rest, ...(rest.unitPrice !== undefined && rest.unitPrice > 0 ? { needsPrice:false } : {}), ...(imageUrl !== undefined ? { imageUrl: imageUrl || null } : {}), ...(imageThumb !== undefined ? { imageThumb: imageThumb || null } : {}) }, include:productInclude, omit:{imageUrl:true} }), canSeeCost);
   }
 
   async remove(organizationId: string, id: string) {

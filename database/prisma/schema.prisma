@@ -263,6 +263,8 @@ model Product {
   aliases        ProductAlias[]
   /// Give every single item of this product its own WHOLESTRA label, so each one can be traced (engines, gearboxes, costly cartons)
   trackItems     Boolean        @default(false)
+  /// Added while scanning goods in by someone who may not set prices: it cannot be sold until a manager sets its price
+  needsPrice     Boolean        @default(false)
   stockItems     StockItem[]
 }
 

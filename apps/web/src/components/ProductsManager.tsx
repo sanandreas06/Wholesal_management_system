@@ -23,6 +23,8 @@ interface Product {
   barcodes?: string[];
   /** a WHOLESTRA label on every single item, so each one can be traced */
   trackItems?: boolean;
+  /** added by the store while scanning goods in: cannot be sold until a selling price is set */
+  needsPrice?: boolean;
 }
 
 
@@ -33,6 +35,7 @@ export default function ProductsManager() {
   const [units, setUnits] = useState<Ref[]>([]);
   const [lowStockOnly, setLowStockOnly] = useState(false);
   const [fCategory, setFCategory] = useState("");
+  const [needsPriceOnly, setNeedsPriceOnly] = useState(false);
   const [error, setError] = useState("");
   const [editing, setEditing] = useState<Product | "new" | null>(null);
 
@@ -45,7 +48,7 @@ export default function ProductsManager() {
     api.get<Ref[]>("/units").then(setUnits).catch(() => {});
   }
   useEffect(load, [lowStockOnly]);
-  useEffect(() => { const q = new URLSearchParams(window.location.search); if (q.get("new") === "1") setEditing("new"); setFCategory(q.get("category") ?? ""); }, []);
+  useEffect(() => { const q = new URLSearchParams(window.location.search); if (q.get("new") === "1") setEditing("new"); setFCategory(q.get("category") ?? ""); setNeedsPriceOnly(q.get("needsPrice") === "1"); }, []);
 
   async function remove(product: Product) {
     if (!confirm(`Delete product "${product.name}"?`)) return;
@@ -53,7 +56,8 @@ export default function ProductsManager() {
     catch (e) { toast.error(e instanceof ApiError ? e.message : "Delete failed"); }
   }
 
-  const shown = (products ?? []).filter(p => !fCategory || p.categoryRef?.name === fCategory);
+  const shown = (products ?? []).filter(p => (!fCategory || p.categoryRef?.name === fCategory) && (!needsPriceOnly || p.needsPrice));
+  const unpriced = (products ?? []).filter(p => p.needsPrice).length;
 
   return (
     <AppShell title="Products">
@@ -76,6 +80,10 @@ export default function ProductsManager() {
           {canCreate && <button onClick={() => setEditing("new")}>+ New Product</button>}
         </div>
       </div>
+      {(unpriced > 0 || needsPriceOnly) && <div className="pm-needs-price">
+        <span><b>{unpriced} new product{unpriced === 1 ? "" : "s"} added while scanning goods in {unpriced === 1 ? "needs" : "need"} a selling price.</b> They are in stock but cannot be sold until priced.</span>
+        <button className="secondary" onClick={() => setNeedsPriceOnly(v => !v)}>{needsPriceOnly ? "Show all products" : "Show them"}</button>
+      </div>}
       <div className="table-wrap">
         {products && shown.length === 0 && <div className="empty">No products{lowStockOnly ? " below reorder level" : ""}{fCategory ? ` in ${fCategory}` : ""}.</div>}
         {products && shown.length > 0 && (
@@ -91,7 +99,7 @@ export default function ProductsManager() {
                     <td>{p.categoryRef?.name || "—"}</td>
                     <td>{p.brand?.name || "—"}</td>
                     <td>{p.unit?.name || "—"}</td>
-                    <td>{money.format(Number(p.unitPrice))}</td>
+                    <td>{p.needsPrice ? <span className="badge high">Set a price</span> : money.format(Number(p.unitPrice))}</td>
                     {canProfit && <>
                       <td>{p.costPrice == null ? <span className="muted">not set</span> : money.format(Number(p.costPrice))}</td>
                       <td>{p.costPrice == null || Number(p.unitPrice) <= 0 ? "—" : (() => { const m = ((Number(p.unitPrice) - Number(p.costPrice)) / Number(p.unitPrice)) * 100; return <span className={`badge ${m < 10 ? "inactive" : "active"}`}>{m.toFixed(1)}%</span>; })()}</td>
@@ -144,7 +152,13 @@ function ProductModal({ product, categories, brands, units, canProfit, onClose, 
   const [camera, setCamera] = useState(false);
   const [trackItems, setTrackItems] = useState(!!product?.trackItems);
   const [labelCount, setLabelCount] = useState("10");
-  const addCode = (c: string) => { const v = c.trim(); if (v && !barcodes.includes(v)) setBarcodes(b => [...b, v].slice(0, 10)); setCode(""); };
+  const [suggest, setSuggest] = useState<{ name: string; source: string } | null>(null);
+  const addCode = (c: string) => {
+    const v = c.trim(); if (v && !barcodes.includes(v)) setBarcodes(b => [...b, v].slice(0, 10)); setCode("");
+    // a new product: look the barcode up in the free product lists and offer the name
+    if (v && !product) api.get<{ found: boolean; name?: string; source?: string }>(`/products/quick/barcode-info?code=${encodeURIComponent(v)}`)
+      .then(i => { if (i.found && i.name) { setSuggest({ name: i.name, source: i.source ?? "" }); setName(n => n || i.name!); } }).catch(() => undefined);
+  };
   useEffect(() => {
     if (!product?.imageThumb) return;
     api.get<{ imageUrl?: string | null }>(`/products/${product.id}`).then(p => { if (p.imageUrl) setCurrent(p.imageUrl); }).catch(() => {});
@@ -222,7 +236,8 @@ function ProductModal({ product, categories, brands, units, canProfit, onClose, 
                 <button type="button" className="secondary" onClick={() => setCamera(true)}>📷 Camera</button>
               </div>
               {barcodes.length > 0 && <ul className="pm-code-list">{barcodes.map(b => <li key={b}><code>{b}</code><button type="button" aria-label={`Remove barcode ${b}`} onClick={() => setBarcodes(x => x.filter(y => y !== b))}>×</button></li>)}</ul>}
-              <p className="muted fine">Use the barcode already printed on the item or its carton. Add both if the single item and the carton have different codes.</p>
+              {suggest && <p className="pm-suggest">Found in {suggest.source}: <b>{suggest.name}</b>{name !== suggest.name && <> · <button type="button" className="linkish" onClick={() => setName(suggest.name)}>use this name</button></>}</p>}
+              <p className="muted fine">Use the barcode already printed on the item or its carton. Add both if the single item and the carton have different codes. Scanning a barcode first fills in the name when it is a known packaged product.</p>
               <div className="pm-code-tools">
                 {barcodes.length === 0 && <button type="button" className="secondary" onClick={() => setBarcodes([makeStoreEan()])}>No barcode? Make one</button>}
                 {product && (product.barcodes?.length ?? 0) > 0 && <span className="pm-print">

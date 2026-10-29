@@ -142,3 +142,16 @@
   /* keep the confirm button clear of the help bubble in the corner */
   .sc-confirm .sc-go { width: calc(100% - 70px); }
 }
+
+/* Batch 47: a barcode nobody has recorded yet */
+.nb { max-width: 520px; }
+.nb-code { margin: -4px 0 12px; color: var(--text-muted); }
+.nb-code code { font-size: 15px; font-weight: 700; color: var(--text); background: var(--bg); padding: 2px 8px; border-radius: 6px; }
+.nb-hint { font-size: 13.5px; color: var(--text-muted); margin: 4px 0 10px; }
+.nb-hint.ok { color: var(--success); font-weight: 600; }
+.nb-two { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; }
+.nb-list { list-style: none; margin: 10px 0 0; padding: 0; max-height: 46vh; overflow: auto; display: flex; flex-direction: column; gap: 6px; }
+.nb-list button { width: 100%; text-align: left; display: flex; flex-direction: column; gap: 2px; background: var(--surface); color: var(--text); border: 1px solid var(--border-strong); border-radius: 10px; padding: 10px 12px; font-weight: 400; }
+.nb-list button:hover { border-color: var(--primary); }
+.nb-list span { font-size: 12.5px; color: var(--text-muted); }
+@media (max-width: 480px) { .nb-two { grid-template-columns: 1fr; } }

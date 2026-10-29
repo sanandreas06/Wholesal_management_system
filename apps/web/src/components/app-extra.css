@@ -437,3 +437,8 @@ td.neg { color: var(--danger); font-weight: 600; }
 .sale-owed a.button { padding: 8px 14px; font-size: 13px; margin-left: auto; }
 .trail b.neg { color: var(--danger); }
 .trail b.pos { color: var(--success); }
+
+/* Batch 47: products added while scanning, waiting for a price */
+.pm-needs-price { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; justify-content: space-between; padding: 12px 14px; margin: 0 0 12px; border-radius: 12px; background: var(--accent-amber-tint); color: var(--text); font-size: 14px; }
+.pm-suggest { margin: 8px 0 0; font-size: 13.5px; color: var(--success); }
+.linkish { background: none; border: 0; padding: 0; color: var(--primary); font-weight: 700; cursor: pointer; text-decoration: underline; }

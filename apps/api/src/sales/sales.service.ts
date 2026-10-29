@@ -114,6 +114,8 @@ export class SalesService {
     if (productIds.length !== dto.items.length) throw new BadRequestException("Each product may appear only once in a sale");
     const products = await this.prisma.product.findMany({ where: { id: { in: productIds }, organizationId } });
     if (products.length !== productIds.length) throw new BadRequestException("One or more products not found");
+    const unpriced = products.find(p => p.needsPrice);
+    if (unpriced) throw new BadRequestException(`"${unpriced.name}" has no selling price yet. Ask your manager to set it (Products, then Edit).`);
 
     const inv = await this.prisma.inventory.findMany({ where: { organizationId, branchId: dto.branchId, productId: { in: productIds } } });
     const stock = new Map<string, number>(inv.map((i): [string, number] => [i.productId, i.quantity]));

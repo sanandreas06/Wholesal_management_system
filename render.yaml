@@ -83,3 +83,6 @@ services:
       # Owners' evening summary (Batch 46): sent after this hour in each company's own time zone. DAILY_SUMMARY=off stops it.
       - key: SUMMARY_HOUR
         value: "20"
+      # New products while scanning (Batch 47): suggest names from the free public product lists. off = do not look barcodes up.
+      - key: BARCODE_LOOKUP
+        value: "on"
