@@ -4,6 +4,7 @@ import { InventoryService } from "../inventory/inventory.service";
 import { CreatePurchaseOrderDto } from "./dto/create-purchase-order.dto";
 import { UpdatePurchaseOrderDto } from "./dto/update-purchase-order.dto";
 import { CreateGoodsReceiptDto } from "./dto/create-goods-receipt.dto";
+import { TrackingService } from "../tracking/tracking.service";
 
 const poInclude = {
   supplier:{select:{id:true,name:true,code:true}},
@@ -14,7 +15,7 @@ const poInclude = {
 
 @Injectable()
 export class PurchaseOrdersService {
-  constructor(private readonly prisma: PrismaService, private readonly inventory: InventoryService) {}
+  constructor(private readonly prisma: PrismaService, private readonly inventory: InventoryService, private readonly tracking: TrackingService) {}
 
   list(organizationId: string, branchId?: string) {
     return this.prisma.purchaseOrder.findMany({ where:{organizationId, ...(branchId ? {branchId} : {})}, orderBy:{orderDate:"desc"}, include:poInclude });
@@ -113,18 +114,26 @@ export class PurchaseOrdersService {
       }
     }
 
+    // scanning: every line must say how many were scanned; anything less than all is questioned (with a reason)
+    const info = new Map((await this.prisma.product.findMany({ where:{ id:{ in: dto.items.map(l => poItemsById.get(l.purchaseOrderItemId)!.productId) } }, select:{ id:true, trackItems:true, barcodes:true } })).map(p => [p.id, p]));
+    const tracked = new Set([...info.values()].filter(p => p.trackItems).map(p => p.id));
+    const counted = dto.items.map(line => { const it = poItemsById.get(line.purchaseOrderItemId)!, p = info.get(it.productId); return { name: it.product.name, quantity: line.quantityReceived, scanned: dto.byScan ? (line.scannedCount ?? 0) : 0, exempt: !!p && !p.barcodes.length && !p.trackItems }; });
+    const byScan = TrackingService.scannedAll(counted);
+    const reason = byScan ? undefined : TrackingService.needReason(dto.reason ?? (dto.byScan ? undefined : "Received on the purchase order screen without scanning"));
+
     return this.prisma.$transaction(async (tx) => {
       const receipt = await tx.goodsReceipt.create({
         data:{
-          organizationId, purchaseOrderId:id, receivedByUserId:userId,
+          organizationId, purchaseOrderId:id, receivedByUserId:userId, byScan,
           supplierInvoiceNumber: dto.supplierInvoiceNumber, supplierInvoiceAmount: dto.supplierInvoiceAmount, notes: dto.notes,
           items:{ create: dto.items.map(line => {
             const poItem = poItemsById.get(line.purchaseOrderItemId)!;
-            return { purchaseOrderItemId: line.purchaseOrderItemId, productId: poItem.productId, quantityReceived: line.quantityReceived, unitCost: line.unitCost ?? poItem.unitCost };
+            return { purchaseOrderItemId: line.purchaseOrderItemId, productId: poItem.productId, quantityReceived: line.quantityReceived, unitCost: line.unitCost ?? poItem.unitCost, scannedCount: dto.byScan ? (line.scannedCount ?? 0) : null };
           }) }
         },
         include:{items:true}
       });
+      const labels: Record<string, string[]> = {};
 
       for(const line of dto.items) {
         const poItem = poItemsById.get(line.purchaseOrderItemId)!;
@@ -141,8 +150,14 @@ export class PurchaseOrdersService {
           organizationId, productId: poItem.productId, branchId: po.branch.id,
           type: "RECEIPT", quantityDelta: line.quantityReceived,
           referenceType: "GoodsReceipt", referenceId: receipt.id, userId,
-          notes: `Received against ${po.orderNumber}`
+          notes: `Received against ${po.orderNumber}${byScan ? " (scanned)" : " (typed by hand)"}`
         });
+        if (tracked.has(poItem.productId)) labels[poItem.productId] = [...(labels[poItem.productId] ?? []), ...await this.tracking.labelItems(tx, { organizationId, productId: poItem.productId, branchId: po.branch.id, count: line.quantityReceived, userId, referenceType: "GoodsReceipt", referenceId: receipt.id, note: po.orderNumber })];
+      }
+      if (!byScan) {
+        const missed = TrackingService.missed(counted);
+        await this.tracking.raise(tx, { organizationId, branchId: po.branch.id, kind: "NOT_SCANNED_RECEIPT", title: `${po.orderNumber} received without scanning everything`,
+          detail: `${missed.join(", ")} were counted by hand at ${po.branch.name}. Reason given: ${reason}`, referenceType: "GoodsReceipt", referenceId: receipt.id, referenceNumber: po.orderNumber, userId });
       }
 
       const refreshedItems = await tx.purchaseOrderItem.findMany({ where:{purchaseOrderId:id} });
@@ -152,7 +167,7 @@ export class PurchaseOrdersService {
 
       await tx.purchaseOrder.update({ where:{id}, data:{status:newStatus} });
 
-      return receipt;
+      return { ...receipt, labels, labelReference: Object.keys(labels).length ? receipt.id : null };
     });
   }
 }

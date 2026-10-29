@@ -35,6 +35,13 @@ model Organization {
   expenseCategories ExpenseCategory[]
   importBatches  ImportBatch[]
   weeklySales    WeeklySale[]
+  stockItems     StockItem[]
+  handoverIssues HandoverIssue[]
+  goodsReleases  GoodsRelease[]
+  customerConfirmations CustomerConfirmation[]
+  supplierPayments SupplierPayment[]
+  cashierShifts  CashierShift[]
+  dailySummaries DailySummaryLog[]
   expenses       Expense[]
   deposits       Deposit[]
   varianceCases  VarianceCase[]
@@ -171,6 +178,8 @@ model User {
   passwordHash          String
   phone                 String?
   avatar                String?         @db.Text
+  /// owners: the evening summary by email (and text message when set up). They can turn it off.
+  dailySummary          Boolean         @default(true)
   /// Set when an administrator created the account or reset the password: the person must choose their own at next sign-in.
   mustChangePassword    Boolean         @default(false)
   /// False for people who joined with Google, Facebook or LinkedIn and have not chosen a password yet.
@@ -252,6 +261,9 @@ model Product {
   @@index([unitId])
   weeklySales    WeeklySale[]
   aliases        ProductAlias[]
+  /// Give every single item of this product its own WHOLESTRA label, so each one can be traced (engines, gearboxes, costly cartons)
+  trackItems     Boolean        @default(false)
+  stockItems     StockItem[]
 }
 
 model Sale {
@@ -262,6 +274,12 @@ model Sale {
   customerId     String?
   invoiceNumber  String       @unique
   status         SaleStatus   @default(COMPLETED)
+  /// RELEASED: the customer has all the goods. AWAITING / PARTLY: goods still to be collected or delivered (released by scanning)
+  fulfilment     String       @default("RELEASED")
+  /// set by the counter for every sale, so a sale made without internet and sent later is never saved twice
+  clientRef      String?
+  /// made at the counter while the internet was down, and sent when it came back
+  offline        Boolean      @default(false)
   totalAmount    Decimal      @db.Decimal(14, 2)
   soldAt         DateTime     @default(now())
   createdAt      DateTime     @default(now())
@@ -272,7 +290,9 @@ model Sale {
   items          SaleItem[]
   payments       Payment[]
   returns        SaleReturn[]
+  releases       GoodsRelease[]
 
+  @@index([organizationId, clientRef])
   @@index([organizationId, soldAt])
   @@index([branchId, soldAt])
 }
@@ -285,6 +305,8 @@ model SaleItem {
   unitPrice   Decimal          @db.Decimal(14, 2)
   unitCost    Decimal?         @db.Decimal(14, 2)
   lineTotal   Decimal          @db.Decimal(14, 2)
+  /// how many have left the branch (null on older sales = all of them)
+  releasedQuantity Int?
   product     Product          @relation(fields: [productId], references: [id])
   sale        Sale             @relation(fields: [saleId], references: [id], onDelete: Cascade)
   returnItems SaleReturnItem[]
@@ -444,6 +466,7 @@ model Supplier {
   organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   contacts       Contact[]
   purchaseOrders PurchaseOrder[]
+  payments       SupplierPayment[]
 
   @@unique([organizationId, code])
   @@index([organizationId])
@@ -546,6 +569,8 @@ model GoodsReceipt {
   supplierInvoiceNumber String?
   supplierInvoiceAmount Decimal? @db.Decimal(14, 2)
   notes                 String?
+  /// true when every item was scanned in, false when the count was typed by hand (and questioned)
+  byScan                Boolean  @default(false)
   createdAt             DateTime @default(now())
 
   organization  Organization       @relation(fields: [organizationId], references: [id], onDelete: Cascade)
@@ -564,6 +589,7 @@ model GoodsReceiptItem {
   productId           String
   quantityReceived    Int
   unitCost            Decimal @db.Decimal(14, 2)
+  scannedCount        Int?
 
   goodsReceipt      GoodsReceipt      @relation(fields: [goodsReceiptId], references: [id], onDelete: Cascade)
   purchaseOrderItem PurchaseOrderItem @relation(fields: [purchaseOrderItemId], references: [id], onDelete: Restrict)
@@ -691,6 +717,9 @@ model StockTransfer {
   dispatchedAt       DateTime?
   receivedByUserId   String?
   receivedAt         DateTime?
+  /// true when the handover was confirmed by scanning every item, false when typed by hand (and questioned)
+  sentByScan         Boolean?
+  receivedByScan     Boolean?
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
 
@@ -711,6 +740,12 @@ model StockTransferItem {
   stockTransferId String
   productId       String
   quantity        Int
+  /// what the sender said went out, and how many of those were scanned
+  sentQuantity     Int?
+  sentScanned      Int?
+  /// what the receiving branch counted in, and how many were scanned
+  receivedQuantity Int?
+  receivedScanned  Int?
 
   stockTransfer StockTransfer @relation(fields: [stockTransferId], references: [id], onDelete: Cascade)
   product       Product       @relation(fields: [productId], references: [id], onDelete: Restrict)
@@ -960,6 +995,9 @@ model VarianceCase {
   status           VarianceStatus @default(OPEN)
   explanation      String?
   resolution       String?
+  /// a cash difference found when a cashier ended their shift: whose shift it was
+  shiftId          String?
+  cashierId        String?
   resolvedByUserId String?
   resolvedAt       DateTime?
   createdAt        DateTime       @default(now())
@@ -1162,4 +1200,227 @@ model UptimeCheck {
   webMs  Int?
 
   @@index([at])
+}
+
+
+// ---------------------------------------------------------------- Batch 43: item tracking and handover checks
+
+enum StockItemStatus {
+  IN_STOCK
+  IN_TRANSIT
+  SOLD
+  MISSING
+  WRITTEN_OFF
+}
+
+/// One physical item with its own WHOLESTRA label (only for products set to "track each item").
+model StockItem {
+  id             String          @id @default(uuid())
+  organizationId String
+  productId      String
+  /// printed on the label (barcode and QR), e.g. W7K3F9Q2M4
+  code           String          @unique
+  status         StockItemStatus @default(IN_STOCK)
+  /// where it is now; empty while in transit, sold or missing
+  branchId       String?
+  /// the transfer it is travelling on, or went missing on
+  transferId     String?
+  saleId         String?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  organization Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  product      Product          @relation(fields: [productId], references: [id], onDelete: Cascade)
+  events       StockItemEvent[]
+
+  @@index([organizationId, productId, status])
+  @@index([branchId, productId])
+  @@index([transferId])
+}
+
+/// Every step in an item's life: labelled, sent, arrived, went missing, found, sold...
+model StockItemEvent {
+  id             String   @id @default(uuid())
+  organizationId String
+  itemId         String
+  type           String
+  branchId       String?
+  userId         String?
+  referenceType  String?
+  referenceId    String?
+  note           String?
+  createdAt      DateTime @default(now())
+
+  item StockItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@index([itemId, createdAt])
+}
+
+enum HandoverIssueStatus {
+  OPEN
+  EXPLAINED
+  CLOSED
+}
+
+/// A handover that needs questioning: not confirmed by scanning, fewer items arrived than were sent, or a labelled item went missing.
+model HandoverIssue {
+  id                String              @id @default(uuid())
+  organizationId    String
+  /// the branch asked to explain
+  branchId          String
+  /// the other end of a transfer (it sees the issue too)
+  otherBranchId     String?
+  kind              String
+  status            HandoverIssueStatus @default(OPEN)
+  title             String
+  detail            String
+  productId         String?
+  quantity          Int?
+  itemCodes         String[]            @default([])
+  referenceType     String?
+  referenceId       String?
+  referenceNumber   String?
+  /// who did the handover
+  userId            String?
+  explanation       String?
+  explainedByUserId String?
+  explainedAt       DateTime?
+  /// CLEARED (no one at fault), AT_FAULT, RECOVERED (the goods were found)
+  outcome           String?
+  resolution        String?
+  resolvedByUserId  String?
+  resolvedAt        DateTime?
+  createdAt         DateTime            @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, status])
+  @@index([branchId, status])
+  @@index([otherBranchId, status])
+}
+
+// ---------------------------------------------------------------- Batch 44: goods released by scanning, and the customer's confirmation
+
+/// Goods leaving the branch for a customer: at the counter, or later when they collect or a delivery goes out.
+model GoodsRelease {
+  id               String   @id @default(uuid())
+  organizationId   String
+  saleId           String
+  branchId         String
+  number           String
+  releasedByUserId String
+  /// true when every item was scanned out
+  byScan           Boolean
+  reason           String?
+  /// who took the goods (customer, driver) and the vehicle, for deliveries
+  collectedBy      String?
+  vehicle          String?
+  /// the code in the QR on the receipt or release note; the customer opens it to confirm what they received
+  confirmToken     String   @unique
+  createdAt        DateTime @default(now())
+
+  organization Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  sale         Sale                  @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  items        GoodsReleaseItem[]
+  confirmation CustomerConfirmation?
+
+  @@unique([organizationId, number])
+  @@index([saleId])
+  @@index([branchId, createdAt])
+}
+
+model GoodsReleaseItem {
+  id         String   @id @default(uuid())
+  releaseId  String
+  saleItemId String
+  productId  String
+  quantity   Int
+  scanned    Int
+  itemCodes  String[] @default([])
+
+  release GoodsRelease @relation(fields: [releaseId], references: [id], onDelete: Cascade)
+
+  @@index([releaseId])
+}
+
+/// The customer's answer from the QR on the receipt: everything received, or what was short.
+model CustomerConfirmation {
+  id             String   @id @default(uuid())
+  organizationId String
+  releaseId      String   @unique
+  saleId         String
+  branchId       String
+  /// CONFIRMED or PROBLEM
+  status         String
+  /// per product: [{ name, expected, received }]
+  lines          Json?
+  comment        String?
+  name           String?
+  phone          String?
+  ip             String?
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  release      GoodsRelease @relation(fields: [releaseId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, createdAt])
+  @@index([branchId, status])
+}
+
+// ---------------------------------------------------------------- Batch 46: what suppliers are owed, cashier shifts, the owner's evening summary
+
+/// Money paid to a supplier. What is owed = goods received (at the supplier's invoice amount, or their cost) minus these payments.
+model SupplierPayment {
+  id             String        @id @default(uuid())
+  organizationId String
+  supplierId     String
+  amount         Decimal       @db.Decimal(14, 2)
+  method         PaymentMethod
+  reference      String?
+  note           String?
+  paidAt         DateTime      @default(now())
+  userId         String
+  createdAt      DateTime      @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  supplier     Supplier     @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+
+  @@index([organizationId, supplierId])
+}
+
+/// One cashier's turn at a till: the cash in the drawer at the start, and the count at the end.
+model CashierShift {
+  id             String    @id @default(uuid())
+  organizationId String
+  branchId       String
+  userId         String
+  /// OPEN or CLOSED
+  status         String    @default("OPEN")
+  openedAt       DateTime  @default(now())
+  openingFloat   Decimal   @db.Decimal(14, 2)
+  closedAt       DateTime?
+  closedByUserId String?
+  /// the cash counted at the end, what there should have been, and the gap (counted minus expected)
+  countedCash    Decimal?  @db.Decimal(14, 2)
+  expectedCash   Decimal?  @db.Decimal(14, 2)
+  difference     Decimal?  @db.Decimal(14, 2)
+  note           String?
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, branchId, openedAt])
+  @@index([userId, status])
+}
+
+/// Which evening summaries were sent, so each company gets one a day.
+model DailySummaryLog {
+  id             String   @id @default(uuid())
+  organizationId String
+  day            String
+  recipients     Int      @default(0)
+  sentAt         DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, day])
 }

@@ -2,6 +2,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import AppShell from "./AppShell";
 import { api, ApiError } from "../lib/api";
+import { code128Svg } from "../lib/barcode";
 import { toast } from "../lib/toast";
 import { exportCsv } from "../lib/exportCsv";
 import SavedViews from "./SavedViews";
@@ -9,15 +10,19 @@ import { usePermissions } from "../hooks/usePermissions";
 import { usePolling } from "../hooks/usePolling";
 
 interface Ref { id: string; name: string }
-interface ProductRef { id: string; name: string; sku: string; unitPrice?: number | string }
+interface ProductRef { id: string; name: string; sku: string; unitPrice?: number | string; barcodes?: string[]; trackItems?: boolean }
 interface CustomerRef { id: string; name: string; creditLimit?: number | string | null }
-interface SaleItem { id: string; productId: string; quantity: number; unitPrice: string; lineTotal: string; product: ProductRef }
+interface SaleItem { id: string; productId: string; quantity: number; unitPrice: string; lineTotal: string; product: ProductRef; releasedQuantity?: number | null }
+interface Release { id: string; number: string; createdAt: string; byScan: boolean; collectedBy: string | null; confirmToken: string; items: { saleItemId: string; quantity: number }[]; confirmation: { status: string; createdAt: string; comment: string | null } | null }
 interface Payment { id: string; method: string; amount: string; reference: string | null; receivedAt: string }
 interface SaleReturn { id: string; reason: string; createdAt: string; items: { saleItemId: string; quantity: number }[] }
 interface Sale {
   id: string; invoiceNumber: string; status: "COMPLETED" | "VOIDED"; totalAmount: string; soldAt: string;
   branch: Ref; customer: CustomerRef | null; user: Ref; items: SaleItem[]; payments: Payment[]; returns: SaleReturn[];
+  /** RELEASED: the customer has the goods; AWAITING / PARTLY: still to collect */
+  fulfilment?: string; releases?: Release[];
 }
+const GOODS: Record<string, [string, string]> = { RELEASED: ["Taken", "active"], AWAITING: ["To collect", "high"], PARTLY: ["Part taken", "medium"] };
 
 const METHODS = [["CASH", "Cash"], ["BANK", "Bank"], ["MOBILE_MONEY", "Mobile money"], ["CREDIT", "Credit"]];
 const money = (n: number | string) => Number(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -120,7 +125,7 @@ export default function SalesManager() {
         {sales && shown.length === 0 && <div className="empty">{sales.length === 0 ? "No sales yet." : "No sales match these filters."}</div>}
         {sales && shown.length > 0 && (
           <table>
-            <thead><tr><th>Invoice</th><th>Date</th><th>Branch</th><th>Customer</th><th>Total</th><th>Balance</th><th>Status</th><th></th></tr></thead>
+            <thead><tr><th>Invoice</th><th>Date</th><th>Branch</th><th>Customer</th><th>Total</th><th>Balance</th><th>Status</th><th>Goods</th><th></th></tr></thead>
             <tbody>
               {shown.map(s => {
                 const [label, cls] = payState(s);
@@ -133,6 +138,7 @@ export default function SalesManager() {
                     <td>{money(s.totalAmount)}</td>
                     <td>{s.status === "VOIDED" ? "—" : money(balanceOf(s))}</td>
                     <td><span className={`badge ${cls}`}>{label}</span></td>
+                    <td>{s.status === "VOIDED" ? "—" : <span className={`badge ${(GOODS[s.fulfilment ?? "RELEASED"] ?? GOODS.RELEASED)[1]}`}>{(GOODS[s.fulfilment ?? "RELEASED"] ?? GOODS.RELEASED)[0]}</span>}</td>
                     <td className="row-actions"><button className="secondary" onClick={() => setViewing(s)}>View</button></td>
                   </tr>
                 );
@@ -163,6 +169,8 @@ function CreateSaleModal({ branches, products, customers, canPay, onClose, onSav
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const [stock, setStock] = useState<Record<string, number>>({});
+  const [handover, setHandover] = useState<"later" | "now">("later");
+  const [why, setWhy] = useState("");
 
   useEffect(() => {
     if (!branchId) { setStock({}); return; }
@@ -181,6 +189,8 @@ function CreateSaleModal({ branches, products, customers, canPay, onClose, onSav
   const balance = Math.max(0, total - paying);
   const overLimit = customer?.creditLimit != null && balance > Number(customer.creditLimit);
   const short = lines.filter(l => l.productId && branchId && (Number(l.quantity) || 0) > (stock[l.productId] ?? 0));
+  // goods typed here are not scanned: if the customer already took barcoded goods, say why (the manager is asked to check)
+  const needsWhy = lines.some(l => { const p = products.find(x => x.id === l.productId); return !!p && (!!p.barcodes?.length || !!p.trackItems); });
 
   function updateLine(i: number, patch: Partial<{ productId: string; quantity: string; unitPrice: string }>) {
     setLines(prev => prev.map((l, idx) => idx === i ? { ...l, ...patch } : l));
@@ -195,7 +205,7 @@ function CreateSaleModal({ branches, products, customers, canPay, onClose, onSav
     const items = lines.filter(l => l.productId).map(l => ({ productId: l.productId, quantity: Number(l.quantity), unitPrice: Number(l.unitPrice) }));
     if (items.length === 0) { setError("Add at least one product"); setSaving(false); return; }
     try {
-      let sale = await api.post<Sale>("/sales", { branchId, customerId: customerId || undefined, items });
+      let sale = await api.post<Sale>("/sales", { branchId, customerId: customerId || undefined, items, handover, ...(handover === "now" && needsWhy ? { reason: why } : {}) });
       if (payNow && canPay && Number(amount) > 0) {
         try { sale = await api.post<Sale>(`/sales/${sale.id}/payments`, { method, amount: Number(amount) }); }
         catch (pe) { toast.error(`Sale ${sale.invoiceNumber} was created, but the payment failed: ${pe instanceof ApiError ? pe.message : "error"}`); }
@@ -229,6 +239,13 @@ function CreateSaleModal({ branches, products, customers, canPay, onClose, onSav
                   </select>
                 </label>
               </div>
+
+              <fieldset className="sale-handover">
+                <legend>The goods</legend>
+                <label><input type="radio" name="handover" checked={handover === "later"} onChange={() => setHandover("later")} /><span><b>Customer collects from the store</b>The goods stay reserved on the shelf. The store scans them out when the customer or driver comes (Scan, then Release to customer).</span></label>
+                <label><input type="radio" name="handover" checked={handover === "now"} onChange={() => setHandover("now")} /><span><b>Customer has already taken the goods</b>Nothing will be scanned, so the manager is asked to check.</span></label>
+                {handover === "now" && needsWhy && <input value={why} onChange={e => setWhy(e.target.value)} placeholder="Why were the goods not scanned out?" maxLength={300} required minLength={5} aria-label="Why the goods were not scanned" />}
+              </fieldset>
 
               <div className="sale-lines">
                 <div className="sale-line sale-line-head"><span>Product</span><span>Qty</span><span>Price</span><span>Amount</span><span /></div>
@@ -345,7 +362,7 @@ function SaleDetailModal({ sale, canUpdate, canPay, canReturn, onClose, onUpdate
       .top{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #2563eb;padding-bottom:14px}
       .brand{display:flex;gap:14px;align-items:flex-start;max-width:60%}.brand img{max-width:84px;max-height:84px;object-fit:contain}.brand .co{display:block;font-size:20px;font-weight:800;color:#1a2332;margin-bottom:3px}.brand small{display:block;font-size:11px;color:#6b7280;font-weight:500;line-height:1.5}
       h1{margin:0;font-size:26px;text-align:right}.top .r small{display:block;color:#6b7280;font-weight:500}
-      .void{color:#b42318;border:2px solid #b42318;display:inline-block;padding:2px 10px;font-weight:800;margin-top:6px;transform:rotate(-4deg)}
+      .bc svg{width:170px;height:34px;margin-top:6px}.void{color:#b42318;border:2px solid #b42318;display:inline-block;padding:2px 10px;font-weight:800;margin-top:6px;transform:rotate(-4deg)}
       .meta{display:grid;grid-template-columns:1fr 1fr;gap:6px 30px;margin:18px 0}.meta b{display:block;font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:#6b7280}
       table{width:100%;border-collapse:collapse;margin-top:6px}th{font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:#6b7280;text-align:left;padding:8px;border-bottom:2px solid #e5e7eb}
       td{padding:9px 8px;border-bottom:1px solid #eef0f3}td small{display:block;color:#9ca3af;font-size:11px}.r{text-align:right}
@@ -355,7 +372,7 @@ function SaleDetailModal({ sale, canUpdate, canPay, canReturn, onClose, onUpdate
       .hint{background:#eff6ff;color:#1e40af;padding:8px 12px;border-radius:8px;margin-bottom:14px;font-size:12px}@media print{.hint{display:none}}
     </style></head><body>
       <div class="hint">To save as a PDF, choose <b>Save as PDF</b> as the printer in the window that opens.</div>
-      <div class="top"><div class="brand">${b?.logo && /^data:image\/(png|jpeg|webp);base64,/.test(b.logo) ? `<img src="${b.logo}" alt="">` : ""}<div><span class="co">${esc(b?.name || "WHOLESTRA")}</span>${[b?.address, b?.phone, b?.email, b?.website, b?.taxId ? `TIN ${b.taxId}` : ""].filter(Boolean).map(x => `<small>${esc(String(x))}</small>`).join("")}</div></div><div class="r"><h1>INVOICE</h1><small>${esc(sale.invoiceNumber)}</small>${voided ? '<div class="void">VOIDED</div>' : ""}</div></div>
+      <div class="top"><div class="brand">${b?.logo && /^data:image\/(png|jpeg|webp);base64,/.test(b.logo) ? `<img src="${b.logo}" alt="">` : ""}<div><span class="co">${esc(b?.name || "WHOLESTRA")}</span>${[b?.address, b?.phone, b?.email, b?.website, b?.taxId ? `TIN ${b.taxId}` : ""].filter(Boolean).map(x => `<small>${esc(String(x))}</small>`).join("")}</div></div><div class="r"><h1>INVOICE</h1><small>${esc(sale.invoiceNumber)}</small><div class="bc">${code128Svg(sale.invoiceNumber, 36)}</div>${voided ? '<div class="void">VOIDED</div>' : ""}</div></div>
       <div class="meta"><div><b>Billed to</b>${esc(sale.customer?.name || "Walk-in customer")}</div><div><b>Date</b>${new Date(sale.soldAt).toLocaleString()}</div>
       <div><b>Branch</b>${esc(sale.branch.name)}</div><div><b>Served by</b>${esc(sale.user.name)}</div></div>
       <table><thead><tr><th>Item</th><th class="r">Qty</th><th class="r">Price</th><th class="r">Amount</th></tr></thead><tbody>${rows}</tbody></table>
@@ -392,6 +409,26 @@ function SaleDetailModal({ sale, canUpdate, canPay, canReturn, onClose, onUpdate
           </table>
         </div>
         <p><strong>Total {money(sale.totalAmount)}</strong> · Paid {money(paidOf(sale))} · Balance {voided ? "—" : money(balance)}</p>
+
+        {!voided && (sale.fulfilment === "AWAITING" || sale.fulfilment === "PARTLY") && (
+          <div className="sale-owed">
+            <b>Goods still to collect:</b> {sale.items.filter(i => i.quantity > (i.releasedQuantity ?? i.quantity)).map(i => `${i.quantity - (i.releasedQuantity ?? i.quantity)} × ${i.product.name}`).join(", ")}
+            <a className="button" href={`/scan/release?sale=${sale.id}`}>Release goods</a>
+          </div>
+        )}
+        {(sale.releases?.length ?? 0) > 0 && <>
+          <h3 style={{ fontSize: 14, margin: "18px 0 8px" }}>Goods handed over</h3>
+          <ul className="trail">
+            {sale.releases!.map(r => (
+              <li key={r.id}>
+                <span className="trail-when">{new Date(r.createdAt).toLocaleString()}</span>
+                <span className="trail-text">{r.number}: {r.items.reduce((n, x) => n + x.quantity, 0)} item(s){r.collectedBy ? ` to ${r.collectedBy}` : ""}{r.byScan ? " · scanned" : " · not all scanned"}{" · "}
+                  {r.confirmation ? (r.confirmation.status === "PROBLEM" ? <b className="neg">customer reported a problem{r.confirmation.comment ? `: "${r.confirmation.comment}"` : ""}</b> : <b className="pos">customer confirmed</b>) : <span className="muted">customer has not confirmed yet</span>}</span>
+                <a className="muted" href={`/release-note?id=${r.id}`} target="_blank" rel="noreferrer">Note</a>
+              </li>
+            ))}
+          </ul>
+        </>}
 
         <h3 style={{ fontSize: 14, margin: "18px 0 8px" }}>Audit trail</h3>
         {trail === null ? <p className="muted">Loading...</p> : (

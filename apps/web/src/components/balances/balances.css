@@ -1,0 +1,23 @@
+/* Batch 46: money owed, cashier shifts, daily summary */
+.bl, .sh, .sm { max-width: 1100px; }
+.bl-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-bottom: 16px; }
+.bl-tiles > div { background: var(--surface); border: 1px solid var(--border-strong); border-radius: 14px; padding: 14px 16px; display: flex; flex-direction: column; gap: 4px; box-shadow: var(--shadow-card); }
+.bl-tiles span { font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--text-muted); font-weight: 600; }
+.bl-tiles b { font-size: 20px; color: var(--text); }
+.bl-tiles > div.warn b { color: var(--danger); }
+.bl-note { font-size: 13px; margin: -4px 0 12px; }
+.bl-table td small { display: block; color: var(--text-muted); font-size: 12px; margin-top: 2px; }
+.bl-table td small.neg, .bl-table td.neg { color: var(--danger); }
+.bl-table tr.late td:first-child { box-shadow: inset 3px 0 0 var(--danger); }
+.bl-table .row-actions { flex-wrap: wrap; }
+.sm-head { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.sm-head h2 { margin: 0; font-size: 18px; }
+.sm-attn { background: var(--danger-tint); border: 1px solid color-mix(in srgb, var(--danger) 25%, transparent); color: var(--text); border-radius: 12px; padding: 12px 16px; margin: 12px 0; }
+.sm-attn h3 { margin: 0 0 6px; font-size: 14px; color: var(--danger); }
+.sm-attn ul { margin: 0; padding-left: 18px; line-height: 1.6; }
+.sm-ok { background: var(--success-tint); color: var(--success); font-weight: 700; border-radius: 12px; padding: 12px 16px; margin: 12px 0; }
+.sm-sub { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; background: var(--surface); border: 1px solid var(--border-strong); border-radius: 12px; padding: 12px 16px; margin-top: 18px; }
+.sm-sub label { display: flex !important; flex-direction: row !important; align-items: center; gap: 8px; font-weight: 600; }
+.sm-sub input[type=checkbox] { width: 18px; height: 18px; }
+.sh-diff.neg { color: var(--danger); font-weight: 700; }
+.sh-diff.pos { color: var(--accent-amber); font-weight: 700; }

@@ -10,10 +10,10 @@ import { getSessionUser } from "../lib/session";
 
 interface Ref { id: string; name: string }
 interface ProductRef { id: string; name: string; sku: string }
-interface TransferItem { id: string; productId: string; product: ProductRef; quantity: number }
+interface TransferItem { id: string; productId: string; product: ProductRef; quantity: number; sentQuantity: number | null; sentScanned: number | null; receivedQuantity: number | null; receivedScanned: number | null }
 interface StockTransfer {
   id: string; transferNumber: string; status: string; notes: string | null; createdAt: string;
-  fromBranch: Ref; toBranch: Ref; createdBy: Ref; items: TransferItem[];
+  fromBranch: Ref; toBranch: Ref; createdBy: Ref; items: TransferItem[]; sentByScan: boolean | null; receivedByScan: boolean | null;
 }
 
 const STATUS_CLASS: Record<string, string> = { DRAFT: "inactive", APPROVED: "active", DISPATCHED: "active", RECEIVED: "active", CANCELLED: "inactive" };
@@ -74,8 +74,8 @@ export default function StockTransfersManager() {
                   <td className="row-actions">
                     <button className="secondary" onClick={() => setViewing(t)}>View</button>
                     {canUpdate && t.status === "DRAFT" && <button className="secondary" onClick={() => runAction(t.id, "approve")}>Approve</button>}
-                    {canUpdate && t.status === "APPROVED" && <button className="secondary" onClick={() => runAction(t.id, "dispatch")}>Dispatch</button>}
-                    {canUpdate && t.status === "DISPATCHED" && <button className="secondary" onClick={() => runAction(t.id, "receive")}>Receive</button>}
+                    {canUpdate && t.status === "APPROVED" && <a className="button secondary" href={`/scan/transfer?id=${t.id}&mode=send`}>Scan to send</a>}
+                    {canUpdate && t.status === "DISPATCHED" && <a className="button secondary" href={`/scan/transfer?id=${t.id}&mode=receive`}>Scan to receive</a>}
                     {canUpdate && (t.status === "DRAFT" || t.status === "APPROVED") && <button className="secondary" onClick={() => runAction(t.id, "cancel")}>Cancel</button>}
                   </td>
                 </tr>
@@ -178,14 +178,20 @@ function TransferDetailModal({ transfer, canUpdate, onClose, onAction }: {
 
         <div className="table-wrap" style={{ marginBottom: 16 }}>
           <table>
-            <thead><tr><th>Product</th><th>Quantity</th></tr></thead>
+            <thead><tr><th>Product</th><th>Asked</th><th>Sent</th><th>Received</th></tr></thead>
             <tbody>
-              {transfer.items.map(item => (
-                <tr key={item.id}>
-                  <td>{item.product.name} <span className="muted">({item.product.sku})</span></td>
-                  <td>{item.quantity}</td>
-                </tr>
-              ))}
+              {transfer.items.map(item => {
+                const short = item.receivedQuantity !== null && item.sentQuantity !== null && item.receivedQuantity < item.sentQuantity;
+                const scan = (n: number | null, s: number | null) => n === null ? "" : s === n ? " ✓ scanned" : ` (${s ?? 0} scanned)`;
+                return (
+                  <tr key={item.id}>
+                    <td>{item.product.name} <span className="muted">({item.product.sku})</span></td>
+                    <td>{item.quantity}</td>
+                    <td>{item.sentQuantity ?? "—"}<span className="muted">{scan(item.sentQuantity, item.sentScanned)}</span></td>
+                    <td className={short ? "neg" : ""}>{item.receivedQuantity ?? "—"}<span className="muted">{scan(item.receivedQuantity, item.receivedScanned)}</span>{short ? ` · ${item.sentQuantity! - item.receivedQuantity!} short` : ""}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -193,8 +199,8 @@ function TransferDetailModal({ transfer, canUpdate, onClose, onAction }: {
         {canUpdate && (
           <div className="modal-actions" style={{ justifyContent: "flex-start" }}>
             {transfer.status === "DRAFT" && <button onClick={() => onAction("approve")}>Approve</button>}
-            {transfer.status === "APPROVED" && <button onClick={() => onAction("dispatch")}>Dispatch</button>}
-            {transfer.status === "DISPATCHED" && <button onClick={() => onAction("receive")}>Mark as Received</button>}
+            {transfer.status === "APPROVED" && <a className="button" href={`/scan/transfer?id=${transfer.id}&mode=send`}>Scan to send</a>}
+            {transfer.status === "DISPATCHED" && <a className="button" href={`/scan/transfer?id=${transfer.id}&mode=receive`}>Scan to receive</a>}
             {(transfer.status === "DRAFT" || transfer.status === "APPROVED") && <button className="secondary" onClick={() => onAction("cancel")}>Cancel Transfer</button>}
           </div>
         )}

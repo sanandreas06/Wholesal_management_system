@@ -1,4 +1,4 @@
-import { ArrayMaxSize, IsArray, IsInt, IsNumber, IsOptional, IsString, IsUUID, Matches, Min, MaxLength, MinLength } from "class-validator";
+import { IsBoolean, ArrayMaxSize, IsArray, IsInt, IsNumber, IsOptional, IsString, IsUUID, Matches, Min, MaxLength, MinLength } from "class-validator";
 
 export class CreateProductDto {
   @IsString() @MinLength(1) @MaxLength(40) sku!: string;
@@ -16,4 +16,6 @@ export class CreateProductDto {
   @IsOptional() @IsString() @MaxLength(14000) @Matches(/^(data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+)?$/, { message: "imageThumb must be a PNG, JPEG or WebP picture" }) imageThumb?: string;
   /** Barcodes on the product (maker's EAN/UPC, or a WHOLESTRA label). Scanning any of them finds the product. */
   @IsOptional() @IsArray() @ArrayMaxSize(10) @IsString({ each: true }) @MaxLength(64, { each: true }) @Matches(/^[\x21-\x7E]+$/, { each: true, message: "A barcode can only contain letters, digits and symbols, with no spaces" }) barcodes?: string[];
+  /** Give every single item its own WHOLESTRA label so each one can be traced. */
+  @IsOptional() @IsBoolean() trackItems?: boolean;
 }

@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { api } from "../../lib/api";
 import { getSessionUser } from "../../lib/session";
 import { LogoMark } from "../Logo";
+import { qrSvgString } from "../../lib/barcode";
 import { channelName, DisplayMsg } from "./display-channel";
 import "./counter.css";
 
@@ -36,7 +37,7 @@ export default function CustomerDisplay() {
     return () => c.close();
   }, [branch]);
   // after "Thank you", go back to the welcome screen
-  useEffect(() => { if (msg.type !== "paid") return; const t = setTimeout(() => setMsg({ type: "idle" }), 12_000); return () => clearTimeout(t); }, [msg]);
+  useEffect(() => { if (msg.type !== "paid") return; const t = setTimeout(() => setMsg({ type: "idle" }), msg.confirmUrl ? 45_000 : 12_000); return () => clearTimeout(t); }, [msg]);
 
   if (!signedIn) return <div className="cd-blank"><p>Open the customer screen from the counter, on the same computer, while signed in.</p></div>;
   const company = brand?.name || "WHOLESTRA";
@@ -58,6 +59,7 @@ export default function CustomerDisplay() {
           <div className="cd-thanks"><div className="cd-tick" aria-hidden="true">✓</div><h1>Thank you!</h1>
             <p>{msg.method === "CREDIT" ? <>GH₵ {n2(msg.total)} added to your account.</> : <>Paid GH₵ {n2(msg.paid)} by {METHOD[msg.method] ?? "cash"}.</>}</p>
             {msg.change > 0 && <p className="cd-change">Your change: <b>GH₵ {n2(msg.change)}</b></p>}
+            {msg.confirmUrl && <div className="cd-confirm"><div dangerouslySetInnerHTML={{ __html: qrSvgString(msg.confirmUrl, 150) }} /><p><b>Check your goods.</b> Scan with your phone camera to confirm you received all {msg.items ?? ""} item{msg.items === 1 ? "" : "s"}.</p></div>}
             <small>Receipt {msg.invoice}</small></div>
         ) : (
           <div className="cd-welcome"><h1>Welcome to {company}</h1><p>Your items and the total will show here as they are added.</p></div>

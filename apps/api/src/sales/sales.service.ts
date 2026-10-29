@@ -4,6 +4,10 @@ import { InventoryService } from "../inventory/inventory.service";
 import { CreateSaleDto } from "./dto/create-sale.dto";
 import { CreatePaymentDto } from "./dto/create-payment.dto";
 import { CreateSaleReturnDto } from "./dto/create-sale-return.dto";
+import { cleanCodes } from "../tracking/codes";
+import { ReleasesService } from "../releases/releases";
+import { TrackingService } from "../tracking/tracking.service";
+import { reservedAt } from "../releases/reserved";
 
 const saleInclude = {
   branch: { select: { id: true, name: true } },
@@ -11,12 +15,13 @@ const saleInclude = {
   user: { select: { id: true, name: true } },
   items: { include: { product: { select: { id: true, name: true, sku: true } } } },
   payments: { orderBy: { receivedAt: "asc" as const } },
-  returns: { include: { items: true }, orderBy: { createdAt: "asc" as const } }
+  returns: { include: { items: true }, orderBy: { createdAt: "asc" as const } },
+  releases: { orderBy: { createdAt: "asc" as const }, select: { id: true, number: true, createdAt: true, byScan: true, collectedBy: true, confirmToken: true, items: { select: { saleItemId: true, quantity: true } }, confirmation: { select: { status: true, createdAt: true, comment: true } } } }
 };
 
 @Injectable()
 export class SalesService {
-  constructor(private readonly prisma: PrismaService, private readonly inventory: InventoryService) {}
+  constructor(private readonly prisma: PrismaService, private readonly inventory: InventoryService, private readonly releases: ReleasesService, private readonly tracking: TrackingService) {}
 
   list(organizationId: string, branchId?: string) {
     return this.prisma.sale.findMany({
@@ -87,8 +92,23 @@ export class SalesService {
   }
 
   async create(organizationId: string, userId: string, dto: CreateSaleDto) {
+    // the same sale sent again (a retry, or the counter catching up after the internet came back): answer with the one already saved
+    if (dto.clientRef) {
+      const seen = await this.prisma.sale.findFirst({ where: { organizationId, clientRef: dto.clientRef }, include: saleInclude });
+      if (seen) return { ...seen, release: seen.releases[0] ? { id: seen.releases[0].id, number: seen.releases[0].number, confirmToken: seen.releases[0].confirmToken, byScan: seen.releases[0].byScan, fulfilment: seen.fulfilment } : null, duplicate: true };
+    }
     const branch = await this.prisma.branch.findFirst({ where: { id: dto.branchId, organizationId } });
     if (!branch) throw new BadRequestException("Branch not found");
+    // a sale made while the internet was down already happened: the goods and the money changed hands. It is saved as it was,
+    // at the time it was made, and anything that no longer adds up (stock) becomes a question instead of a refusal.
+    const offline = !!dto.offline;
+    let soldAt: Date | undefined;
+    if (offline && dto.soldAt) {
+      const t = new Date(dto.soldAt);
+      if (t.getTime() > Date.now() + 5 * 60_000 || t.getTime() < Date.now() - 30 * 86400_000) throw new BadRequestException("The time of this offline sale is not believable (more than 30 days ago, or in the future).");
+      soldAt = t;
+    }
+    if (offline && dto.handover === "later") throw new BadRequestException("Goods to collect later need the internet. Sell them when the connection is back.");
 
     const productIds = [...new Set(dto.items.map(i => i.productId))];
     if (productIds.length !== dto.items.length) throw new BadRequestException("Each product may appear only once in a sale");
@@ -97,11 +117,14 @@ export class SalesService {
 
     const inv = await this.prisma.inventory.findMany({ where: { organizationId, branchId: dto.branchId, productId: { in: productIds } } });
     const stock = new Map<string, number>(inv.map((i): [string, number] => [i.productId, i.quantity]));
+    const owed = await reservedAt(this.prisma, organizationId, dto.branchId, productIds); // sold earlier, still waiting to be collected
+    const oversold: string[] = [];
     for (const item of dto.items) {
-      const have = stock.get(item.productId) ?? 0;
+      const have = (stock.get(item.productId) ?? 0) - (owed.get(item.productId) ?? 0);
+      if (item.quantity > have && offline) { oversold.push(`${item.quantity - Math.max(0, have)} × ${products.find(x => x.id === item.productId)!.name}`); continue; }
       if (item.quantity > have) {
         const p = products.find(x => x.id === item.productId)!;
-        throw new BadRequestException(`Insufficient stock for ${p.name} at ${branch.name}: ${have} available, ${item.quantity} requested`);
+        throw new BadRequestException(`Insufficient stock for ${p.name} at ${branch.name}: ${Math.max(0, have)} available${owed.get(item.productId) ? ` (${owed.get(item.productId)} more are sold and waiting to be collected)` : ""}, ${item.quantity} requested`);
       }
     }
 
@@ -114,25 +137,46 @@ export class SalesService {
     if (!dto.customerId && dto.payments && paidNow < total - 0.01) throw new BadRequestException("A walk-in customer must pay the full amount. Choose a customer to sell on credit.");
     const invoiceNumber = await this.nextInvoiceNumber(organizationId);
 
+    const later = dto.handover === "later";
+    // scanned at the counter: check before saving anything, so a missing reason does not leave a half-made sale
+    if (dto.handover === "now") {
+      const lines = dto.items.map(i => { const p = products.find(x => x.id === i.productId)!; return { name: p.name, quantity: i.quantity, scanned: Math.max(i.scanned ?? 0, cleanCodes(i.itemCodes).length), barcoded: p.barcodes.length > 0, tracked: p.trackItems }; });
+      if (!ReleasesService.check(lines.map(l => ({ ...l, saleItemId: "", productId: "", codes: [] })))) TrackingService.needReason(dto.reason);
+    }
+
     return this.prisma.$transaction(async tx => {
       const sale = await tx.sale.create({
         data: {
           organizationId, branchId: dto.branchId, userId, invoiceNumber,
           customerId: dto.customerId ?? null,
           totalAmount: total,
-          items: { create: dto.items.map(i => ({ productId: i.productId, quantity: i.quantity, unitPrice: i.unitPrice, unitCost: products.find(p => p.id === i.productId)?.costPrice ?? null, lineTotal: i.quantity * i.unitPrice })) }
-        }
+          fulfilment: later ? "AWAITING" : "RELEASED",
+          clientRef: dto.clientRef ?? null, offline, ...(soldAt ? { soldAt } : {}),
+          items: { create: dto.items.map(i => ({ productId: i.productId, quantity: i.quantity, unitPrice: i.unitPrice, unitCost: products.find(p => p.id === i.productId)?.costPrice ?? null, lineTotal: i.quantity * i.unitPrice, releasedQuantity: later ? 0 : dto.handover === "now" ? 0 : null })) }
+        },
+        include: { items: true }
       });
       for (const p of pays) {
-        await tx.payment.create({ data: { organizationId, saleId: sale.id, method: p.method, amount: p.amount, reference: p.reference ?? null, receivedByUserId: userId } });
+        await tx.payment.create({ data: { organizationId, saleId: sale.id, method: p.method, amount: p.amount, reference: p.reference ?? null, receivedByUserId: userId, ...(soldAt ? { receivedAt: soldAt } : {}) } });
       }
+      // goods to be collected later stay on the shelf (reserved for this customer) until they are scanned out
+      if (later) return { ...await tx.sale.findUniqueOrThrow({ where: { id: sale.id }, include: saleInclude }), release: null };
       for (const i of dto.items) {
         await this.inventory.adjustStock(tx, {
           organizationId, productId: i.productId, branchId: dto.branchId, type: "SALE",
           quantityDelta: -i.quantity, referenceType: "Sale", referenceId: sale.id, userId, notes: invoiceNumber
         });
+        const p = products.find(x => x.id === i.productId)!;
+        if (p.trackItems && dto.handover !== "now") await this.releases.sellItems(tx, organizationId, dto.branchId, sale.id, invoiceNumber, userId, p, i.quantity, cleanCodes(i.itemCodes));
       }
-      return tx.sale.findUniqueOrThrow({ where: { id: sale.id }, include: saleInclude });
+      // handed over at the counter: recorded as a release, with a QR on the receipt for the customer to confirm
+      const release = dto.handover === "now" ? await this.releases.record(tx, {
+        org: organizationId, sale: { id: sale.id, branchId: dto.branchId, invoiceNumber, branchName: branch.name }, userId, reason: dto.reason, deduct: false, confirmToken: dto.confirmToken, lenient: offline,
+        lines: dto.items.map(i => { const p = products.find(x => x.id === i.productId)!, codes = cleanCodes(i.itemCodes); return { saleItemId: sale.items.find(x => x.productId === i.productId)!.id, productId: p.id, name: p.name, quantity: i.quantity, scanned: Math.max(i.scanned ?? 0, codes.length), codes, barcoded: p.barcodes.length > 0, tracked: p.trackItems }; }),
+      }) : null;
+      if (oversold.length) await this.tracking.raise(tx, { organizationId, branchId: dto.branchId, kind: "OFFLINE_OVERSOLD", title: `${invoiceNumber}: sold offline, more than the records show`,
+        detail: `While the internet was down, ${branch.name} sold ${oversold.join(", ")} more than the stock on record. Count these products: either stock arrived that was not recorded, or the numbers are wrong.`, referenceType: "Sale", referenceId: sale.id, referenceNumber: invoiceNumber, userId });
+      return { ...await tx.sale.findUniqueOrThrow({ where: { id: sale.id }, include: saleInclude }), release };
     });
   }
 
@@ -142,10 +186,13 @@ export class SalesService {
     if (sale.returns.length > 0) throw new BadRequestException("Cannot void a sale that has returns");
     return this.prisma.$transaction(async tx => {
       for (const i of sale.items) {
+        const out = i.releasedQuantity ?? i.quantity; // goods never collected never left the shelf
+        if (!out) continue;
         await this.inventory.adjustStock(tx, {
           organizationId, productId: i.productId, branchId: sale.branchId, type: "RETURN",
-          quantityDelta: i.quantity, referenceType: "Sale", referenceId: sale.id, userId, notes: `Void ${sale.invoiceNumber}`
+          quantityDelta: out, referenceType: "Sale", referenceId: sale.id, userId, notes: `Void ${sale.invoiceNumber}`
         });
+        await this.releases.unsellItems(tx, organizationId, sale.branchId, sale.id, i.productId, out, userId, `Sale ${sale.invoiceNumber} voided`);
       }
       await tx.sale.update({ where: { id }, data: { status: "VOIDED" } });
       return tx.sale.findUniqueOrThrow({ where: { id }, include: saleInclude });
@@ -177,7 +224,7 @@ export class SalesService {
       seen.add(ri.saleItemId);
       const line = sale.items.find(x => x.id === ri.saleItemId);
       if (!line) throw new BadRequestException("Return line does not belong to this sale");
-      const available = line.quantity - (returned.get(line.id) ?? 0);
+      const available = (line.releasedQuantity ?? line.quantity) - (returned.get(line.id) ?? 0); // only goods the customer took can come back
       if (ri.quantity > available) throw new BadRequestException(`Cannot return ${ri.quantity} of ${line.product.name}: only ${available} left to return`);
     }
 
@@ -194,6 +241,7 @@ export class SalesService {
           organizationId, productId: line.productId, branchId: sale.branchId, type: "RETURN",
           quantityDelta: ri.quantity, referenceType: "SaleReturn", referenceId: ret.id, userId, notes: `Return on ${sale.invoiceNumber}`
         });
+        await this.releases.unsellItems(tx, organizationId, sale.branchId, sale.id, line.productId, ri.quantity, userId, `Returned on ${sale.invoiceNumber}`);
       }
       return tx.sale.findUniqueOrThrow({ where: { id }, include: saleInclude });
     });

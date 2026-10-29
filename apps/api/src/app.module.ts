@@ -37,6 +37,10 @@ import { AssistantModule } from "./assistant/assistant";
 import { InquiriesModule } from "./inquiries/inquiries";
 import { StatusModule } from "./status/status";
 import { MonitorModule } from "./monitor/monitor";
+import { TrackingModule } from "./tracking/tracking.controller";
+import { BalancesModule } from "./balances/balances";
+import { ShiftsModule } from "./shifts/shifts";
+import { SummaryModule } from "./summary/summary";
 
 @Module({
   imports: [
@@ -62,6 +66,10 @@ import { MonitorModule } from "./monitor/monitor";
     SavedViewsModule,
     BranchScopeModule,
     InventoryModule,
+    TrackingModule,
+    BalancesModule,
+    ShiftsModule,
+    SummaryModule,
     StockAdjustmentsModule,
     StockTransfersModule,
     StockCountsModule,

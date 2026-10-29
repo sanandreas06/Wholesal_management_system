@@ -10,7 +10,7 @@ interface Ref { id: string; name: string }
 interface Category { id: string; name: string }
 interface Expense { id: string; amount: string; description: string; expenseDate: string; status: string; reviewNote: string | null; branch: Ref; category: Ref; createdBy: Ref; reviewedBy: Ref | null; canReview?: boolean; reviewBlock?: string | null }
 interface Deposit { id: string; method: string; amount: string; reference: string | null; depositDate: string; branch: Ref; createdBy: Ref }
-interface VarianceCase { id: string; method: string; periodStart: string; periodEnd: string; expectedAmount: string; actualAmount: string; difference: string; status: string; explanation: string | null; resolution: string | null; branch: Ref; resolvedBy: Ref | null }
+interface VarianceCase { id: string; method: string; periodStart: string; periodEnd: string; expectedAmount: string; actualAmount: string; difference: string; status: string; explanation: string | null; resolution: string | null; branch: Ref; resolvedBy: Ref | null; cashier?: Ref | null }
 interface Closing { id: string; periodStart: string; periodEnd: string; expectedAmount: string; depositedAmount: string; expensesAmount: string; differenceAmount: string; notes: string | null; closedAt: string; branch: Ref; closedBy: Ref; varianceCases: { id: string; status: string }[] }
 interface ReconRow { method: string; expected: number; deposited: number; difference: number; material: boolean }
 interface Recon { branch: Ref; rows: ReconRow[]; totals: { expected: number; deposited: number; difference: number }; expenses: { approved: number; pending: number; pendingCount: number } }
@@ -344,7 +344,7 @@ function CasesTab({ canUpdate, initial }: { canUpdate: boolean; initial: Record<
     <div className="table-wrap">
       {rows && rows.length === 0 && <div className="empty">No variance cases. They open automatically when a period is closed with a material difference.</div>}
       {rows && rows.length > 0 && <table><thead><tr><th>Branch</th><th>Period</th><th>Method</th><th>Expected</th><th>Deposited</th><th>Difference</th><th>Status</th><th></th></tr></thead>
-        <tbody>{rows.map(c => <tr key={c.id}><td>{c.branch.name}</td><td>{day(c.periodStart)} → {day(c.periodEnd)}</td><td>{METHOD(c.method)}</td><td>{money(c.expectedAmount)}</td><td>{money(c.actualAmount)}</td>
+        <tbody>{rows.map(c => <tr key={c.id}><td>{c.branch.name}{c.cashier ? <><br /><small className="muted">Till: {c.cashier.name}</small></> : null}</td><td>{day(c.periodStart)} → {day(c.periodEnd)}</td><td>{METHOD(c.method)}</td><td>{money(c.expectedAmount)}</td><td>{money(c.actualAmount)}</td>
           <td style={{ color: Number(c.difference) < 0 ? "var(--danger)" : undefined }}>{money(c.difference)}</td><td><span className={`badge ${STATUS_CLASS[c.status]}`}>{c.status}</span></td>
           <td className="row-actions"><button className="secondary" onClick={() => setActive(c)}>{canUpdate && c.status !== "RESOLVED" ? "Review" : "View"}</button></td></tr>)}</tbody></table>}
     </div>

@@ -1,5 +1,6 @@
 import { ConflictException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
+import { reservedAt } from "../releases/reserved";
 import { CreateProductDto } from "./dto/create-product.dto";
 import { UpdateProductDto } from "./dto/update-product.dto";
 
@@ -24,7 +25,9 @@ export class ProductsService {
   private async atBranch<T extends { id: string; stockQuantity: number }>(organizationId: string, branchId: string, rows: T[]): Promise<T[]> {
     const inv: { productId: string; quantity: number }[] = await this.prisma.inventory.findMany({ where:{organizationId, branchId}, select:{productId:true, quantity:true} });
     const qty = new Map<string, number>(inv.map((i): [string, number] => [i.productId, i.quantity]));
-    return rows.map(r => ({ ...r, stockQuantity: qty.get(r.id) ?? 0 }));
+    // goods sold but not yet collected are on the shelf but belong to a customer: they are not offered for sale again
+    const owed = await reservedAt(this.prisma, organizationId, branchId);
+    return rows.map(r => ({ ...r, stockQuantity: Math.max(0, (qty.get(r.id) ?? 0) - (owed.get(r.id) ?? 0)), ...(owed.get(r.id) ? { reserved: owed.get(r.id) } : {}) }));
   }
 
   async list(organizationId: string, lowStockOnly?: boolean, canSeeCost = false, branchScope: string | null = null) {
@@ -75,11 +78,15 @@ export class ProductsService {
   async lookup(organizationId: string, code: string, branchId: string | null, canSeeCost = false) {
     const c = (code ?? "").trim();
     if (!c) throw new NotFoundException("No barcode was read.");
-    let product = await this.prisma.product.findFirst({ where:{ organizationId, barcodes:{ has: c } }, include:productInclude })
-      ?? await this.prisma.product.findFirst({ where:{ organizationId, sku:{ equals: c, mode:"insensitive" } }, include:productInclude });
+    // a WHOLESTRA item label: that exact item (it must still be on the shelf to be sold or sent)
+    const item = /^w/i.test(c) && c.length === 10 ? await this.prisma.stockItem.findFirst({ where:{ organizationId, code: c.toUpperCase() }, select:{ code:true, status:true, branchId:true, productId:true } }) : null;
+    let product = item ? await this.prisma.product.findFirst({ where:{ id: item.productId, organizationId }, include:productInclude })
+      : await this.prisma.product.findFirst({ where:{ organizationId, barcodes:{ has: c } }, include:productInclude })
+        ?? await this.prisma.product.findFirst({ where:{ organizationId, sku:{ equals: c, mode:"insensitive" } }, include:productInclude });
     if (!product) throw new NotFoundException(`No product has the barcode ${c}. Add it to the product first.`);
     if (branchId) [product] = await this.atBranch(organizationId, branchId, [product]);
-    return scrub(product, canSeeCost);
+    const out = scrub(product, canSeeCost);
+    return item ? { ...out, item: { code: item.code, status: item.status, here: !branchId || item.branchId === branchId } } : out;
   }
 
   async create(organizationId: string, dto: CreateProductDto, canSeeCost = false) {

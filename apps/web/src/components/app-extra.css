@@ -411,3 +411,29 @@ button.danger-solid{background:var(--danger);color:#fff}
 .pm-code-list li{display:inline-flex;align-items:center;gap:4px;padding:4px 4px 4px 10px;border-radius:999px;background:var(--bg);border:1px solid var(--border)}
 .pm-code-list code{font-size:13px}
 .pm-code-list button{margin:0;width:26px;height:26px;padding:0;border-radius:50%;background:transparent;color:var(--text-muted);font-size:16px;box-shadow:none}
+
+/* Batch 43: links that look like buttons (Scan to send, Scan goods in) */
+a.button { display: inline-flex; align-items: center; justify-content: center; border: 0; border-radius: 10px; padding: 13px 16px; background: var(--primary); color: var(--primary-contrast); font-weight: 700; text-decoration: none; cursor: pointer; }
+a.button.secondary { background: var(--surface); color: var(--text); border: 1px solid var(--border); }
+.row-actions a.button { padding: 6px 12px; font-size: 13px; white-space: nowrap; }
+td.neg { color: var(--danger); font-weight: 600; }
+.pm-code-tools { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 8px; }
+.pm-code-tools button, .pm-code-tools a.button { padding: 8px 12px; font-size: 13px; }
+.pm-print { display: inline-flex; gap: 6px; align-items: center; }
+.pm-print input { width: 70px; padding: 7px 8px; }
+.pm-track { display: flex !important; flex-direction: row !important; gap: 10px; align-items: flex-start; margin-top: 12px; padding: 12px; border: 1px solid var(--border-strong); border-radius: 10px; cursor: pointer; }
+.pm-track input { width: 18px; height: 18px; margin-top: 2px; flex: none; }
+.pm-track span { display: flex; flex-direction: column; gap: 3px; font-size: 13px; font-weight: 400; color: var(--text-muted); line-height: 1.45; }
+.pm-track b { color: var(--text); font-size: 14px; }
+
+/* Batch 44: sales - who has the goods */
+.sale-handover { border: 1px solid var(--border-strong); border-radius: 12px; padding: 10px 14px 12px; margin: 12px 0; display: flex; flex-direction: column; gap: 8px; }
+.sale-handover legend { font-size: 13px; font-weight: 700; padding: 0 6px; }
+.sale-handover label { display: flex !important; flex-direction: row !important; gap: 10px; align-items: flex-start; cursor: pointer; font-weight: 400; }
+.sale-handover input[type=radio] { width: 18px; height: 18px; margin-top: 2px; flex: none; }
+.sale-handover span { display: flex; flex-direction: column; gap: 2px; font-size: 13px; color: var(--text-muted); }
+.sale-handover b { color: var(--text); font-size: 14px; }
+.sale-owed { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; padding: 12px 14px; border-radius: 12px; background: var(--accent-amber-tint); color: var(--text); margin: 10px 0; }
+.sale-owed a.button { padding: 8px 14px; font-size: 13px; margin-left: auto; }
+.trail b.neg { color: var(--danger); }
+.trail b.pos { color: var(--success); }

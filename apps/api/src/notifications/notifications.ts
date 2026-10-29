@@ -61,6 +61,41 @@ export class NotificationsService {
         }),
       );
     }
+    if (can("STOCK_TRANSFERS:READ") || can("GOODS_RECEIVING:READ") || can("AUDIT:READ")) {
+      const mineOr = mine ? { OR: [{ branchId: mine }, { otherBranchId: mine }] } : {};
+      jobs.push(
+        this.prisma.handoverIssue.count({ where: { organizationId: org, status: "OPEN", ...mineOr } }).then((n: number) => {
+          if (n) notices.push({ id: "handover-issues", severity: "high", count: n, href: "/tracking?tab=issues", title: `${n} handover${n === 1 ? "" : "s"} to explain`, detail: "Goods not scanned, or fewer arrived than were sent" });
+        }),
+        can("AUDIT:READ") ? this.prisma.handoverIssue.count({ where: { organizationId: org, status: "EXPLAINED", ...mineOr } }).then((n: number) => {
+          if (n) notices.push({ id: "handover-explained", severity: "medium", count: n, href: "/tracking?tab=issues", title: `${n} explanation${n === 1 ? "" : "s"} waiting for your decision`, detail: "Read what the branch said and close each one" });
+        }) : Promise.resolve(),
+      );
+    }
+    if (can("STOCK_TRANSFERS:READ")) {
+      const twoDays = new Date(Date.now() - 48 * 3600 * 1000);
+      jobs.push(
+        this.prisma.stockTransfer.count({ where: { organizationId: org, status: "DISPATCHED", dispatchedAt: { lt: twoDays }, ...(mine ? { OR: [{ fromBranchId: mine }, { toBranchId: mine }] } : {}) } }).then((n: number) => {
+          if (n) notices.push({ id: "transfers-late", severity: "high", count: n, href: "/stock-transfers", title: `${n} transfer${n === 1 ? " has" : "s have"} been on the road over 2 days`, detail: "Sent but not yet scanned in at the other branch" });
+        }),
+      );
+    }
+    if (can("BRANCH_CLOSING:READ")) {
+      const longAgo = new Date(Date.now() - 16 * 3600 * 1000);
+      jobs.push(
+        this.prisma.cashierShift.count({ where: { organizationId: org, ...here, status: "OPEN", openedAt: { lt: longAgo } } }).then((n: number) => {
+          if (n) notices.push({ id: "shifts-open", severity: "medium", count: n, href: "/shifts", title: `${n} cashier shift${n === 1 ? " was" : "s were"} never ended`, detail: "Count the cash and end the shift, so the till can be checked" });
+        }),
+      );
+    }
+    if (can("SALES:READ") || can("STOCK_TRANSFERS:UPDATE")) {
+      const threeDays = new Date(Date.now() - 72 * 3600 * 1000);
+      jobs.push(
+        this.prisma.sale.count({ where: { organizationId: org, ...here, status: "COMPLETED", fulfilment: { in: ["AWAITING", "PARTLY"] }, soldAt: { lt: threeDays } } }).then((n: number) => {
+          if (n) notices.push({ id: "goods-owed", severity: "medium", count: n, href: "/scan/release", title: `${n} customer${n === 1 ? " has" : "s have"} not collected paid goods for 3+ days`, detail: "The goods are reserved on the shelf. Call them, or arrange delivery" });
+        }),
+      );
+    }
     await Promise.all(jobs);
     const rank = { high: 0, medium: 1, low: 2 };
     notices.sort((a, b) => rank[a.severity] - rank[b.severity]);

@@ -6,6 +6,7 @@ import { CurrentUser } from "../common/decorators/current-user.decorator";
 import { AuthUser } from "../common/types/auth-user.type";
 import { StockTransfersService } from "./stock-transfers.service";
 import { CreateStockTransferDto } from "./dto/create-stock-transfer.dto";
+import { HandoverDto } from "./dto/handover.dto";
 import { BranchScopeService } from "../common/branch/branch-scope";
 
 @UseGuards(JwtAuthGuard, PermissionsGuard)
@@ -31,11 +32,11 @@ export class StockTransfersController {
 
   @Patch(":id/dispatch")
   @RequirePermissions("STOCK_TRANSFERS:UPDATE")
-  async dispatch(@CurrentUser() user: AuthUser, @Param("id") id: string) { await this.scope.record(user, "stockTransferFrom", id); return this.stockTransfers.dispatch(user.organizationId, id, user.sub); }
+  async dispatch(@CurrentUser() user: AuthUser, @Param("id") id: string, @Body() dto: HandoverDto) { await this.scope.record(user, "stockTransferFrom", id); return this.stockTransfers.dispatch(user.organizationId, id, user.sub, dto); }
 
   @Patch(":id/receive")
   @RequirePermissions("STOCK_TRANSFERS:UPDATE")
-  async receive(@CurrentUser() user: AuthUser, @Param("id") id: string) { await this.scope.record(user, "stockTransferTo", id); return this.stockTransfers.receive(user.organizationId, id, user.sub); }
+  async receive(@CurrentUser() user: AuthUser, @Param("id") id: string, @Body() dto: HandoverDto) { await this.scope.record(user, "stockTransferTo", id); return this.stockTransfers.receive(user.organizationId, id, user.sub, dto); }
 
   @Patch(":id/cancel")
   @RequirePermissions("STOCK_TRANSFERS:UPDATE")

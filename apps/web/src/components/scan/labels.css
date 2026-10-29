@@ -1,0 +1,64 @@
+/* Batch 43: printable labels. On screen a preview with a toolbar; on paper only the labels. */
+.lb { min-height: 100vh; background: #E9EDF3; color: #000; font-family: Arial, Helvetica, sans-serif; }
+.lb-bar { position: sticky; top: 0; z-index: 2; display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; padding: 12px 16px; background: #0B1B3E; color: #fff; }
+.lb-back { color: #fff; text-decoration: none; font-weight: 700; }
+.lb-title { display: flex; flex-direction: column; flex: 1; min-width: 180px; }
+.lb-title span { font-size: 13px; color: #B4C0DC; }
+.lb-size { display: flex; gap: 4px; background: rgba(255, 255, 255, .1); padding: 3px; border-radius: 10px; }
+.lb-size button { background: none; border: 0; color: #fff; padding: 8px 12px; border-radius: 8px; cursor: pointer; font-weight: 600; }
+.lb-size button.on { background: #fff; color: #0B1B3E; }
+.lb-print { background: #F5C451; color: #0B1B3E; border: 0; border-radius: 10px; padding: 10px 22px; font-weight: 800; cursor: pointer; }
+.lb .error { margin: 16px; }
+
+.lb-sheet { display: flex; flex-wrap: wrap; gap: 10px; padding: 16px; justify-content: center; }
+.lb-label { background: #fff; box-sizing: border-box; overflow: hidden; display: flex; flex-direction: column; box-shadow: 0 1px 3px rgba(0, 0, 0, .15); }
+.lb-roll .lb-label { width: 50mm; height: 30mm; padding: 1.6mm 2mm; }
+.lb-a4 .lb-label { width: 64mm; height: 33.9mm; padding: 2mm 3mm; }
+.lb-top { display: flex; justify-content: space-between; font-size: 6.5pt; font-weight: 700; text-transform: uppercase; letter-spacing: .02em; }
+.lb-co { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.lb-price { font-size: 8pt; }
+.lb-name { font-size: 8pt; font-weight: 700; line-height: 1.15; max-height: 2.3em; overflow: hidden; margin: .4mm 0 .8mm; }
+.lb-codes { display: flex; align-items: center; gap: 1.5mm; flex: 1; min-height: 0; }
+.lb-bars { flex: 1; min-width: 0; height: 100%; display: flex; align-items: center; }
+.lb-bars svg { width: 100%; height: 100%; max-height: 11mm; }
+.lb-qr svg { width: 11mm; height: 11mm; display: block; }
+.lb-code { font-family: "Courier New", monospace; font-weight: 700; font-size: 8.5pt; letter-spacing: .08em; text-align: center; margin-top: .4mm; }
+
+@media print {
+  .no-print { display: none !important; }
+  .lb { background: #fff; min-height: 0; }
+  .lb-sheet { padding: 0; gap: 0; justify-content: flex-start; }
+  .lb-label { box-shadow: none; break-inside: avoid; }
+  .lb-roll .lb-label { break-after: page; }
+  .lb-a4 .lb-sheet { gap: 0 2.5mm; }
+}
+
+/* Batch 44: release note (A5) */
+.rn { background: #fff; width: 148mm; max-width: calc(100% - 24px); margin: 16px auto; padding: 10mm; box-sizing: border-box; box-shadow: 0 1px 4px rgba(0, 0, 0, .15); font-size: 10pt; }
+.rn-head { display: flex; justify-content: space-between; gap: 8mm; border-bottom: 2px solid #0B1B3E; padding-bottom: 4mm; }
+.rn-co { display: flex; gap: 3mm; align-items: center; }
+.rn-co img { width: 14mm; height: 14mm; object-fit: contain; }
+.rn-co div { display: flex; flex-direction: column; }
+.rn-co b { font-size: 13pt; }
+.rn-co span { font-size: 8.5pt; color: #333; }
+.rn-no { text-align: right; display: flex; flex-direction: column; align-items: flex-end; }
+.rn-no b { letter-spacing: .08em; font-size: 9pt; }
+.rn-no span { font-size: 13pt; font-weight: 700; }
+.rn-no svg { width: 42mm; height: 9mm; margin-top: 1mm; }
+.rn-meta { display: grid; grid-template-columns: 1fr 1fr; gap: 2mm 6mm; margin: 4mm 0; }
+.rn-meta dt { font-size: 7.5pt; text-transform: uppercase; color: #555; letter-spacing: .05em; }
+.rn-meta dd { margin: 0; font-weight: 600; }
+.rn-items { width: 100%; border-collapse: collapse; }
+.rn-items th { text-align: left; font-size: 8pt; text-transform: uppercase; border-bottom: 1px solid #000; padding: 1.5mm 0; }
+.rn-items th:last-child, .rn-items td:last-child { text-align: right; width: 18mm; }
+.rn-items td { padding: 1.8mm 0; border-bottom: 1px dashed #bbb; vertical-align: top; }
+.rn-items small { color: #555; margin-left: 1mm; }
+.rn-items .rn-codes { display: block; margin: .5mm 0 0; font-family: "Courier New", monospace; font-size: 7.5pt; }
+.rn-items tfoot td { font-weight: 700; border: 0; padding-top: 2.5mm; }
+.rn-confirm { display: flex; gap: 4mm; align-items: center; margin: 5mm 0; padding: 3mm; border: 1.5px solid #0B1B3E; border-radius: 3mm; }
+.rn-confirm svg { width: 26mm; height: 26mm; flex: none; }
+.rn-confirm p { margin: 0; line-height: 1.4; }
+.rn-sign { display: flex; gap: 10mm; margin-top: 10mm; }
+.rn-sign div { flex: 1; font-size: 8.5pt; color: #333; }
+.rn-sign span { display: block; border-bottom: 1px solid #000; height: 9mm; margin-bottom: 1mm; }
+@media print { .rn { box-shadow: none; margin: 0; padding: 0; width: auto; max-width: none; } .rn-page { background: #fff; } }

@@ -25,7 +25,10 @@ type Entry = { kind: "link"; icon: string; item: Item } | { kind: "group"; icon:
 
 const NAV: Entry[] = [
   { kind: "link", icon: "home", item: { href: "/dashboard", label: "Home", permission: null } },
+  { kind: "link", icon: "sheet", item: { href: "/summary", label: "Daily Summary", permission: "DASHBOARD:READ" } },
   { kind: "group", icon: "box", label: "Inventory", items: [
+    { href: "/scan", label: "Scan", permission: "GOODS_RECEIVING:CREATE|STOCK_TRANSFERS:UPDATE|SALES:UPDATE" },
+    { href: "/tracking", label: "Item Tracking", permission: "INVENTORY:READ|STOCK_TRANSFERS:READ|GOODS_RECEIVING:READ|AUDIT:READ" },
     { href: "/products", label: "Products", permission: "PRODUCTS:READ" },
     { href: "/categories", label: "Categories", permission: "CATEGORIES:READ" },
     { href: "/brands", label: "Brands", permission: "BRANDS:READ" },
@@ -38,13 +41,15 @@ const NAV: Entry[] = [
   { kind: "group", icon: "cart", label: "Sales", items: [
     { href: "/counter", label: "Counter (POS)", permission: "SALES:CREATE" },
     { href: "/sales", label: "Sales & Invoices", permission: "SALES:READ" },
-    { href: "/customers", label: "Customers", permission: "CUSTOMERS:READ" }
+    { href: "/customers", label: "Customers", permission: "CUSTOMERS:READ" },
+    { href: "/shifts", label: "Cashier Shifts", permission: "BRANCH_CLOSING:READ" }
   ] },
   { kind: "group", icon: "bag", label: "Purchases", items: [
     { href: "/purchase-orders", label: "Purchase Orders", permission: "PURCHASING:READ" },
     { href: "/reorder", label: "Reorder Suggestions", permission: "PURCHASING:READ" },
     { href: "/suppliers", label: "Suppliers", permission: "SUPPLIERS:READ" }
   ] },
+  { kind: "link", icon: "coins", item: { href: "/balances", label: "Money Owed", permission: "PAYMENTS:READ|PURCHASING:READ" } },
   { kind: "link", icon: "coins", item: { href: "/finance", label: "Finance", permission: "RECONCILIATION:READ|EXPENSES:READ|DEPOSITS:READ|VARIANCE_CASES:READ|BRANCH_CLOSING:READ" } },
   { kind: "link", icon: "trend", item: { href: "/insights", label: "Investment Insights", permission: "PROFIT:READ" } },
   { kind: "link", icon: "sheet", item: { href: "/imports", label: "Excel Import", permission: "EXCEL_IMPORT:READ" } },

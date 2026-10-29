@@ -11,6 +11,7 @@ import { currencySymbol, money } from "../lib/format";
 import { shrinkImage } from "../lib/image";
 import ProductThumb from "./home/ProductThumb";
 import CameraScanner from "./CameraScanner";
+import { makeStoreEan } from "../lib/barcode";
 
 interface Ref { id: string; name: string }
 interface Product {
@@ -20,6 +21,8 @@ interface Product {
   imageThumb?: string | null;
   /** barcodes on the product or its carton; scanning any of them finds it */
   barcodes?: string[];
+  /** a WHOLESTRA label on every single item, so each one can be traced */
+  trackItems?: boolean;
 }
 
 
@@ -139,6 +142,8 @@ function ProductModal({ product, categories, brands, units, canProfit, onClose, 
   const [barcodes, setBarcodes] = useState<string[]>(product?.barcodes ?? []);
   const [code, setCode] = useState("");
   const [camera, setCamera] = useState(false);
+  const [trackItems, setTrackItems] = useState(!!product?.trackItems);
+  const [labelCount, setLabelCount] = useState("10");
   const addCode = (c: string) => { const v = c.trim(); if (v && !barcodes.includes(v)) setBarcodes(b => [...b, v].slice(0, 10)); setCode(""); };
   useEffect(() => {
     if (!product?.imageThumb) return;
@@ -168,6 +173,7 @@ function ProductModal({ product, categories, brands, units, canProfit, onClose, 
       unitPrice: Number(unitPrice), ...(canProfit && costPrice !== "" ? { costPrice: Number(costPrice) } : {}),
       reorderLevel: Number(reorderLevel),
       barcodes: code.trim() && !barcodes.includes(code.trim()) ? [...barcodes, code.trim()] : barcodes,
+      trackItems,
       ...(image !== undefined ? { imageUrl: image.full, imageThumb: image.thumb } : {}),
       // stock on an existing product changes only through stock adjustments, so it stays in the ledger
       ...(product ? {} : { stockQuantity: Number(stockQuantity) })
@@ -216,8 +222,19 @@ function ProductModal({ product, categories, brands, units, canProfit, onClose, 
                 <button type="button" className="secondary" onClick={() => setCamera(true)}>📷 Camera</button>
               </div>
               {barcodes.length > 0 && <ul className="pm-code-list">{barcodes.map(b => <li key={b}><code>{b}</code><button type="button" aria-label={`Remove barcode ${b}`} onClick={() => setBarcodes(x => x.filter(y => y !== b))}>×</button></li>)}</ul>}
-              <p className="muted fine">Use the barcode already printed on the item or its carton. Add both if the single item and the carton have different codes. No barcode? Print a label with the SKU ({sku || "the product code"}): scanning it works too.</p>
+              <p className="muted fine">Use the barcode already printed on the item or its carton. Add both if the single item and the carton have different codes.</p>
+              <div className="pm-code-tools">
+                {barcodes.length === 0 && <button type="button" className="secondary" onClick={() => setBarcodes([makeStoreEan()])}>No barcode? Make one</button>}
+                {product && (product.barcodes?.length ?? 0) > 0 && <span className="pm-print">
+                  <input type="number" min={1} max={500} value={labelCount} onChange={e => setLabelCount(e.target.value)} aria-label="How many labels" />
+                  <a className="button secondary" href={`/labels?product=${product.id}&n=${Math.max(1, Math.min(500, Number(labelCount) || 1))}`} target="_blank" rel="noreferrer">Print barcode labels</a>
+                </span>}
+              </div>
             </div>
+            <label className="pm-track">
+              <input type="checkbox" checked={trackItems} onChange={e => setTrackItems(e.target.checked)} />
+              <span><b>Track each item</b>Every single item gets its own WHOLESTRA label, printed when the goods are scanned in. You can then see where each one is and where it has been. Best for costly goods (engines, gearboxes, phones). Leave off for everyday goods like rice: they are counted by their barcode at every handover.</span>
+            </label>
             {camera && <CameraScanner title="Scan the product's barcode" onScan={addCode} onClose={() => setCamera(false)} />}
           </section>
 

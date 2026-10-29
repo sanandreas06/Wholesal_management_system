@@ -80,3 +80,6 @@ services:
         generateValue: true
       - key: REFERRAL_MAX_USD
         value: "30"
+      # Owners' evening summary (Batch 46): sent after this hour in each company's own time zone. DAILY_SUMMARY=off stops it.
+      - key: SUMMARY_HOUR
+        value: "20"

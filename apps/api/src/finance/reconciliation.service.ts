@@ -100,12 +100,16 @@ export class ReconciliationService {
     });
   }
 
-  listCases(organizationId: string, status?: string, branchId?: string) {
-    return this.prisma.varianceCase.findMany({
+  async listCases(organizationId: string, status?: string, branchId?: string) {
+    const rows = await this.prisma.varianceCase.findMany({
       where: { organizationId, ...(status ? { status: status as any } : {}), ...(branchId ? { branchId } : {}) },
       include: { branch: { select: { id: true, name: true } }, resolvedBy: { select: { id: true, name: true } } },
       orderBy: { createdAt: "desc" }, take: 200
     });
+    // a cash gap from a cashier's shift carries the cashier's name
+    const ids = [...new Set(rows.map(r => r.cashierId).filter((x): x is string => !!x))];
+    const people = ids.length ? await this.prisma.user.findMany({ where: { id: { in: ids } }, select: { id: true, name: true } }) : [];
+    return rows.map(r => ({ ...r, cashier: r.cashierId ? people.find(p => p.id === r.cashierId) ?? null : null }));
   }
 
   async updateCase(organizationId: string, id: string, userId: string, dto: UpdateVarianceCaseDto) {

@@ -232,7 +232,8 @@ function PODetailModal({ po, onClose, onChanged }: { po: PurchaseOrder; onClose:
 
         {!receiving && canReceive && (
           <div className="modal-actions" style={{ justifyContent: "flex-start" }}>
-            <button onClick={() => setReceiving(true)}>+ Record Goods Receipt</button>
+            <a className="button" href={`/scan/goods-in?po=${po.id}`}>Scan goods in</a>
+            <button className="secondary" onClick={() => setReceiving(true)}>Type the quantities instead</button>
           </div>
         )}
 
@@ -247,6 +248,7 @@ function ReceiveGoodsForm({ po, onCancel, onSaved }: { po: PurchaseOrder; onCanc
   const [quantities, setQuantities] = useState<Record<string, string>>(() => Object.fromEntries(receivable.map(i => [i.id, ""])));
   const [invoiceNumber, setInvoiceNumber] = useState("");
   const [invoiceAmount, setInvoiceAmount] = useState("");
+  const [reason, setReason] = useState("");
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -258,7 +260,7 @@ function ReceiveGoodsForm({ po, onCancel, onSaved }: { po: PurchaseOrder; onCanc
     if (items.length === 0) { setError("Enter a quantity for at least one item"); setSaving(false); return; }
     try {
       await api.post(`/purchase-orders/${po.id}/receipts`, {
-        items, supplierInvoiceNumber: invoiceNumber || undefined, supplierInvoiceAmount: invoiceAmount ? Number(invoiceAmount) : undefined
+        items, reason, supplierInvoiceNumber: invoiceNumber || undefined, supplierInvoiceAmount: invoiceAmount ? Number(invoiceAmount) : undefined
       });
       onSaved();
     } catch (e) { setError(e instanceof ApiError ? e.message : "Failed to record receipt"); }
@@ -267,7 +269,7 @@ function ReceiveGoodsForm({ po, onCancel, onSaved }: { po: PurchaseOrder; onCanc
 
   return (
     <form onSubmit={submit} style={{ borderTop: "1px solid var(--border)", paddingTop: 16, marginTop: 8 }}>
-      <p className="field-hint" style={{ marginBottom: 8 }}>Enter quantity received for each item (leave blank for items not in this shipment)</p>
+      <p className="field-hint" style={{ marginBottom: 8 }}>Enter quantity received for each item (leave blank for items not in this shipment). Goods typed in by hand, not scanned, are flagged for the manager to check.</p>
       {receivable.map(item => {
         const remaining = item.quantityOrdered - item.quantityReceived;
         return (
@@ -277,6 +279,7 @@ function ReceiveGoodsForm({ po, onCancel, onSaved }: { po: PurchaseOrder; onCanc
           </label>
         );
       })}
+      <label>Why are you not scanning these goods?<input value={reason} onChange={e => setReason(e.target.value)} placeholder="For example: no scanner at this branch yet" maxLength={300} required minLength={5} /></label>
       <label>Supplier Invoice Number<input value={invoiceNumber} onChange={e => setInvoiceNumber(e.target.value)} placeholder="e.g. INV-2026-0088" /></label>
       <label>Supplier Invoice Amount ({currencySymbol()})<input type="number" step="0.01" min="0" value={invoiceAmount} onChange={e => setInvoiceAmount(e.target.value)} /></label>
       {error && <div className="error">{error}</div>}

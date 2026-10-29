@@ -1,9 +1,14 @@
 /* WHOLESTRA service worker.
  * - The app's own files (/_next/static, icons, fonts) are kept on the device, so the app opens fast.
  * - Pages always come fresh from the internet; with no internet a friendly "you are offline" page shows instead.
+ * - The counter is the exception: its page is kept too, so a cashier can keep selling when the internet drops
+ *   (the counter keeps its products and waiting sales in the browser's own storage, and sends them when it can).
  * - Business data (the API on another address) is never touched or stored here. */
-const VERSION = "wholestra-v2";
+const VERSION = "wholestra-v3";
 const STATIC = VERSION + "-static";
+const PAGES = VERSION + "-pages";
+// pages that work without internet (with or without the /w/<workspace> prefix)
+const OFFLINE_PAGES = /^(\/w\/[a-z0-9-]{2,40})?\/counter(\/display)?\/?$/i;
 const OFFLINE = "/offline.html";
 
 self.addEventListener("install", (event) => {
@@ -40,7 +45,14 @@ self.addEventListener("fetch", (event) => {
 
   // page loads: always the newest version; the offline page only when there is no connection
   if (req.mode === "navigate") {
-    event.respondWith(fetch(req).catch(() => caches.match(OFFLINE)));
+    const keep = url.origin === self.location.origin && OFFLINE_PAGES.test(url.pathname);
+    const key = keep ? url.pathname.replace(/^\/w\/[^/]+/i, "").replace(/\/$/, "") || "/counter" : "";
+    event.respondWith(
+      fetch(req).then((res) => {
+        if (keep && res.ok) { const copy = res.clone(); caches.open(PAGES).then((c) => c.put(key, copy)); }
+        return res;
+      }).catch(() => (keep ? caches.open(PAGES).then((c) => c.match(key)) : Promise.resolve(undefined)).then((hit) => hit || caches.match(OFFLINE))),
+    );
     return;
   }
   // files whose names change with every release, our icons, and Google Fonts
