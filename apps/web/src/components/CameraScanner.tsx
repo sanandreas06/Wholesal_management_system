@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useRef, useState } from "react";
 import { scanFeedback } from "../lib/scanner";
+import { codeFromScan } from "../lib/barcode";
 
 type Detector = { detect(src: HTMLVideoElement): Promise<{ rawValue: string }[]> };
 
@@ -19,11 +20,15 @@ export default function CameraScanner({ onScan, onClose, keepOpen = false, title
     let stopped = false, stream: MediaStream | null = null, timer = 0;
     let zx: { stop(): void } | null = null;
     const recent = new Map<string, number>();
+    let seen = { code: "", at: 0 };
     const hit = (code: string) => {
       const now = Date.now();
+      // a camera can misread a frame (a smudge, a second barcode on the pack): a code only counts once it is read the same twice in a row
+      if (seen.code !== code || now - seen.at > 1500) { seen = { code, at: now }; return; }
+      seen = { code: "", at: 0 };
       if ((recent.get(code) ?? 0) > now - 1500) return; // the same code held in front of the camera counts once
       recent.set(code, now);
-      scanFeedback(true); setLastCode(code); cb.current(code);
+      scanFeedback(true); setLastCode(code); cb.current(codeFromScan(code)); // a WHOLESTRA QR holds …/f/<code>
       if (!keepOpen) { stopped = true; onClose(); }
     };
     (async () => {
@@ -32,7 +37,8 @@ export default function CameraScanner({ onScan, onClose, keepOpen = false, title
       try {
         if (W.BarcodeDetector) {
           const supported = (await W.BarcodeDetector.getSupportedFormats?.()) ?? [];
-          const want = ["ean_13", "ean_8", "upc_a", "upc_e", "code_128", "code_39", "itf", "qr_code", "data_matrix"].filter(f => !supported.length || supported.includes(f));
+          // UPC-E and Code 39 are left out: on Ghanaian shelves they are rare, and they are what a camera most often "finds" by mistake
+          const want = ["ean_13", "ean_8", "upc_a", "code_128", "itf", "qr_code", "data_matrix"].filter(f => !supported.length || supported.includes(f));
           const det = new W.BarcodeDetector({ formats: want });
           stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" } }, audio: false });
           if (stopped || !video.current) return;
@@ -40,13 +46,16 @@ export default function CameraScanner({ onScan, onClose, keepOpen = false, title
           const loop = async () => {
             if (stopped || !video.current) return;
             try { const found = await det.detect(video.current); if (found[0]?.rawValue) hit(found[0].rawValue); } catch { /* next frame */ }
-            timer = window.setTimeout(loop, 180);
+            timer = window.setTimeout(loop, 120);
           };
           loop();
         } else {
           const { BrowserMultiFormatReader } = await import("@zxing/browser");
+          const { BarcodeFormat, DecodeHintType } = await import("@zxing/library");
           if (stopped || !video.current) return;
-          const reader = new BrowserMultiFormatReader();
+          const hints = new Map(); // the same formats as above
+          hints.set(DecodeHintType.POSSIBLE_FORMATS, [BarcodeFormat.EAN_13, BarcodeFormat.EAN_8, BarcodeFormat.UPC_A, BarcodeFormat.CODE_128, BarcodeFormat.ITF, BarcodeFormat.QR_CODE, BarcodeFormat.DATA_MATRIX]);
+          const reader = new BrowserMultiFormatReader(hints);
           zx = await reader.decodeFromConstraints({ video: { facingMode: { ideal: "environment" } }, audio: false }, video.current, (res) => { if (res && !stopped) hit(res.getText()); });
         }
       } catch (e) {

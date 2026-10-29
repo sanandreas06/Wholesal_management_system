@@ -3,7 +3,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { api, ApiError } from "../../lib/api";
 import { getSessionUser } from "../../lib/session";
 
-export interface AddedProduct { id: string; sku: string; name: string; barcodes: string[]; trackItems: boolean; needsPrice?: boolean }
+export interface AddedProduct { id: string; sku: string; name: string; barcodes: string[]; trackItems: boolean; needsPrice?: boolean; ownCode?: string | null }
 interface Pick { id: string; name: string; sku: string; barcodes?: string[]; trackItems?: boolean }
 interface Info { found: boolean; name?: string; brand?: string; size?: string; source?: string }
 
@@ -73,6 +73,7 @@ export default function NewBarcodeDialog({ code, allowNew, choices, onDone, onCl
             <label>Selling price (GH₵)<input type="number" step="0.01" min="0" value={price} onChange={e => setPrice(e.target.value)} required /></label>
             {mayCost && <label>Cost price (optional)<input type="number" step="0.01" min="0" value={cost} onChange={e => setCost(e.target.value)} /></label>}
           </div> : <p className="nb-hint">Your manager sets the selling price. Until then the product can be stocked but not sold.</p>}
+          <p className="nb-hint">WHOLESTRA also gives it its own permanent code, for its labels. Print them when you finish receiving.</p>
           {error && <div className="error">{error}</div>}
           <div className="modal-actions"><button type="button" className="secondary" onClick={onClose}>Cancel</button><button disabled={busy || name.trim().length < 2}>{busy ? "Saving…" : "Add product and count this one"}</button></div>
         </form>}

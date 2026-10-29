@@ -62,3 +62,8 @@
 .rn-sign div { flex: 1; font-size: 8.5pt; color: #333; }
 .rn-sign span { display: block; border-bottom: 1px solid #000; height: 9mm; margin-bottom: 1mm; }
 @media print { .rn { box-shadow: none; margin: 0; padding: 0; width: auto; max-width: none; } .rn-page { background: #fff; } }
+/* Batch 48: product labels - the EAN-13 carries its own digits; captions say which code does what */
+.lb-legend { display: flex; justify-content: space-between; font-size: 6pt; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: #333; margin-top: .4mm; }
+.lb-legend span:last-child { width: 11mm; text-align: center; }
+.lb-bars.ean svg { width: 100%; height: auto; max-height: 15mm; }
+.lb-roll .lb-label .lb-name { margin-bottom: .4mm; }

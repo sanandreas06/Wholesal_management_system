@@ -1,6 +1,7 @@
-import { ConflictException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
 import { reservedAt } from "../releases/reserved";
+import { codeFromScan, newOwnCode } from "./own-code";
 import { CreateProductDto } from "./dto/create-product.dto";
 import { UpdateProductDto } from "./dto/update-product.dto";
 
@@ -62,9 +63,11 @@ export class ProductsService {
   }
 
   /** Clean barcodes (trimmed, no repeats) and make sure no other product in the company already uses one of them. */
-  private async cleanBarcodes(organizationId: string, codes: string[] | undefined, exceptId?: string) {
+  private async cleanBarcodes(organizationId: string, codes: string[] | undefined, exceptId?: string, keep?: string | null) {
     if (codes === undefined) return undefined;
-    const clean = [...new Set(codes.map(c => c.trim()).filter(Boolean))];
+    // the product's own WHOLESTRA code always stays first: it is printed on its labels and can never be removed
+    const clean = [...new Set([...(keep ? [keep] : []), ...codes.map(c => c.trim()).filter(Boolean)])];
+    if (clean.length > 11) throw new BadRequestException("A product can have up to 10 barcodes besides its own WHOLESTRA code.");
     if (!clean.length) return clean;
     const clash = await this.prisma.product.findFirst({ where:{ organizationId, barcodes:{ hasSome: clean }, ...(exceptId ? { NOT:{ id: exceptId } } : {}) }, select:{ name:true, barcodes:true } });
     if (clash) {
@@ -76,7 +79,7 @@ export class ProductsService {
 
   /** Finds the product a scanned barcode belongs to: one of its barcodes, or its SKU (for WHOLESTRA labels printed from the SKU). */
   async lookup(organizationId: string, code: string, branchId: string | null, canSeeCost = false) {
-    const c = (code ?? "").trim();
+    const c = codeFromScan(code);
     if (!c) throw new NotFoundException("No barcode was read.");
     // a WHOLESTRA item label: that exact item (it must still be on the shelf to be sold or sent)
     const item = /^w/i.test(c) && c.length === 10 ? await this.prisma.stockItem.findFirst({ where:{ organizationId, code: c.toUpperCase() }, select:{ code:true, status:true, branchId:true, productId:true } }) : null;
@@ -94,19 +97,21 @@ export class ProductsService {
     await this.assertRefsBelongToOrg(organizationId, dto);
     const existing = await this.prisma.product.findFirst({ where:{organizationId,sku:dto.sku} });
     if(existing) throw new ConflictException(`SKU "${dto.sku}" already exists`);
-    dto = { ...dto, barcodes: await this.cleanBarcodes(organizationId, dto.barcodes) };
-    return scrub(await this.prisma.product.create({ data:{ ...dto, imageUrl: dto.imageUrl || null, imageThumb: dto.imageThumb || null, organizationId }, include:productInclude, omit:{imageUrl:true} }), canSeeCost);
+    // every new product gets its own permanent code, printed on its labels
+    const ownCode = await newOwnCode(this.prisma, organizationId);
+    dto = { ...dto, barcodes: await this.cleanBarcodes(organizationId, dto.barcodes ?? [], undefined, ownCode) };
+    return scrub(await this.prisma.product.create({ data:{ ...dto, ownCode, imageUrl: dto.imageUrl || null, imageThumb: dto.imageThumb || null, organizationId }, include:productInclude, omit:{imageUrl:true} }), canSeeCost);
   }
 
   async update(organizationId: string, id: string, dto: UpdateProductDto, canSeeCost = false) {
     if(dto.costPrice !== undefined && !canSeeCost) throw new ForbiddenException("You do not have permission to set cost prices");
-    await this.get(organizationId, id);
+    const current = await this.get(organizationId, id) as { ownCode?: string | null };
     await this.assertRefsBelongToOrg(organizationId, dto);
     if(dto.sku) {
       const existing = await this.prisma.product.findFirst({ where:{organizationId,sku:dto.sku,NOT:{id}} });
       if(existing) throw new ConflictException(`SKU "${dto.sku}" already exists`);
     }
-    dto = { ...dto, barcodes: await this.cleanBarcodes(organizationId, dto.barcodes, id) };
+    dto = { ...dto, barcodes: await this.cleanBarcodes(organizationId, dto.barcodes, id, current.ownCode) };
     const { imageUrl, imageThumb, ...rest } = dto;
     // setting a selling price on a product the store added while scanning makes it sellable
     return scrub(await this.prisma.product.update({ where:{id}, data:{ ...rest, ...(rest.unitPrice !== undefined && rest.unitPrice > 0 ? { needsPrice:false } : {}), ...(imageUrl !== undefined ? { imageUrl: imageUrl || null } : {}), ...(imageThumb !== undefined ? { imageThumb: imageThumb || null } : {}) }, include:productInclude, omit:{imageUrl:true} }), canSeeCost);

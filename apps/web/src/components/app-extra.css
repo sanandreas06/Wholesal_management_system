@@ -442,3 +442,11 @@ td.neg { color: var(--danger); font-weight: 600; }
 .pm-needs-price { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; justify-content: space-between; padding: 12px 14px; margin: 0 0 12px; border-radius: 12px; background: var(--accent-amber-tint); color: var(--text); font-size: 14px; }
 .pm-suggest { margin: 8px 0 0; font-size: 13.5px; color: var(--success); }
 .linkish { background: none; border: 0; padding: 0; color: var(--primary); font-weight: 700; cursor: pointer; text-decoration: underline; }
+
+/* Batch 48: every product's own permanent code */
+.pm-own { display: flex; flex-wrap: wrap; gap: 12px 16px; align-items: center; padding: 12px; border: 1px solid var(--border-strong); border-radius: 12px; background: var(--bg); margin-bottom: 10px; }
+.pm-own-bars { background: #fff; border-radius: 8px; padding: 6px 8px; line-height: 0; }
+.pm-own-bars svg { width: 190px; height: auto; }
+.pm-own-text { display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 220px; font-size: 13px; color: var(--text-muted); }
+.pm-own-text b { color: var(--text); font-size: 14px; letter-spacing: .02em; }
+.pm-sub { font-size: 13px; font-weight: 700; margin: 6px 0 6px; }

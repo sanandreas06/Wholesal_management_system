@@ -255,6 +255,8 @@ model Product {
   stockCountItems    StockCountItem[]
 
   @@unique([organizationId, sku])
+  /// kept unique by the code that makes it (a database unique rule would make the automatic update on Render stop to ask)
+  @@index([organizationId, ownCode])
   @@index([organizationId])
   @@index([categoryId])
   @@index([brandId])
@@ -265,6 +267,9 @@ model Product {
   trackItems     Boolean        @default(false)
   /// Added while scanning goods in by someone who may not set prices: it cannot be sold until a manager sets its price
   needsPrice     Boolean        @default(false)
+  /// The product's own permanent WHOLESTRA code (EAN-13 starting with 2, the range kept for shops' own codes). Given once when the
+  /// product is made and never changed; printed on its labels (barcode for selling, QR for finding). Also kept in `barcodes`.
+  ownCode        String?
   stockItems     StockItem[]
 }
 

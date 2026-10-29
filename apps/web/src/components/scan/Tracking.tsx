@@ -12,7 +12,7 @@ import "./scan.css";
 interface Step { type: string; at: string; branch: string | null; by: string | null; note: string | null }
 type Found =
   | { kind: "item"; code: string; status: string; where: string; product: { id: string; name: string; sku: string }; branch: string | null; history: Step[] }
-  | { kind: "product"; product: { id: string; name: string; sku: string; trackItems: boolean }; branches: { branch: string; quantity: number }[]; inTransit: { transferId: string; transferNumber: string; from: string; to: string; quantity: number; since: string | null }[]; missingItems: number };
+  | { kind: "product"; product: { id: string; name: string; sku: string; trackItems: boolean; ownCode?: string | null }; branches: { branch: string; quantity: number }[]; inTransit: { transferId: string; transferNumber: string; from: string; to: string; quantity: number; since: string | null }[]; missingItems: number };
 interface Issue {
   id: string; kind: string; status: "OPEN" | "EXPLAINED" | "CLOSED"; title: string; detail: string; branch: string; otherBranch: string | null; by: string | null; createdAt: string;
   explanation: string | null; explainedBy: string | null; outcome: string | null; resolution: string | null; resolvedBy: string | null; resolvedAt: string | null; userId: string | null; referenceNumber: string | null;
@@ -68,6 +68,8 @@ function FindTab({ canFound }: { canFound: boolean }) {
     finally { setBusy(false); }
   }
   useScanner((c) => void look(c));
+  // opened from a phone camera reading a WHOLESTRA QR (…/f/<code> leads here with ?code=)
+  useEffect(() => { const c = new URLSearchParams(window.location.search).get("code"); if (c) void look(c); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   function submit(e: FormEvent) { e.preventDefault(); void look(code); }
 
   async function markFound() {
@@ -96,7 +98,7 @@ function FindTab({ canFound }: { canFound: boolean }) {
       )}
       {res?.kind === "product" && (
         <div className="tk-card">
-          <div className="tk-head"><div><b>{res.product.name}</b><span>{res.product.sku}{res.product.trackItems ? " · label on each item" : ""}</span></div></div>
+          <div className="tk-head"><div><b>{res.product.name}</b><span>{res.product.sku}{res.product.ownCode ? ` · code ${res.product.ownCode}` : ""}{res.product.trackItems ? " · label on each item" : ""}</span></div></div>
           <h3>In stock</h3>
           {res.branches.length ? <ul className="tk-rows">{res.branches.map(b => <li key={b.branch}><span>{b.branch}</span><b>{b.quantity}</b></li>)}</ul> : <p className="muted">None in stock.</p>}
           {res.inTransit.length > 0 && <><h3>On the way</h3><ul className="tk-rows">{res.inTransit.map(t => <li key={t.transferId}><span>{t.transferNumber}: {t.from} → {t.to}{t.since ? ` · since ${when(t.since)}` : ""}</span><b>{t.quantity}</b></li>)}</ul></>}

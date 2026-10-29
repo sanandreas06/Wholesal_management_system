@@ -6,10 +6,10 @@ import ConfirmBar from "./ConfirmBar";
 import { useWorkBranch } from "./useWorkBranch";
 import { api, ApiError } from "../../lib/api";
 
-interface Product { id: string; name: string; sku: string; barcodes?: string[]; trackItems?: boolean }
+interface Product { id: string; name: string; sku: string; barcodes?: string[]; ownCode?: string | null; trackItems?: boolean }
 interface POItem { id: string; productId: string; product: { id: string; name: string; sku: string }; quantityOrdered: number; quantityReceived: number }
 interface PO { id: string; orderNumber: string; status: string; branch: { id: string; name: string }; supplier?: { name: string } | null; items: POItem[] }
-interface Done { stock: number; labels: number; reference: string | null; number: string; byScan: boolean }
+interface Done { stock: number; labels: number; reference: string | null; number: string; byScan: boolean; /** what came in, to print product labels for */ items: { id: string; n: number }[] }
 
 /** Goods arriving at the warehouse or shop: scan every item in, against a purchase order or without one. */
 export default function GoodsIn() {
@@ -38,7 +38,7 @@ export default function GoodsIn() {
     const byId = new Map(products.map(p => [p.id, p]));
     setLines(po.items.filter(i => i.quantityReceived < i.quantityOrdered).map(i => {
       const p = byId.get(i.productId);
-      return { key: i.id, productId: i.productId, name: i.product.name, sku: i.product.sku, barcodes: p?.barcodes ?? [], trackItems: !!p?.trackItems, limit: i.quantityOrdered - i.quantityReceived, quantity: 0, scanned: 0, codes: [] };
+      return { key: i.id, productId: i.productId, name: i.product.name, sku: i.product.sku, barcodes: (p?.barcodes ?? []).filter(b => b !== p?.ownCode), trackItems: !!p?.trackItems, limit: i.quantityOrdered - i.quantityReceived, quantity: 0, scanned: 0, codes: [] };
     }));
   }, [po, products]);
 
@@ -52,14 +52,14 @@ export default function GoodsIn() {
           byScan: true, reason: allScanned ? undefined : reason,
           items: counted.map(l => ({ purchaseOrderItemId: l.key, quantityReceived: l.quantity, scannedCount: l.scanned })),
         });
-        setDone({ stock: counted.reduce((s, l) => s + l.quantity, 0), labels: Object.values(r.labels ?? {}).reduce((s, c) => s + c.length, 0), reference: r.labelReference, number: po.orderNumber, byScan: allScanned });
+        setDone({ stock: counted.reduce((s, l) => s + l.quantity, 0), labels: Object.values(r.labels ?? {}).reduce((s, c) => s + c.length, 0), reference: r.labelReference, number: po.orderNumber, byScan: allScanned, items: counted.filter(l => !l.trackItems).map(l => ({ id: l.productId, n: l.quantity })) });
       } else {
         const r = await api.post<{ reference: string; number: string; byScan: boolean; labels: Record<string, string[]> }>("/tracking/goods-in", {
           branchId, supplierName: supplier.trim() || undefined, reason: allScanned ? undefined : reason,
           lines: counted.map(l => ({ productId: l.productId, quantity: l.quantity, scanned: l.scanned })),
         });
         const n = Object.values(r.labels).reduce((s, c) => s + c.length, 0);
-        setDone({ stock: counted.reduce((s, l) => s + l.quantity, 0), labels: n, reference: n ? r.reference : null, number: r.number, byScan: r.byScan });
+        setDone({ stock: counted.reduce((s, l) => s + l.quantity, 0), labels: n, reference: n ? r.reference : null, number: r.number, byScan: r.byScan, items: counted.filter(l => !l.trackItems).map(l => ({ id: l.productId, n: l.quantity })) });
       }
       setLines([]); setReason("");
     } catch (e) { setError(e instanceof ApiError ? e.message : "Could not save. Check your connection and try again."); }
@@ -72,9 +72,11 @@ export default function GoodsIn() {
         <div className="sc-done-tick" aria-hidden="true">✓</div>
         <h2>{done.stock} item{done.stock === 1 ? "" : "s"} added to {branchName}</h2>
         <p className="muted">{done.number}{done.byScan ? " · every item scanned" : " · some typed by hand, the manager will check"}</p>
-        {done.labels > 0 && <p><b>{done.labels} item{done.labels === 1 ? " needs" : "s need"} a WHOLESTRA label.</b> Print them now and stick one on each item before it goes on the shelf.</p>}
+        {done.labels > 0 && <p><b>{done.labels} item{done.labels === 1 ? " needs" : "s need"} its own WHOLESTRA label.</b> Print them now and stick one on each item before it goes on the shelf.</p>}
+        {done.items.length > 0 && <p className="muted">Goods that do not carry their WHOLESTRA code yet: print their product labels and stick one on each.</p>}
         <div className="sc-done-acts">
-          {done.labels > 0 && done.reference && <a className="sc-go" href={`/labels?ref=${done.reference}`}>Print {done.labels} label{done.labels === 1 ? "" : "s"}</a>}
+          {done.labels > 0 && done.reference && <a className="sc-go" href={`/labels?ref=${done.reference}`}>Print {done.labels} item label{done.labels === 1 ? "" : "s"}</a>}
+          {done.items.length > 0 && <a className={done.labels > 0 ? "secondary btn-link" : "sc-go"} href={`/labels?products=${done.items.map(i => `${i.id}:${i.n}`).join(",")}`}>Print product labels ({done.items.reduce((t, i) => t + i.n, 0)})</a>}
           <button type="button" className="secondary" onClick={() => { setDone(null); setPoId(""); }}>Receive more goods</button>
           <a className="secondary btn-link" href="/scan">Back to Scan</a>
         </div>

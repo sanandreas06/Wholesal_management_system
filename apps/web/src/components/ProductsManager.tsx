@@ -11,7 +11,7 @@ import { currencySymbol, money } from "../lib/format";
 import { shrinkImage } from "../lib/image";
 import ProductThumb from "./home/ProductThumb";
 import CameraScanner from "./CameraScanner";
-import { makeStoreEan } from "../lib/barcode";
+import { barcodeSvg } from "../lib/barcode";
 
 interface Ref { id: string; name: string }
 interface Product {
@@ -25,6 +25,8 @@ interface Product {
   trackItems?: boolean;
   /** added by the store while scanning goods in: cannot be sold until a selling price is set */
   needsPrice?: boolean;
+  /** the product's own permanent WHOLESTRA code (on its labels); also the first of `barcodes` */
+  ownCode?: string | null;
 }
 
 
@@ -68,7 +70,7 @@ export default function ProductsManager() {
           <select value={fCategory} onChange={e => setFCategory(e.target.value)} aria-label="Category"><option value="">All categories</option>{categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}</select>
           <SavedViews storageKey="products" current={{ lowStockOnly, fCategory }} onApply={v => { setLowStockOnly(v.lowStockOnly); setFCategory(v.fCategory); }} />
           <button type="button" className="secondary" disabled={!shown.length} onClick={() => exportCsv("products", [
-            { header: "SKU", value: p => p.sku }, { header: "Name", value: p => p.name }, { header: "Category", value: p => p.categoryRef?.name },
+            { header: "SKU", value: p => p.sku }, { header: "WHOLESTRA code", value: p => p.ownCode ?? "" }, { header: "Name", value: p => p.name }, { header: "Category", value: p => p.categoryRef?.name },
             { header: "Brand", value: p => p.brand?.name }, { header: "Unit", value: p => p.unit?.name }, { header: "Price", value: p => Number(p.unitPrice) },
             ...(canProfit ? [{ header: "Cost", value: (p: Product) => (p.costPrice == null ? "" : Number(p.costPrice)) }] : []),
             { header: "Stock", value: p => p.stockQuantity }, { header: "Reorder level", value: p => p.reorderLevel },
@@ -108,6 +110,7 @@ export default function ProductsManager() {
                     <td>{p.reorderLevel}</td>
                     <td className="row-actions">
                       {canUpdate && <button className="secondary" onClick={() => setEditing(p)}>Edit</button>}
+                      {p.ownCode && <a className="button secondary" href={`/labels?product=${p.id}&n=${Math.max(1, Math.min(500, p.stockQuantity))}`} target="_blank" rel="noreferrer" title={`Print labels with code ${p.ownCode}`}>Labels</a>}
                       {canDelete && <button className="secondary" onClick={() => remove(p)}>Delete</button>}
                     </td>
                   </tr>
@@ -147,7 +150,8 @@ function ProductModal({ product, categories, brands, units, canProfit, onClose, 
   const [image, setImage] = useState<{ full: string; thumb: string } | undefined>(undefined);
   const [current, setCurrent] = useState<string | null>(product?.imageThumb ?? null);
   const [picking, setPicking] = useState(false);
-  const [barcodes, setBarcodes] = useState<string[]>(product?.barcodes ?? []);
+  // the maker's barcodes; the product's own WHOLESTRA code is shown apart and can never be removed
+  const [barcodes, setBarcodes] = useState<string[]>((product?.barcodes ?? []).filter(b => b !== product?.ownCode));
   const [code, setCode] = useState("");
   const [camera, setCamera] = useState(false);
   const [trackItems, setTrackItems] = useState(!!product?.trackItems);
@@ -228,7 +232,21 @@ function ProductModal({ product, categories, brands, units, canProfit, onClose, 
           </section>
 
           <section>
-            <h4>Barcodes</h4>
+            <h4>Codes</h4>
+            <div className="pm-own">
+              {product?.ownCode ? <>
+                <div className="pm-own-bars" dangerouslySetInnerHTML={{ __html: barcodeSvg(product.ownCode, 40) }} />
+                <div className="pm-own-text">
+                  <b>WHOLESTRA code {product.ownCode}</b>
+                  <span>This product&apos;s own permanent code. It never changes. Print it on labels (or with an ink-jet coder) and stick one on every item: the barcode is scanned to sell, the QR to find it.</span>
+                  <span className="pm-print">
+                    <input type="number" min={1} max={500} value={labelCount} onChange={e => setLabelCount(e.target.value)} aria-label="How many labels" />
+                    <a className="button secondary" href={`/labels?product=${product.id}&n=${Math.max(1, Math.min(500, Number(labelCount) || 1))}`} target="_blank" rel="noreferrer">Print labels</a>
+                  </span>
+                </div>
+              </> : <p className="muted fine">WHOLESTRA gives this product its own permanent code when you save it. You can then print its labels.</p>}
+            </div>
+            <p className="pm-sub">Maker&apos;s barcodes (optional)</p>
             <div className="pm-codes">
               <div className="pm-code-in">
                 {/* a USB scanner types the code and presses Enter: Enter adds it here instead of saving the form */}
@@ -237,14 +255,7 @@ function ProductModal({ product, categories, brands, units, canProfit, onClose, 
               </div>
               {barcodes.length > 0 && <ul className="pm-code-list">{barcodes.map(b => <li key={b}><code>{b}</code><button type="button" aria-label={`Remove barcode ${b}`} onClick={() => setBarcodes(x => x.filter(y => y !== b))}>×</button></li>)}</ul>}
               {suggest && <p className="pm-suggest">Found in {suggest.source}: <b>{suggest.name}</b>{name !== suggest.name && <> · <button type="button" className="linkish" onClick={() => setName(suggest.name)}>use this name</button></>}</p>}
-              <p className="muted fine">Use the barcode already printed on the item or its carton. Add both if the single item and the carton have different codes. Scanning a barcode first fills in the name when it is a known packaged product.</p>
-              <div className="pm-code-tools">
-                {barcodes.length === 0 && <button type="button" className="secondary" onClick={() => setBarcodes([makeStoreEan()])}>No barcode? Make one</button>}
-                {product && (product.barcodes?.length ?? 0) > 0 && <span className="pm-print">
-                  <input type="number" min={1} max={500} value={labelCount} onChange={e => setLabelCount(e.target.value)} aria-label="How many labels" />
-                  <a className="button secondary" href={`/labels?product=${product.id}&n=${Math.max(1, Math.min(500, Number(labelCount) || 1))}`} target="_blank" rel="noreferrer">Print barcode labels</a>
-                </span>}
-              </div>
+              <p className="muted fine">Only if you want the code the maker printed to scan too. The WHOLESTRA code above always works, so you can skip this. Scanning a barcode here first fills in the name when it is a known packaged product.</p>
             </div>
             <label className="pm-track">
               <input type="checkbox" checked={trackItems} onChange={e => setTrackItems(e.target.checked)} />

@@ -90,3 +90,22 @@ A barcode is only a number, so the first time a product arrives someone has to s
 - On send, receive and release screens, an unknown barcode can be added to one of the products on that list.
 - On **Products, New product**, scanning the barcode first fills in the name when it is a known packaged product.
 - To turn the public lookup off, set `BARCODE_LOOKUP=off` on Render. Only the barcode number is sent; nothing about your business.
+
+# Every product's own code (Batch 48)
+
+WHOLESTRA gives every product its **own permanent code**, so you no longer depend on the barcode the maker printed:
+
+- The code is a 13-digit retail barcode (EAN-13) starting with 2, the range kept for shops' own codes, for example 2356404880839. It is given once, when the product is created, and **never changes**. Products that existed before this update got theirs automatically.
+- Each label carries two codes:
+  - **Barcode, "scan to sell":** read by any USB scanner or phone camera at the counter and on every scan screen.
+  - **QR, "scan to find":** any phone camera opens WHOLESTRA on that product (after signing in): where it is in stock, what is on the road, and, for items with their own label, the item's whole story.
+- **Printing labels:**
+  - **Products:** the **Labels** button prints one per item in stock.
+  - **Edit a product:** shows its code and has **Print labels**.
+  - **After goods in:** **Print product labels** prints one for every item that just arrived.
+  - Label printer (50 × 30 mm) or A4 sticker sheets.
+- **Ink-jet coders (later):** **Export CSV** on Products now includes the WHOLESTRA code column. A coder prints the 13-digit number as an EAN-13 barcode straight onto bags and cartons. Use the same number, and it scans exactly like the label.
+- The **maker's barcode** is now optional. Add it on the product if you want it to scan too.
+- Phone camera scanning only accepts a code after reading it the same twice in a row, and ignores the rare barcode types that cameras most often misread. This stops the read from jumping between different numbers.
+- **Goods in:** arriving goods do not have their WHOLESTRA label yet, so a product with no maker's barcode is counted by eye there without a question. Label the goods before they go on the shelf: from then on every sale, transfer and release expects the label to be scanned.
+- **Stock already on your shelves:** print labels for it once (Products, then Labels on each product), otherwise cashiers have to give a reason for every unscanned sale.

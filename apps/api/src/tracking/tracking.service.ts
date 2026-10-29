@@ -6,6 +6,7 @@ import { InventoryService } from "../inventory/inventory.service";
 import { AuthUser } from "../common/types/auth-user.type";
 import { assertBranch, scopeOf } from "../common/branch/branch-scope";
 import { cleanCodes, newItemCode } from "./codes";
+import { codeFromScan } from "../products/own-code";
 
 type Tx = Prisma.TransactionClient;
 
@@ -96,10 +97,10 @@ export class TrackingService {
     if (!branch) throw new NotFoundException("Branch not found");
     const ids = [...new Set(dto.lines.map((l) => l.productId))];
     if (ids.length !== dto.lines.length) throw new BadRequestException("Each product should appear once.");
-    const products = await this.prisma.product.findMany({ where: { id: { in: ids }, organizationId: org }, select: { id: true, name: true, trackItems: true, barcodes: true } });
+    const products = await this.prisma.product.findMany({ where: { id: { in: ids }, organizationId: org }, select: { id: true, name: true, trackItems: true, barcodes: true, ownCode: true } });
     if (products.length !== ids.length) throw new NotFoundException("One or more products were not found");
     const byId = new Map(products.map((p) => [p.id, p]));
-    const counted = dto.lines.map((l) => { const p = byId.get(l.productId)!; return { name: p.name, quantity: l.quantity, scanned: l.scanned, exempt: !p.barcodes.length && !p.trackItems }; });
+    const counted = dto.lines.map((l) => { const p = byId.get(l.productId)!; return { name: p.name, quantity: l.quantity, scanned: l.scanned, exempt: !p.barcodes.some((b) => b !== p.ownCode) && !p.trackItems }; }); // arriving goods carry no WHOLESTRA label yet: only the maker's barcode can be scanned
     const all = TrackingService.scannedAll(counted);
     const reason = all ? undefined : TrackingService.needReason(dto.reason);
     const ref = randomUUID(), number = `GI-${new Date().toISOString().slice(2, 10).replace(/-/g, "")}-${ref.slice(0, 4).toUpperCase()}`;
@@ -172,7 +173,7 @@ export class TrackingService {
 
   /** Scan or type any code: an item label shows that item's story; a product barcode shows where that product is right now. */
   async find(user: AuthUser, raw: string) {
-    const org = user.organizationId, code = cleanCodes([raw])[0];
+    const org = user.organizationId, code = cleanCodes([codeFromScan(raw)])[0];
     if (!code) throw new BadRequestException("Scan or type a code.");
     const item = await this.prisma.stockItem.findFirst({ where: { organizationId: org, code }, include: { product: { select: { id: true, name: true, sku: true } }, events: { orderBy: { createdAt: "asc" } } } });
     if (item) {
@@ -196,7 +197,7 @@ export class TrackingService {
         history: item.events.map((e) => ({ type: e.type, at: e.createdAt, branch: e.branchId ? bn.get(e.branchId) ?? null : null, by: e.userId ? un.get(e.userId) ?? null : null, note: e.note, referenceType: e.referenceType, referenceId: e.referenceId })),
       };
     }
-    const product = await this.prisma.product.findFirst({ where: { organizationId: org, OR: [{ barcodes: { has: code } }, { sku: { equals: code, mode: "insensitive" } }] }, select: { id: true, name: true, sku: true, trackItems: true } });
+    const product = await this.prisma.product.findFirst({ where: { organizationId: org, OR: [{ barcodes: { has: code } }, { sku: { equals: code, mode: "insensitive" } }] }, select: { id: true, name: true, sku: true, trackItems: true, ownCode: true } });
     if (!product) throw new NotFoundException(`Nothing in WHOLESTRA has the code ${code}.`);
     const mine = scopeOf(user);
     const [stock, moving, missing] = await Promise.all([

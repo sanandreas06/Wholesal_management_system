@@ -25,7 +25,7 @@ export interface ScanLine {
   typed?: boolean;
 }
 
-interface Looked { id: string; name: string; sku: string; barcodes?: string[]; trackItems?: boolean; item?: { code: string; status: string; here?: boolean } }
+interface Looked { id: string; name: string; sku: string; barcodes?: string[]; ownCode?: string | null; trackItems?: boolean; item?: { code: string; status: string; here?: boolean } }
 
 const isItemLabel = (c: string) => /^W[2-9A-HJKMNP-Z]{9}$/i.test(c);
 
@@ -97,7 +97,8 @@ export default function ScanSession({ lines, setLines, allowAdd = false, labelsR
       line = latest.current.find(l => l.productId === found!.id);
       if (!line) {
         if (!allowAdd) { say(`${found.name} is not on this list.`, false); return; }
-        const fresh: ScanLine = { key: found.id, productId: found.id, name: found.name, sku: found.sku, barcodes: found.barcodes ?? [], trackItems: !!found.trackItems, quantity: countUp ? 1 : 0, scanned: 1, codes: label ? [up] : [] };
+        // goods in: only the maker's barcodes count as "can be scanned" (the WHOLESTRA label goes on after receiving)
+        const fresh: ScanLine = { key: found.id, productId: found.id, name: found.name, sku: found.sku, barcodes: (found.barcodes ?? []).filter(b => b !== found!.ownCode), trackItems: !!found.trackItems, quantity: countUp ? 1 : 0, scanned: 1, codes: label ? [up] : [] };
         setLines(prev => [fresh, ...prev]);
         say(`${found.name}: 1 scanned`, true);
         return;
@@ -125,8 +126,8 @@ export default function ScanSession({ lines, setLines, allowAdd = false, labelsR
       bump(have.key); say(`Barcode added to ${p.name}: ${have.scanned + 1} scanned`, true); return;
     }
     if (!allowAdd) { say(`Barcode added to ${p.name}.`, true); return; }
-    setLines(prev => [{ key: p.id, productId: p.id, name: p.name, sku: p.sku, barcodes: p.barcodes, trackItems: p.trackItems, quantity: countUp ? 1 : 0, scanned: 1, codes: [] }, ...prev]);
-    say(`${p.name}${p.needsPrice ? " added (the manager sets its price)" : " added"}: 1 scanned`, true);
+    setLines(prev => [{ key: p.id, productId: p.id, name: p.name, sku: p.sku, barcodes: p.barcodes.filter(b => b !== p.ownCode), trackItems: p.trackItems, quantity: countUp ? 1 : 0, scanned: 1, codes: [] }, ...prev]);
+    say(`${p.name} added${p.ownCode ? `, code ${p.ownCode}` : ""}${p.needsPrice ? " (the manager sets its price)" : ""}: 1 scanned`, true);
   }
 
   function setQty(key: string, v: string) {

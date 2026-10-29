@@ -15,7 +15,7 @@ export class CreateProductDto {
   /** The same picture, much smaller, for lists. */
   @IsOptional() @IsString() @MaxLength(14000) @Matches(/^(data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+)?$/, { message: "imageThumb must be a PNG, JPEG or WebP picture" }) imageThumb?: string;
   /** Barcodes on the product (maker's EAN/UPC, or a WHOLESTRA label). Scanning any of them finds the product. */
-  @IsOptional() @IsArray() @ArrayMaxSize(10) @IsString({ each: true }) @MaxLength(64, { each: true }) @Matches(/^[\x21-\x7E]+$/, { each: true, message: "A barcode can only contain letters, digits and symbols, with no spaces" }) barcodes?: string[];
+  @IsOptional() @IsArray() @ArrayMaxSize(11) @IsString({ each: true }) @MaxLength(64, { each: true }) @Matches(/^[\x21-\x7E]+$/, { each: true, message: "A barcode can only contain letters, digits and symbols, with no spaces" }) barcodes?: string[];
   /** Give every single item its own WHOLESTRA label so each one can be traced. */
   @IsOptional() @IsBoolean() trackItems?: boolean;
 }

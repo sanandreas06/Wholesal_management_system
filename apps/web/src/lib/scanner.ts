@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { codeFromScan } from "./barcode";
 
 /** USB and Bluetooth barcode scanners act like a keyboard: they "type" the code very fast and press Enter.
  *  This listens for that burst anywhere on the page (except while someone is typing in a text field, which handles Enter itself)
@@ -18,7 +19,7 @@ export function useScanner(onScan: (code: string) => void, enabled = true) {
       last = now;
       if (e.key === "Enter") {
         const avg = gaps.length ? gaps.reduce((a, b) => a + b, 0) / gaps.length : 999;
-        if (buf.length >= 4 && avg < 50) { e.preventDefault(); cb.current(buf); }
+        if (buf.length >= 4 && avg < 50) { e.preventDefault(); cb.current(codeFromScan(buf)); }
         buf = ""; gaps = [];
         return;
       }

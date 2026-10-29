@@ -115,9 +115,9 @@ export class PurchaseOrdersService {
     }
 
     // scanning: every line must say how many were scanned; anything less than all is questioned (with a reason)
-    const info = new Map((await this.prisma.product.findMany({ where:{ id:{ in: dto.items.map(l => poItemsById.get(l.purchaseOrderItemId)!.productId) } }, select:{ id:true, trackItems:true, barcodes:true } })).map(p => [p.id, p]));
+    const info = new Map((await this.prisma.product.findMany({ where:{ id:{ in: dto.items.map(l => poItemsById.get(l.purchaseOrderItemId)!.productId) } }, select:{ id:true, trackItems:true, barcodes:true, ownCode:true } })).map(p => [p.id, p]));
     const tracked = new Set([...info.values()].filter(p => p.trackItems).map(p => p.id));
-    const counted = dto.items.map(line => { const it = poItemsById.get(line.purchaseOrderItemId)!, p = info.get(it.productId); return { name: it.product.name, quantity: line.quantityReceived, scanned: dto.byScan ? (line.scannedCount ?? 0) : 0, exempt: !!p && !p.barcodes.length && !p.trackItems }; });
+    const counted = dto.items.map(line => { const it = poItemsById.get(line.purchaseOrderItemId)!, p = info.get(it.productId); return { name: it.product.name, quantity: line.quantityReceived, scanned: dto.byScan ? (line.scannedCount ?? 0) : 0, exempt: !!p && !p.barcodes.some(b => b !== p.ownCode) && !p.trackItems }; }); // no WHOLESTRA label on arriving goods yet
     const byScan = TrackingService.scannedAll(counted);
     const reason = byScan ? undefined : TrackingService.needReason(dto.reason ?? (dto.byScan ? undefined : "Received on the purchase order screen without scanning"));
 

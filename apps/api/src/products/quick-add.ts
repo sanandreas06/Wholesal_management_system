@@ -1,6 +1,7 @@
 import { BadRequestException, Body, ConflictException, Controller, Get, Injectable, Logger, NotFoundException, Post, Query, UseGuards } from "@nestjs/common";
 import { IsNumber, IsOptional, IsString, IsUUID, Matches, MaxLength, Min, MinLength } from "class-validator";
 import { PrismaService } from "../prisma/prisma.service";
+import { newOwnCode } from "./own-code";
 import { JwtAuthGuard } from "../common/guards/jwt-auth.guard";
 import { PermissionsGuard } from "../common/guards/permissions.guard";
 import { RequirePermissions } from "../common/decorators/permissions.decorator";
@@ -94,9 +95,9 @@ export class QuickAddService {
     if (mayPrice && dto.unitPrice === undefined) throw new BadRequestException("Set the selling price.");
     const category = dto.categoryId ? await this.prisma.category.findUnique({ where: { id: dto.categoryId }, select: { name: true } }) : null;
     const p = await this.prisma.product.create({
-      data: { organizationId: org, sku: await this.newSku(org, name), name, barcodes: [code], categoryId: dto.categoryId ?? null, category: category?.name ?? null,
+      data: { organizationId: org, sku: await this.newSku(org, name), name, ...await (async () => { const own = await newOwnCode(this.prisma, org); return { ownCode: own, barcodes: [own, code] }; })(), categoryId: dto.categoryId ?? null, category: category?.name ?? null,
         unitPrice: mayPrice ? dto.unitPrice! : 0, costPrice: mayPrice && maySeeCost && dto.costPrice !== undefined ? dto.costPrice : null, needsPrice: !mayPrice, stockQuantity: 0 },
-      select: { id: true, sku: true, name: true, barcodes: true, trackItems: true, needsPrice: true, unitPrice: true },
+      select: { id: true, sku: true, name: true, barcodes: true, ownCode: true, trackItems: true, needsPrice: true, unitPrice: true },
     });
     return { ...p, unitPrice: Number(p.unitPrice) };
   }
@@ -106,7 +107,7 @@ export class QuickAddService {
     const p = await this.prisma.product.findFirst({ where: { id: dto.productId, organizationId: org }, select: { id: true, name: true, barcodes: true } });
     if (!p) throw new NotFoundException("Product not found");
     await this.assertFree(org, code);
-    if (p.barcodes.length >= 10) throw new BadRequestException(`"${p.name}" already has 10 barcodes. Remove an old one on the product first.`);
+    if (p.barcodes.length >= 11) throw new BadRequestException(`"${p.name}" already has 10 barcodes. Remove an old one on the product first.`);
     const u = await this.prisma.product.update({ where: { id: p.id }, data: { barcodes: [...p.barcodes, code] }, select: { id: true, sku: true, name: true, barcodes: true, trackItems: true, needsPrice: true } });
     return u;
   }
