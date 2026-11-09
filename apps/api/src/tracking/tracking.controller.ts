@@ -1,12 +1,13 @@
-import { Body, Controller, Get, Module, Param, Patch, Post, Query, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Module, Param, Patch, Post, Put, Query, UseGuards } from "@nestjs/common";
 import { Type } from "class-transformer";
-import { ArrayMaxSize, ArrayMinSize, IsArray, IsIn, IsInt, IsOptional, IsString, IsUUID, Max, MaxLength, Min, ValidateNested } from "class-validator";
+import { ArrayMaxSize, ArrayMinSize, IsArray, IsBoolean, IsIn, IsInt, IsOptional, IsString, IsUUID, Max, MaxLength, Min, ValidateNested } from "class-validator";
 import { JwtAuthGuard } from "../common/guards/jwt-auth.guard";
 import { PermissionsGuard } from "../common/guards/permissions.guard";
 import { RequirePermissions } from "../common/decorators/permissions.decorator";
 import { CurrentUser } from "../common/decorators/current-user.decorator";
 import { AuthUser } from "../common/types/auth-user.type";
 import { InventoryModule } from "../inventory/inventory.module";
+import { WhereInput } from "../trips/geo";
 import { TrackingService } from "./tracking.service";
 
 export class ScanLineInput {
@@ -22,6 +23,7 @@ export class GoodsInDto {
   @IsOptional() @IsString() @MaxLength(300) reason?: string;
   @IsOptional() @IsString() @MaxLength(300) note?: string;
   @IsOptional() @IsString() @MaxLength(120) supplierName?: string;
+  @IsOptional() @ValidateNested() @Type(() => WhereInput) where?: WhereInput;
 }
 
 export class LabelRunDto {
@@ -31,6 +33,12 @@ export class LabelRunDto {
 }
 
 export class FoundDto { @IsUUID() branchId!: string }
+export class TrackAllDto { @IsBoolean() on!: boolean }
+export class StickDto {
+  @IsArray() @ArrayMaxSize(2000) @IsString({ each: true }) @MaxLength(200, { each: true }) codes!: string[];
+  @IsOptional() @IsBoolean() finish?: boolean;
+  @IsOptional() @ValidateNested() @Type(() => WhereInput) where?: WhereInput;
+}
 export class ExplainDto { @IsString() @MaxLength(1000) explanation!: string }
 export class CloseIssueDto { @IsIn(["CLEARED", "AT_FAULT", "RECOVERED"]) outcome!: string; @IsString() @MaxLength(1000) resolution!: string }
 
@@ -59,6 +67,29 @@ export class TrackingController {
 
   @Post("labels") @RequirePermissions("GOODS_RECEIVING:CREATE")
   labelRun(@CurrentUser() u: AuthUser, @Body() dto: LabelRunDto) { return this.svc.labelExisting(u, dto); }
+
+  /** Labels for all tracked stock at a branch that has none yet (up to 1000 per press). */
+  @Post("labels/all") @RequirePermissions("GOODS_RECEIVING:CREATE")
+  labelAll(@CurrentUser() u: AuthUser, @Body() dto: FoundDto) { return this.svc.labelAllAt(u, dto.branchId); }
+
+  /** Print runs at a branch whose labels still wait to be stuck on and scanned. */
+  @Get("stick") @RequirePermissions("GOODS_RECEIVING:READ", "GOODS_RECEIVING:CREATE", "INVENTORY:READ")
+  openRuns(@CurrentUser() u: AuthUser, @Query("branchId") branchId: string) { return this.svc.openRuns(u, branchId); }
+
+  @Get("stick/:ref") @RequirePermissions("GOODS_RECEIVING:READ", "GOODS_RECEIVING:CREATE", "INVENTORY:READ")
+  stickRun(@CurrentUser() u: AuthUser, @Param("ref") ref: string) { return this.svc.stickRun(u, ref); }
+
+  /** Labels stuck on and scanned become stock; with finish, the labels never scanned are cancelled. */
+  @Post("stick/:ref") @RequirePermissions("GOODS_RECEIVING:CREATE")
+  stick(@CurrentUser() u: AuthUser, @Param("ref") ref: string, @Body() dto: StickDto) { return this.svc.stick(u, ref, dto); }
+
+  /** "Every item gets its own label" for the whole company. */
+  @Get("track-all") @RequirePermissions("GOODS_RECEIVING:READ", "INVENTORY:READ", "ORGANIZATION:READ")
+  trackAll(@CurrentUser() u: AuthUser) { return this.svc.trackAll(u); }
+
+  /** Only the owner (and anyone else who may change the company settings) turns it on or off. */
+  @Put("track-all") @RequirePermissions("ORGANIZATION:UPDATE")
+  setTrackAll(@CurrentUser() u: AuthUser, @Body() dto: TrackAllDto) { return this.svc.setTrackAll(u, dto.on); }
 
   @Get("labels") @RequirePermissions("GOODS_RECEIVING:READ", "INVENTORY:READ")
   labels(@CurrentUser() u: AuthUser, @Query("reference") reference?: string, @Query("codes") codes?: string) { return this.svc.labels(u, { reference, codes: codes ? codes.split(",") : undefined }); }

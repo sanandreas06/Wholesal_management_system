@@ -155,6 +155,8 @@ function ProductModal({ product, categories, brands, units, canProfit, onClose, 
   const [code, setCode] = useState("");
   const [camera, setCamera] = useState(false);
   const [trackItems, setTrackItems] = useState(!!product?.trackItems);
+  // a new product follows the company switch "Every item gets its own label"
+  useEffect(() => { if (!product) api.get<{ on: boolean }>("/tracking/track-all").then(r => { if (r.on) setTrackItems(true); }).catch(() => {}); }, [product]);
   const [labelCount, setLabelCount] = useState("10");
   const [suggest, setSuggest] = useState<{ name: string; source: string } | null>(null);
   const addCode = (c: string) => {

@@ -22,6 +22,7 @@ export default function ScanHub() {
   const [issues, setIssues] = useState(0);
   const [owed, setOwed] = useState(0);
   const [noCode, setNoCode] = useState<string[]>([]);
+  const [runs, setRuns] = useState<{ reference: string; number: string; waiting: number }[]>([]);
   useEffect(() => setUser(getSessionUser()), []);
   const can = (p: string) => !!user?.permissions.includes(p);
 
@@ -30,6 +31,7 @@ export default function ScanHub() {
     api.get<Transfer[]>("/stock-transfers").then(setTransfers).catch(() => setTransfers([]));
     api.get<Unlabelled[]>(`/tracking/unlabelled?branchId=${branchId}`).then(setUnlabelled).catch(() => setUnlabelled([]));
     api.get<{ status: string }[]>("/tracking/issues?status=OPEN").then(l => setIssues(l.length)).catch(() => setIssues(0));
+    api.get<{ reference: string; number: string; waiting: number }[]>(`/tracking/stick?branchId=${branchId}`).then(setRuns).catch(() => setRuns([]));
     api.get<unknown[]>(`/releases/owed?branchId=${branchId}`).then(l => setOwed(l.length)).catch(() => setOwed(0));
     api.get<{ name: string; barcodes?: string[]; trackItems?: boolean }[]>(`/products?branchId=${branchId}`).then(ps => setNoCode(ps.filter(p => !p.barcodes?.length && !p.trackItems).map(p => p.name))).catch(() => setNoCode([]));
   }
@@ -53,6 +55,7 @@ export default function ScanHub() {
           <a className="sc-tile" href="/tracking"><span className="sc-ti" aria-hidden="true">🔎</span><b>Find an item</b><small>Scan any label to see where it is and where it has been</small></a>
         </div>
 
+        {runs.map(r => <a key={r.reference} className="sc-alert" href={`/scan/stick?ref=${r.reference}`}><b>{r.waiting} label{r.waiting === 1 ? "" : "s"} to stick on and scan · {r.number}</b><span>Not stock until each label is on its item and scanned. Open to carry on.</span></a>)}
         {issues > 0 && <a className="sc-alert" href="/tracking?tab=issues"><b>{issues} handover{issues === 1 ? "" : "s"} to explain</b><span>Goods not scanned, or fewer arrived than were sent. Open to explain.</span></a>}
         {noCode.length > 0 && can("PRODUCTS:UPDATE") && <a className="sc-alert soft" href="/products"><b>{noCode.length} product{noCode.length === 1 ? " has" : "s have"} no barcode, so {noCode.length === 1 ? "it" : "they"} cannot be checked by scanning</b><span>{noCode.slice(0, 3).join(", ")}{noCode.length > 3 ? ` and ${noCode.length - 3} more` : ""}. Open the product, press &quot;No barcode? Make one&quot;, then print labels.</span></a>}
         {missingLabels > 0 && can("GOODS_RECEIVING:CREATE") && <a className="sc-alert soft" href="/tracking?tab=labels"><b>{missingLabels} item{missingLabels === 1 ? "" : "s"} at {branchName} still need a label</b><span>{unlabelled.slice(0, 3).map(u => `${u.missing} × ${u.name}`).join(", ")}{unlabelled.length > 3 ? "…" : ""}</span></a>}

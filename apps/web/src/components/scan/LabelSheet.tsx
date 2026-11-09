@@ -18,10 +18,12 @@ export default function LabelSheet() {
   const [error, setError] = useState("");
   const [kind, setKind] = useState<"item" | "product">("item");
 
+  const [stickRef, setStickRef] = useState("");
   useEffect(() => {
     try { const s = localStorage.getItem("wms_label_size"); if (s === "a4" || s === "roll") setSize(s); } catch { /* ignore */ }
     const q = new URLSearchParams(window.location.search);
-    const ref = q.get("ref"), codes = q.get("codes"), n = Math.min(500, Math.max(1, Number(q.get("n")) || 1));
+    const ref = q.get("ref"), codes = q.get("codes"); setStickRef(ref ?? "");
+    const n = Math.min(500, Math.max(1, Number(q.get("n")) || 1));
     // product labels: ?product=<id>&n=10, or several at once ?products=<id>:12,<id>:24 (after goods in)
     const wanted = q.get("products") ? q.get("products")!.split(",").map(x => x.split(":")).map(([id, k]) => ({ id, n: Math.min(500, Math.max(1, Number(k) || 1)) })) : q.get("product") ? [{ id: q.get("product")!, n }] : [];
     if (wanted.length) {
@@ -52,6 +54,7 @@ export default function LabelSheet() {
           <button role="radio" aria-checked={size === "a4"} className={size === "a4" ? "on" : ""} onClick={() => pick("a4")}>A4 sticker sheet</button>
         </div>
         <button className="lb-print" disabled={!labels?.length} onClick={() => window.print()}>Print</button>
+        {kind === "item" && stickRef && <a className="lb-next" href={`/scan/stick?ref=${stickRef}`}>Next: stick on and scan →</a>}
       </div>
       {error && <div className="error no-print">{error}</div>}
       {labels && (

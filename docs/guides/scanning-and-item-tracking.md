@@ -8,7 +8,7 @@ Every time goods change hands, someone scans them. WHOLESTRA compares the scans 
 |---|---|---|
 | What is scanned | The maker's barcode already on the bag or carton | A WHOLESTRA label stuck on each single item |
 | What WHOLESTRA knows | How many are at each branch, how many are on the road, and at which handover any went missing | All of that, plus where each single item is and its whole story |
-| Set up | Add the barcode to the product (Products, Edit, Barcodes). No barcode? Press "Make one" and print labels | Products, Edit, tick **Track each item**. Labels print when the goods are scanned in |
+| Set up | Add the barcode to the product (Products, Edit, Barcodes). No barcode? Press "Make one" and print labels | Products, Edit, tick **Track each item**, or turn it on for every product at once (Item Tracking, then Labels). Labels print when the goods are scanned in |
 
 ## The jobs (Inventory, then Scan)
 
@@ -109,3 +109,69 @@ WHOLESTRA gives every product its **own permanent code**, so you no longer depen
 - Phone camera scanning only accepts a code after reading it the same twice in a row, and ignores the rare barcode types that cameras most often misread. This stops the read from jumping between different numbers.
 - **Goods in:** arriving goods do not have their WHOLESTRA label yet, so a product with no maker's barcode is counted by eye there without a question. Label the goods before they go on the shelf: from then on every sale, transfer and release expects the label to be scanned.
 - **Stock already on your shelves:** print labels for it once (Products, then Labels on each product), otherwise cashiers have to give a reason for every unscanned sale.
+
+# Live location of goods on the road (Batch 49)
+
+A barcode or QR sticker cannot report where it is: it has no battery, GPS or signal. Courier apps work the same way: the moving vehicle on their map is the **driver's phone**. WHOLESTRA does the same.
+
+## Set up once
+- **Branches:** press **📍 Pin location** on each branch, standing inside it with the phone's location turned on. Trips then show where they start (A) and end (B).
+
+## Every scan records where it happened
+- When goods are scanned in, sent, received or released, the phone or computer adds its location, if the person allowed location for the site. Nobody is blocked if they refuse.
+- On **Item Tracking, then Find**, an item with its own label shows a map of the places it was scanned.
+
+## Following goods on the road
+1. Send goods as usual (**Scan, then Send**), or release goods for delivery (**Scan, then Release to customer**).
+2. On the done screen, under **Follow it on the map**, type the driver's name, phone and vehicle, then press **Make the driver's link**, then **Send on WhatsApp**.
+3. The driver opens the link (no account, no app) and taps **Start trip**. While the page is open, the phone sends its location every 20 seconds. With no signal, the points are kept on the phone and sent later.
+4. You see the vehicle move on:
+   - the transfer's own page;
+   - **Find**, when you scan a product or item that is on the road;
+   - **Item Tracking, then On the road**, which shows every vehicle at once.
+
+   The map shows the start (A), the road travelled (solid line), the vehicle now, what is left (dashed line to B), when the driver was last seen, and roughly how many km are left.
+5. The trip ends by itself, and the driver's page says "Trip finished", when the goods are scanned in at the other branch, when the customer confirms with the receipt QR, or when the transfer is cancelled. A trip with no location for 2 days counts as ended.
+
+## Good to know
+- Phones pause web pages when the screen locks for a long time. The driver's page keeps the screen awake where the phone allows it. If it was locked, opening the link again carries on and loses nothing. A small installable driver app can remove this limit later.
+- For trucks, a GPS tracker fixed in the vehicle can feed the same map without the driver's phone (a later step).
+- The driver's location is shared only while that trip is open. They are told so before they start, and their page shows when sharing stops.
+- Map images come from OpenStreetMap (free, credited on the map). For heavy use, a paid map provider can be set with `NEXT_PUBLIC_MAP_TILES` and `NEXT_PUBLIC_MAP_CREDIT` on Vercel.
+
+# A label on every item, and old stock cannot come in as new (Batch 50)
+
+A product barcode is the same on every bag of that product. If someone scans one bag twice, WHOLESTRA counts two, and a missing bag can hide behind the double scan. A WHOLESTRA item label is different: each one is unique and counts **once**, anywhere. A second scan of the same label is refused on every screen ("Label W… was already scanned").
+
+## Give every item its own label (owner)
+- **Item Tracking, then Labels**, then **Turn on for every product**. Only the owner, or someone who may change the company settings, can do this.
+- Every product gets **Track each item**, and every new product gets it too, including products added while scanning at Goods in. The product form can still untick it for one product.
+- **Turn off for new products** stops new products from being tracked. Products already tracked stay tracked, so labels already stuck on keep working.
+
+## Do this first: labels for stock already on the shelf
+1. On **Item Tracking, then Labels**, pick the branch and press **Print all missing labels**. It makes a label for every item on the shelf that has none, up to 1000 per press. Press it again for the rest.
+2. Print them (label printer or A4 sticker sheets) and stick one on each item.
+3. Do this for each branch. Until it is done, the counter cannot scan those items. Cashiers must give a reason, and the manager is asked to check.
+
+## Goods in: no old stock counted as new
+- Goods from a supplier have no WHOLESTRA label yet. If a label WHOLESTRA already knows is scanned at **Goods in**, with or without a purchase order, the scan is refused, for example: "Stop: Malt Drink Case (W…) is already in stock at Kumasi Central. It is not new stock." The server refuses it too, so a hand-edited request cannot get through.
+
+# A label only counts once it is on an item and scanned (Batch 51)
+
+When goods arrive, the bags only carry the maker's barcode, which is the same on every bag, so a bag scanned twice while counting would count as two. To stop that, a counted item is **not stock yet**. Only a label that is stuck on an item and then scanned makes stock:
+
+1. **Goods in:** scan the goods off the truck as before. The screen says "6 items counted", not "added".
+2. **Print the labels** (one per item counted).
+3. **Stick and scan:** stick one label on each item, then scan that label. Each label counts once. A second scan of it is refused, and so is the maker's barcode.
+4. Press **Done**. If a label is left over with no item to go on (for example one bag was scanned twice while counting), it was never scanned, so:
+   - it is **cancelled** and can never be used;
+   - the stock is lowered to what was really labelled;
+   - on a purchase order, the order and the receipt go down too, so the supplier still owes it;
+   - the owner gets a question: "GI-…: fewer items than were counted".
+
+Good to know:
+- **Save, finish later** keeps what was scanned so far. The Scan page and Item Tracking, then Labels show every list still waiting, with **Stick and scan**. Scans not yet sent are also kept on the phone if the page is closed.
+- A label waiting to be scanned cannot be sold, sent or released: "not stock yet".
+- **Print these labels again** reprints the same codes (for a jammed printer), so a reprint still counts once.
+- **Labels for stock already on the shelf** work the same way, so they double as a shelf count. A label with no item to go on means that item is not on the shelf: Done cancels it, lowers the stock and asks the branch where it went ("Items not on the shelf").
+- Stock with labels from before this update keeps working as it is.

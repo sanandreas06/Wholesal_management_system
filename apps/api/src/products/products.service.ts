@@ -83,13 +83,14 @@ export class ProductsService {
     if (!c) throw new NotFoundException("No barcode was read.");
     // a WHOLESTRA item label: that exact item (it must still be on the shelf to be sold or sent)
     const item = /^w/i.test(c) && c.length === 10 ? await this.prisma.stockItem.findFirst({ where:{ organizationId, code: c.toUpperCase() }, select:{ code:true, status:true, branchId:true, productId:true } }) : null;
+    const itemBranch = item?.branchId ? (await this.prisma.branch.findUnique({ where:{ id:item.branchId }, select:{ name:true } }))?.name ?? null : null;
     let product = item ? await this.prisma.product.findFirst({ where:{ id: item.productId, organizationId }, include:productInclude })
       : await this.prisma.product.findFirst({ where:{ organizationId, barcodes:{ has: c } }, include:productInclude })
         ?? await this.prisma.product.findFirst({ where:{ organizationId, sku:{ equals: c, mode:"insensitive" } }, include:productInclude });
     if (!product) throw new NotFoundException(`No product has the barcode ${c}. Add it to the product first.`);
     if (branchId) [product] = await this.atBranch(organizationId, branchId, [product]);
     const out = scrub(product, canSeeCost);
-    return item ? { ...out, item: { code: item.code, status: item.status, here: !branchId || item.branchId === branchId } } : out;
+    return item ? { ...out, item: { code: item.code, status: item.status, here: !branchId || item.branchId === branchId, branch: itemBranch } } : out;
   }
 
   async create(organizationId: string, dto: CreateProductDto, canSeeCost = false) {
@@ -99,6 +100,8 @@ export class ProductsService {
     if(existing) throw new ConflictException(`SKU "${dto.sku}" already exists`);
     // every new product gets its own permanent code, printed on its labels
     const ownCode = await newOwnCode(this.prisma, organizationId);
+    // "every item gets its own label" switched on for the company: new products too, unless the form says otherwise
+    if (dto.trackItems === undefined) dto = { ...dto, trackItems: (await this.prisma.organization.findUnique({ where:{ id: organizationId }, select:{ trackAllItems:true } }))?.trackAllItems ?? false };
     dto = { ...dto, barcodes: await this.cleanBarcodes(organizationId, dto.barcodes ?? [], undefined, ownCode) };
     return scrub(await this.prisma.product.create({ data:{ ...dto, ownCode, imageUrl: dto.imageUrl || null, imageThumb: dto.imageThumb || null, organizationId }, include:productInclude, omit:{imageUrl:true} }), canSeeCost);
   }

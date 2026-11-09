@@ -1,0 +1,28 @@
+/* Batch 49: the driver's trip page (a phone in a vehicle: big, simple, readable in sunlight) */
+.dv { min-height: 100vh; background: #0B1B3E; color: #fff; display: flex; flex-direction: column; align-items: center; padding: 18px 14px 26px; }
+.dv-card { width: 100%; max-width: 440px; background: #fff; color: #1A2332; border-radius: 22px; padding: 20px; box-sizing: border-box; }
+.dv-head { display: flex; gap: 12px; align-items: center; margin-bottom: 16px; }
+.dv-head div { display: flex; flex-direction: column; }
+.dv-head b { font-size: 16px; }
+.dv-head span { color: #6B7280; font-size: 13px; }
+.dv-mark { width: 42px; height: 42px; border-radius: 12px; background: #0B1B3E; display: grid; place-items: center; }
+.dv-route { display: flex; align-items: center; gap: 10px; background: #F3F6FB; border-radius: 14px; padding: 14px; }
+.dv-route div { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+.dv-route span { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: #6B7280; font-weight: 700; }
+.dv-route b { font-size: 16px; overflow-wrap: anywhere; }
+.dv-route i { font-style: normal; font-size: 22px; color: #E8590C; font-weight: 800; }
+.dv-muted { color: #6B7280; font-size: 14px; margin: 10px 0; }
+.dv-small { font-size: 12.5px; line-height: 1.5; }
+.dv-start { width: 100%; min-height: 64px; border: 0; border-radius: 16px; background: #E8590C; color: #fff; font-size: 20px; font-weight: 800; margin-top: 8px; cursor: pointer; }
+.dv-stop { width: 100%; min-height: 48px; border-radius: 14px; border: 1.5px solid #E2E5EA; background: #fff; color: #1A2332; font-size: 15px; font-weight: 700; margin-top: 8px; cursor: pointer; }
+.dv-live { text-align: center; padding: 8px 0 0; }
+.dv-live h1, .dv-done h1 { font-size: 22px; margin: 10px 0 4px; color: #0B1B3E; }
+.dv-pulse { width: 22px; height: 22px; margin: 10px auto 0; border-radius: 50%; background: #E8590C; animation: dv-p 1.6s infinite; }
+@keyframes dv-p { 0% { box-shadow: 0 0 0 0 rgba(232, 89, 12, .55); } 100% { box-shadow: 0 0 0 26px rgba(232, 89, 12, 0); } }
+.dv-tip { background: #FFF4E5; color: #7C2D12; border-radius: 12px; padding: 10px 12px; font-size: 13.5px; margin: 12px 0 0; }
+.dv-warn { color: #B23B3B; font-weight: 600; font-size: 14px; }
+.dv-err { color: #B23B3B; font-weight: 600; }
+.dv-done { text-align: center; padding: 10px 0; }
+.dv-tick { width: 64px; height: 64px; margin: 0 auto; border-radius: 50%; background: #E7F7EC; color: #16A34A; display: grid; place-items: center; font-size: 32px; font-weight: 800; }
+.dv-done p { color: #4B5563; line-height: 1.5; }
+.dv-foot { margin-top: 14px; font-size: 12px; letter-spacing: .14em; color: #B4C0DC; }

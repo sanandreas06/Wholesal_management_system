@@ -114,6 +114,7 @@ export class PurchaseOrdersService {
       }
     }
 
+    await this.tracking.assertNewGoods(organizationId, dto.items.flatMap(l => l.itemCodes ?? []));
     // scanning: every line must say how many were scanned; anything less than all is questioned (with a reason)
     const info = new Map((await this.prisma.product.findMany({ where:{ id:{ in: dto.items.map(l => poItemsById.get(l.purchaseOrderItemId)!.productId) } }, select:{ id:true, trackItems:true, barcodes:true, ownCode:true } })).map(p => [p.id, p]));
     const tracked = new Set([...info.values()].filter(p => p.trackItems).map(p => p.id));

@@ -6,17 +6,19 @@ import { HandoverDto } from "./dto/handover.dto";
 import { TrackingService } from "../tracking/tracking.service";
 import { cleanCodes } from "../tracking/codes";
 import { reservedAt } from "../releases/reserved";
+import { place } from "../trips/geo";
+import { TripsService } from "../trips/trips";
 
 const transferInclude = {
-  fromBranch:{select:{id:true,name:true}},
-  toBranch:{select:{id:true,name:true}},
+  fromBranch:{select:{id:true,name:true,lat:true,lng:true}},
+  toBranch:{select:{id:true,name:true,lat:true,lng:true}},
   createdBy:{select:{id:true,name:true}},
   items:{include:{product:{select:{id:true,name:true,sku:true,barcodes:true,trackItems:true}}}}
 };
 
 @Injectable()
 export class StockTransfersService {
-  constructor(private readonly prisma: PrismaService, private readonly inventory: InventoryService, private readonly tracking: TrackingService) {}
+  constructor(private readonly prisma: PrismaService, private readonly inventory: InventoryService, private readonly tracking: TrackingService, private readonly trips: TripsService) {}
 
   list(organizationId: string, branchId?: string) {
     return this.prisma.stockTransfer.findMany({ where:{organizationId, ...(branchId ? {OR:[{fromBranchId:branchId},{toBranchId:branchId}]} : {})}, orderBy:{createdAt:"desc"}, include:transferInclude });
@@ -115,7 +117,7 @@ export class StockTransfersService {
             items = await tx.stockItem.findMany({ where:{ organizationId, productId:l.item.productId, branchId:transfer.fromBranchId, status:"IN_STOCK" }, orderBy:{ createdAt:"asc" }, take:l.quantity, select:{ id:true } });
           }
           await tx.stockItem.updateMany({ where:{ id:{ in: items.map(i => i.id) } }, data:{ status:"IN_TRANSIT", branchId:null, transferId:transfer.id } });
-          await this.tracking.events(tx, organizationId, items.map(i => i.id), { type:"SENT", branchId:transfer.fromBranchId, userId, referenceType:"StockTransfer", referenceId:transfer.id, note:`${transfer.transferNumber} to ${transfer.toBranch.name}${l.codes.length ? "" : " (not scanned)"}` });
+          await this.tracking.events(tx, organizationId, items.map(i => i.id), { type:"SENT", branchId:transfer.fromBranchId, userId, referenceType:"StockTransfer", referenceId:transfer.id, note:`${transfer.transferNumber} to ${transfer.toBranch.name}${l.codes.length ? "" : " (not scanned)"}`, where:place(dto?.where) });
         }
       }
       if (!byScan) {
@@ -124,7 +126,8 @@ export class StockTransfersService {
           title:`${transfer.transferNumber} sent without scanning everything`, detail:`${missed.join(", ")} left ${transfer.fromBranch.name} for ${transfer.toBranch.name} counted by hand. Reason given: ${reason}`,
           referenceType:"StockTransfer", referenceId:transfer.id, referenceNumber:transfer.transferNumber, userId });
       }
-      return tx.stockTransfer.update({ where:{id}, data:{status:"DISPATCHED", dispatchedByUserId:userId, dispatchedAt:new Date(), sentByScan:byScan}, include:transferInclude });
+      const at = place(dto?.where);
+      return tx.stockTransfer.update({ where:{id}, data:{status:"DISPATCHED", dispatchedByUserId:userId, dispatchedAt:new Date(), sentByScan:byScan, sentLat:at?.lat ?? null, sentLng:at?.lng ?? null}, include:transferInclude });
     });
   }
 
@@ -157,7 +160,7 @@ export class StockTransfersService {
           const got = new Set(arrived.map(a => a.id)), lost = onTruck.filter(t => !got.has(t.id));
           missingCodes = lost.map(t => t.code);
           await tx.stockItem.updateMany({ where:{ id:{ in:[...got] } }, data:{ status:"IN_STOCK", branchId:transfer.toBranchId, transferId:null } });
-          await this.tracking.events(tx, organizationId, [...got], { type:"ARRIVED", branchId:transfer.toBranchId, userId, referenceType:"StockTransfer", referenceId:transfer.id, note:`${transfer.transferNumber} from ${transfer.fromBranch.name}${l.codes.length ? "" : " (not scanned)"}` });
+          await this.tracking.events(tx, organizationId, [...got], { type:"ARRIVED", branchId:transfer.toBranchId, userId, referenceType:"StockTransfer", referenceId:transfer.id, note:`${transfer.transferNumber} from ${transfer.fromBranch.name}${l.codes.length ? "" : " (not scanned)"}`, where:place(dto?.where) });
           if (lost.length) {
             await tx.stockItem.updateMany({ where:{ id:{ in: lost.map(t => t.id) } }, data:{ status:"MISSING" } });
             await this.tracking.events(tx, organizationId, lost.map(t => t.id), { type:"MISSING", branchId:null, userId, referenceType:"StockTransfer", referenceId:transfer.id, note:`Not scanned in at ${transfer.toBranch.name} on ${transfer.transferNumber}` });
@@ -177,11 +180,14 @@ export class StockTransfersService {
           title:`${transfer.transferNumber} received without scanning everything`, detail:`${missed.join(", ")} came into ${transfer.toBranch.name} counted by hand. Reason given: ${reason}`,
           referenceType:"StockTransfer", referenceId:transfer.id, referenceNumber:transfer.transferNumber, userId });
       }
-      return tx.stockTransfer.update({ where:{id}, data:{status:"RECEIVED", receivedByUserId:userId, receivedAt:new Date(), receivedByScan:byScan}, include:transferInclude });
+      const at = place(dto?.where);
+      await this.trips.endFor(tx, { transferId:transfer.id }, `Scanned in at ${transfer.toBranch.name}`);
+      return tx.stockTransfer.update({ where:{id}, data:{status:"RECEIVED", receivedByUserId:userId, receivedAt:new Date(), receivedByScan:byScan, receivedLat:at?.lat ?? null, receivedLng:at?.lng ?? null}, include:transferInclude });
     });
   }
 
   async cancel(organizationId: string, id: string) {
+    await this.trips.endTrips({ transferId: id }, "Transfer cancelled");
     const transfer = await this.get(organizationId, id);
     if(transfer.status === "DISPATCHED" || transfer.status === "RECEIVED") {
       throw new ConflictException("Cannot cancel a transfer that has already been dispatched — stock is in transit");

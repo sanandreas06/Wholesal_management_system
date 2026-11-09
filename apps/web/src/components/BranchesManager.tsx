@@ -5,9 +5,10 @@ import { api, ApiError } from "../lib/api";
 import { toast } from "../lib/toast";
 import { usePermissions } from "../hooks/usePermissions";
 import { getSessionUser } from "../lib/session";
+import { here } from "../lib/geo";
 
 interface Region { id: string; name: string; code: string }
-interface Branch { id: string; name: string; code: string; location: string | null; regionId: string | null; region: Region | null }
+interface Branch { id: string; name: string; code: string; location: string | null; regionId: string | null; region: Region | null; lat?: number | null; lng?: number | null }
 
 export default function BranchesManager() {
   const [branches, setBranches] = useState<Branch[] | null>(null);
@@ -16,6 +17,15 @@ export default function BranchesManager() {
   const [editing, setEditing] = useState<Branch | "new" | null>(null);
 
   const [canCreate, canUpdate, canDelete] = usePermissions("BRANCHES:CREATE", "BRANCHES:UPDATE", "BRANCHES:DELETE");
+
+  /** Puts the branch on the map from this phone's GPS: do it standing in the branch. Used for the live map of goods on the road. */
+  async function pin(b: Branch) {
+    if (!window.confirm(`Pin ${b.name} at the place where this device is now?\n\nDo this standing inside ${b.name}, with the phone's location turned on.`)) return;
+    const p = await here(15_000);
+    if (!p) { toast.error("Could not get this device's location. Allow location for this site and turn on GPS, then try again."); return; }
+    try { await api.put(`/branches/${b.id}/location`, p); toast.success(`${b.name} is on the map.`); setBranches(list => list && list.map(x => x.id === b.id ? { ...x, lat: p.lat, lng: p.lng } : x)); }
+    catch (e) { toast.error(e instanceof ApiError ? e.message : "Could not save the location."); }
+  }
 
   function load() {
     api.get<Branch[]>("/branches").then(setBranches).catch(e => setError(e.message));
@@ -52,6 +62,7 @@ export default function BranchesManager() {
                   <td>{b.location || "—"}</td>
                   <td className="row-actions">
                     {canUpdate && <button className="secondary" onClick={() => setEditing(b)}>Edit</button>}
+                    {canUpdate && <button className="secondary" title={b.lat != null ? `On the map at ${b.lat.toFixed(4)}, ${b.lng?.toFixed(4)}` : "Not on the map yet"} onClick={() => pin(b)}>{b.lat != null ? "📍 Move pin" : "📍 Pin location"}</button>}
                     {canDelete && <button className="secondary" onClick={() => remove(b)}>Delete</button>}
                   </td>
                 </tr>

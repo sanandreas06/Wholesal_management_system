@@ -9,6 +9,8 @@ import { InventoryService } from "../inventory/inventory.service";
 import { TrackingModule } from "../tracking/tracking.controller";
 import { TrackingService } from "../tracking/tracking.service";
 import { cleanCodes } from "../tracking/codes";
+import { WhereInput, place } from "../trips/geo";
+import { TripsModule, TripsService } from "../trips/trips";
 import { JwtAuthGuard } from "../common/guards/jwt-auth.guard";
 import { PermissionsGuard } from "../common/guards/permissions.guard";
 import { RequirePermissions } from "../common/decorators/permissions.decorator";
@@ -37,6 +39,7 @@ export class ReleaseDto {
   @IsOptional() @IsString() @MaxLength(300) reason?: string;
   @IsOptional() @IsString() @MaxLength(120) collectedBy?: string;
   @IsOptional() @IsString() @MaxLength(40) vehicle?: string;
+  @IsOptional() @ValidateNested() @Type(() => WhereInput) where?: WhereInput;
 }
 export class ConfirmLineInput { @IsUUID() itemId!: string; @IsInt() @Min(0) @Max(100000) received!: number }
 export class ConfirmDto {
@@ -54,7 +57,7 @@ export class ConfirmDto {
  */
 @Injectable()
 export class ReleasesService {
-  constructor(private readonly prisma: PrismaService, private readonly inventory: InventoryService, private readonly tracking: TrackingService) {}
+  constructor(private readonly prisma: PrismaService, private readonly inventory: InventoryService, private readonly tracking: TrackingService, private readonly trips: TripsService) {}
 
   /** Labelled products: the scanned labels (and for any not scanned, the oldest labelled items on the shelf) are marked sold. */
   async sellItems(tx: Tx, org: string, branchId: string, saleId: string, invoice: string, userId: string, p: { id: string; name: string }, quantity: number, codes: string[], lenient = false) {
@@ -92,7 +95,7 @@ export class ReleasesService {
   }
 
   /** Records goods leaving for a sale, inside the caller's transaction. `deduct` is false at the counter (the sale already took the stock). */
-  async record(tx: Tx, p: { org: string; sale: { id: string; branchId: string; invoiceNumber: string; branchName: string }; userId: string; lines: OutLine[]; reason?: string; collectedBy?: string; vehicle?: string; deduct: boolean; confirmToken?: string; lenient?: boolean }) {
+  async record(tx: Tx, p: { org: string; sale: { id: string; branchId: string; invoiceNumber: string; branchName: string }; userId: string; lines: OutLine[]; reason?: string; collectedBy?: string; vehicle?: string; deduct: boolean; confirmToken?: string; lenient?: boolean; where?: { lat: number; lng: number } | null }) {
     const going = p.lines.filter(l => l.quantity > 0);
     if (!going.length) throw new BadRequestException("Nothing is going out: every line is zero.");
     const byScan = ReleasesService.check(going);
@@ -101,7 +104,7 @@ export class ReleasesService {
     // the counter may bring its own QR code (printed on an offline receipt); use it unless it is somehow taken
     const token = p.confirmToken && !(await tx.goodsRelease.findUnique({ where: { confirmToken: p.confirmToken }, select: { id: true } })) ? p.confirmToken : newToken();
     const release = await tx.goodsRelease.create({
-      data: { organizationId: p.org, saleId: p.sale.id, branchId: p.sale.branchId, number, releasedByUserId: p.userId, byScan, reason, collectedBy: p.collectedBy?.trim() || null, vehicle: p.vehicle?.trim() || null, confirmToken: token,
+      data: { organizationId: p.org, saleId: p.sale.id, branchId: p.sale.branchId, number, releasedByUserId: p.userId, byScan, reason, collectedBy: p.collectedBy?.trim() || null, vehicle: p.vehicle?.trim() || null, confirmToken: token, lat: p.where?.lat ?? null, lng: p.where?.lng ?? null,
         items: { create: going.map(l => ({ saleItemId: l.saleItemId, productId: l.productId, quantity: l.quantity, scanned: l.scanned, itemCodes: l.codes })) } },
     });
     for (const l of going) {
@@ -181,7 +184,7 @@ export class ReleasesService {
       const inv = await this.prisma.inventory.findUnique({ where: { productId_branchId: { productId: l.productId, branchId: sale.branchId } } });
       if ((inv?.quantity ?? 0) < l.quantity) throw new BadRequestException(`Only ${inv?.quantity ?? 0} "${l.name}" are in stock at ${sale.branch.name}.`);
     }
-    return this.prisma.$transaction(tx => this.record(tx, { org, sale: { id: sale.id, branchId: sale.branchId, invoiceNumber: sale.invoiceNumber, branchName: sale.branch.name }, userId: user.sub, lines, reason: dto.reason, collectedBy: dto.collectedBy, vehicle: dto.vehicle, deduct: true }));
+    return this.prisma.$transaction(tx => this.record(tx, { org, sale: { id: sale.id, branchId: sale.branchId, invoiceNumber: sale.invoiceNumber, branchName: sale.branch.name }, userId: user.sub, lines, reason: dto.reason, collectedBy: dto.collectedBy, vehicle: dto.vehicle, deduct: true, where: place(dto.where) }));
   }
 
   /** Sales whose goods are still waiting to be collected or delivered. */
@@ -256,6 +259,7 @@ export class ReleasesService {
     const problem = !dto.allReceived && (short.length > 0 || !!comment);
     const branch = await this.prisma.branch.findUnique({ where: { id: r.branchId }, select: { name: true } });
     await this.prisma.$transaction(async tx => {
+      await this.trips.endFor(tx, { releaseId: r.id }, problem ? "The customer reported a problem" : "The customer confirmed the goods");
       await tx.customerConfirmation.create({ data: { organizationId: r.organizationId, releaseId: r.id, saleId: r.saleId, branchId: r.branchId, status: problem ? "PROBLEM" : "CONFIRMED", lines, comment, name: dto.name?.trim() || null, phone: dto.phone?.trim() || null, ip: ip ?? null } });
       if (problem) {
         const missing = short.map(l => `${l.expected - l.received} × ${l.name}`);
@@ -295,5 +299,5 @@ export class ConfirmController {
   @Post(":token") @HttpCode(200) confirm(@Param("token") token: string, @Body() dto: ConfirmDto, @Req() req: { ip?: string }) { return this.svc.confirm(token, dto, req.ip); }
 }
 
-@Module({ imports: [InventoryModule, TrackingModule], controllers: [ReleasesController, ConfirmController], providers: [ReleasesService], exports: [ReleasesService] })
+@Module({ imports: [InventoryModule, TrackingModule, TripsModule], controllers: [ReleasesController, ConfirmController], providers: [ReleasesService], exports: [ReleasesService] })
 export class ReleasesModule {}

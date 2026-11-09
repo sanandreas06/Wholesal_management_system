@@ -450,3 +450,7 @@ td.neg { color: var(--danger); font-weight: 600; }
 .pm-own-text { display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 220px; font-size: 13px; color: var(--text-muted); }
 .pm-own-text b { color: var(--text); font-size: 14px; letter-spacing: .02em; }
 .pm-sub { font-size: 13px; font-weight: 700; margin: 6px 0 6px; }
+
+/* Batch 49 */
+.st-trip { margin: 4px 0 16px; }
+.st-trip > summary { cursor: pointer; font-weight: 700; margin-bottom: 8px; }

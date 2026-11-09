@@ -94,8 +94,9 @@ export class QuickAddService {
     const mayPrice = user.permissions.includes("PRODUCTS:CREATE"), maySeeCost = user.permissions.includes("PROFIT:READ");
     if (mayPrice && dto.unitPrice === undefined) throw new BadRequestException("Set the selling price.");
     const category = dto.categoryId ? await this.prisma.category.findUnique({ where: { id: dto.categoryId }, select: { name: true } }) : null;
+    const trackAll = (await this.prisma.organization.findUnique({ where: { id: org }, select: { trackAllItems: true } }))?.trackAllItems ?? false;
     const p = await this.prisma.product.create({
-      data: { organizationId: org, sku: await this.newSku(org, name), name, ...await (async () => { const own = await newOwnCode(this.prisma, org); return { ownCode: own, barcodes: [own, code] }; })(), categoryId: dto.categoryId ?? null, category: category?.name ?? null,
+      data: { organizationId: org, trackItems: trackAll, sku: await this.newSku(org, name), name, ...await (async () => { const own = await newOwnCode(this.prisma, org); return { ownCode: own, barcodes: [own, code] }; })(), categoryId: dto.categoryId ?? null, category: category?.name ?? null,
         unitPrice: mayPrice ? dto.unitPrice! : 0, costPrice: mayPrice && maySeeCost && dto.costPrice !== undefined ? dto.costPrice : null, needsPrice: !mayPrice, stockQuantity: 0 },
       select: { id: true, sku: true, name: true, barcodes: true, ownCode: true, trackItems: true, needsPrice: true, unitPrice: true },
     });

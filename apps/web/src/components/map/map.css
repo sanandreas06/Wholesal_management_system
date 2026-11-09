@@ -1,0 +1,27 @@
+/* Batch 49: live map of goods on the road */
+.lm { width: 100%; border-radius: 14px; overflow: hidden; border: 1px solid var(--border-strong, #E2E5EA); background: #E8EEF5; z-index: 0; }
+.lm-icon { background: none; border: 0; }
+.lm-pin { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); color: #fff; font-weight: 800; font-size: 13px; box-shadow: 0 2px 6px rgba(0, 0, 0, .3); border: 2px solid #fff; }
+.lm-pin.from { background: #0B1B3E; }
+.lm-pin.to { background: #16A34A; }
+.lm-pin.branch { background: #2563EB; width: 22px; height: 22px; }
+.lm-pin > i { font-style: normal; transform: rotate(45deg); }
+.lm-truck { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%; background: #E8590C; color: #fff; border: 3px solid #fff; box-shadow: 0 0 0 4px rgba(232, 89, 12, .3), 0 3px 8px rgba(0, 0, 0, .3); animation: lm-pulse 2s infinite; }
+.lm-dot { display: block; width: 14px; height: 14px; margin: 10px; border-radius: 50%; background: #2563EB; border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0, 0, 0, .35); }
+@keyframes lm-pulse { 0%, 100% { box-shadow: 0 0 0 4px rgba(232, 89, 12, .3), 0 3px 8px rgba(0, 0, 0, .3); } 50% { box-shadow: 0 0 0 10px rgba(232, 89, 12, .1), 0 3px 8px rgba(0, 0, 0, .3); } }
+.leaflet-container { font: inherit; }
+.lm-loading { animation: lm-shimmer 1.4s infinite linear; background: linear-gradient(90deg, #E8EEF5 0%, #F3F6FB 50%, #E8EEF5 100%); background-size: 200% 100%; }
+@keyframes lm-shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+.tp { display: flex; flex-direction: column; gap: 10px; }
+.tp-card { display: flex; flex-direction: column; gap: 4px; padding: 12px 14px; border-radius: 12px; background: var(--surface, #fff); border: 1px solid var(--border-strong, #E2E5EA); font-size: 14px; }
+.tp-card b { font-size: 15px; }
+.tp-status { align-self: flex-start; font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 99px; background: var(--border, #EEF0F3); }
+.tp-status.live { background: #FFF1E6; color: #C2410C; }
+.tp-status.waiting { background: var(--accent-amber-tint, #FFF4E5); color: var(--accent-amber, #C97A2E); }
+.tp-status.ended { background: var(--success-tint, #E7F7EC); color: var(--success, #16A34A); }
+.tp-share { display: flex; flex-direction: column; gap: 8px; padding: 14px; border: 1px dashed var(--border-strong, #E2E5EA); border-radius: 12px; margin-top: 12px; text-align: left; }
+.tp-share p { margin: 0; font-size: 13.5px; }
+.tp-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 8px 12px; }
+.tp-grid label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; font-weight: 600; }
+.tp-acts { display: flex; flex-wrap: wrap; gap: 8px; }
+.tp-share.done { border-style: solid; border-color: color-mix(in srgb, var(--success, #16A34A) 40%, transparent); background: var(--success-tint, #E7F7EC); }

@@ -25,7 +25,7 @@ export interface ScanLine {
   typed?: boolean;
 }
 
-interface Looked { id: string; name: string; sku: string; barcodes?: string[]; ownCode?: string | null; trackItems?: boolean; item?: { code: string; status: string; here?: boolean } }
+interface Looked { id: string; name: string; sku: string; barcodes?: string[]; ownCode?: string | null; trackItems?: boolean; item?: { code: string; status: string; here?: boolean; branch?: string | null } }
 
 const isItemLabel = (c: string) => /^W[2-9A-HJKMNP-Z]{9}$/i.test(c);
 
@@ -34,11 +34,13 @@ const isItemLabel = (c: string) => /^W[2-9A-HJKMNP-Z]{9}$/i.test(c);
  * A USB/Bluetooth scanner works anywhere on the page; the camera button opens the phone camera and keeps scanning.
  * Each scan adds one to the matching product. Products with a label on each item need the item's own label (when `labelsRequired`).
  */
-export default function ScanSession({ lines, setLines, allowAdd = false, labelsRequired = false, countUp = false, disabled = false, branchId }: {
+export default function ScanSession({ lines, setLines, allowAdd = false, newGoods = false, labelsRequired = false, countUp = false, disabled = false, branchId }: {
   lines: ScanLine[];
   setLines: (f: (prev: ScanLine[]) => ScanLine[]) => void;
   /** goods in: a product that is not on the list yet is added when scanned */
   allowAdd?: boolean;
+  /** goods in (with or without a purchase order): goods from a supplier are new, so a WHOLESTRA item label already known is refused */
+  newGoods?: boolean;
   /** sending, receiving, releasing: labelled products must be scanned by their item labels */
   labelsRequired?: boolean;
   /** the number follows the scans until the person types a number */
@@ -94,6 +96,12 @@ export default function ScanSession({ lines, setLines, allowAdd = false, labelsR
         if (!label && (canNew || (canAttach && (allowAdd || list.length > 0)))) { scanFeedback(false); setFlash({ text: `New barcode ${code}: say what it is.`, ok: false }); setUnknown(code); return; }
         say(allowAdd ? `No product has the barcode ${code}. Add it to a product first (Products, then Edit).` : `${code} is not a product in WHOLESTRA.`, false); return;
       }
+      // a label WHOLESTRA already knows on goods "arriving from the supplier" is old stock being counted as new
+      if (label && newGoods && found.item) {
+        const st = found.item.status, at = found.item.branch;
+        say(`Stop: ${found.name} (${up}) is ${st === "PENDING" ? "a label already printed and waiting for Stick and scan" : st === "VOID" ? "a cancelled label" : st === "IN_STOCK" ? `already in stock${at ? ` at ${at}` : ""}` : st === "SOLD" ? "already sold" : st === "IN_TRANSIT" ? "on the road on a transfer" : st === "MISSING" ? "recorded as missing (use Find, then \"It is here\")" : "written off"}. It is not new stock. Put it aside and scan the next item.`, false);
+        return;
+      }
       line = latest.current.find(l => l.productId === found!.id);
       if (!line) {
         if (!allowAdd) { say(`${found.name} is not on this list.`, false); return; }
@@ -105,6 +113,7 @@ export default function ScanSession({ lines, setLines, allowAdd = false, labelsR
       }
     }
     if (label && found?.item && branchId && found.item.status === "IN_STOCK" && found.item.here === false) { say(`Label ${up} is recorded at another branch, not this one.`, false); return; }
+    if (label && found?.item?.status === "PENDING") { say(`Label ${up} was printed but not yet scanned on Stick and scan, so it is not stock yet. Finish Stick and scan first.`, false); return; }
     if (label && found?.item && found.item.status !== "IN_STOCK" && found.item.status !== "IN_TRANSIT") { say(`Label ${up} is ${found.item.status.replace("_", " ").toLowerCase()}. It cannot be used here.`, false); return; }
     if (labelsRequired && line.trackItems && !label) { say(`${line.name} has a WHOLESTRA label on each item. Scan the item's own label, not the maker's barcode.`, false); return; }
     const cap = countUp ? line.limit : (line.typed || line.quantity ? line.quantity : line.limit);

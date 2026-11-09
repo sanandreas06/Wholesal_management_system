@@ -4,6 +4,8 @@ import AppShell from "../AppShell";
 import ScanSession, { ScanLine, scanSummary } from "./ScanSession";
 import ConfirmBar from "./ConfirmBar";
 import { api, ApiError } from "../../lib/api";
+import { useHere } from "../../lib/geo";
+import { ShareWithDriver } from "../map/TripPanel";
 
 interface Item { id: string; productId: string; quantity: number; sentQuantity: number | null; sentScanned: number | null; product: { id: string; name: string; sku: string; barcodes?: string[]; trackItems?: boolean } }
 interface Transfer { id: string; transferNumber: string; status: string; fromBranch: { id: string; name: string }; toBranch: { id: string; name: string }; items: Item[] }
@@ -20,6 +22,7 @@ export default function TransferScan() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [done, setDone] = useState("");
+  const where = useHere();
 
   useEffect(() => {
     const q = new URLSearchParams(window.location.search), id = q.get("id") ?? "", m = q.get("mode") === "receive" ? "receive" : "send";
@@ -43,7 +46,7 @@ export default function TransferScan() {
     const all = scanSummary(lines).missing === 0;
     try {
       await api.patch(`/stock-transfers/${t.id}/${mode === "send" ? "dispatch" : "receive"}`, {
-        reason: all ? undefined : reason,
+        reason: all ? undefined : reason, where: where.current,
         lines: lines.map(l => ({ itemId: l.key, quantity: l.quantity, scanned: l.scanned, codes: l.codes.length ? l.codes : undefined })),
       });
       setDone(mode === "send" ? `${t.transferNumber} is on its way to ${t.toBranch.name}. They will scan it in when it arrives.` : `${t.transferNumber} is in stock at ${t.toBranch.name}.${short ? ` ${short} item${short === 1 ? " was" : "s were"} not received: this has been reported to the managers.` : ""}`);
@@ -58,6 +61,7 @@ export default function TransferScan() {
         <div className="sc-done-tick" aria-hidden="true">✓</div>
         <h2>{mode === "send" ? "Sent" : "Received"}</h2>
         <p>{done}</p>
+        {mode === "send" && t && <ShareWithDriver transferId={t.id} />}
         <div className="sc-done-acts"><a className="sc-go" href="/scan">Back to Scan</a></div>
       </div>
     </AppShell>

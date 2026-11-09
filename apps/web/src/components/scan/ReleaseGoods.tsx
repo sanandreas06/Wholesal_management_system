@@ -7,6 +7,8 @@ import ConfirmBar from "./ConfirmBar";
 import { useWorkBranch } from "./useWorkBranch";
 import { api, ApiError } from "../../lib/api";
 import { useScanner } from "../../lib/scanner";
+import { useHere } from "../../lib/geo";
+import { ShareWithDriver } from "../map/TripPanel";
 import "./scan.css";
 
 interface SaleItem { id: string; productId: string; product: { id: string; name: string; sku: string; barcodes: string[]; trackItems: boolean }; quantity: number; released: number; outstanding: number }
@@ -28,7 +30,8 @@ export default function ReleaseGoods() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [camera, setCamera] = useState(false);
-  const [done, setDone] = useState<{ id: string; number: string; fulfilment: string } | null>(null);
+  const [done, setDone] = useState<{ id: string; number: string; fulfilment: string; collectedBy?: string; vehicle?: string } | null>(null);
+  const where = useHere();
 
   useEffect(() => { if (branchId) api.get<Owed[]>(`/releases/owed?branchId=${branchId}`).then(setOwed).catch(() => setOwed([])); }, [branchId, done]);
   useEffect(() => { const id = new URLSearchParams(window.location.search).get("sale"); if (id) void open(`/releases/sale/${id}`); }, []);
@@ -52,10 +55,10 @@ export default function ReleaseGoods() {
     const all = scanSummary(lines).missing === 0;
     try {
       const r = await api.post<{ id: string; number: string; fulfilment: string }>("/releases", {
-        saleId: sale.id, collectedBy: collectedBy.trim() || undefined, vehicle: vehicle.trim() || undefined, reason: all ? undefined : reason,
+        saleId: sale.id, collectedBy: collectedBy.trim() || undefined, vehicle: vehicle.trim() || undefined, reason: all ? undefined : reason, where: where.current,
         lines: lines.map(l => ({ saleItemId: l.key, quantity: l.quantity, scanned: l.scanned, codes: l.codes.length ? l.codes : undefined })),
       });
-      setDone(r); setSale(null); setLines([]); setCode("");
+      setDone({ ...r, collectedBy: collectedBy.trim(), vehicle: vehicle.trim() }); setSale(null); setLines([]); setCode("");
     } catch (e) { setError(e instanceof ApiError ? e.message : "Could not save. Check your connection and try again."); }
     finally { setBusy(false); }
   }
@@ -67,6 +70,7 @@ export default function ReleaseGoods() {
         <h2>Goods released</h2>
         <p>{done.number}{done.fulfilment === "PARTLY" ? " · some goods are still waiting for this customer" : " · everything on this sale has gone out"}</p>
         <p className="muted">Print the release note. The QR on it lets the customer confirm what they received.</p>
+        <ShareWithDriver releaseId={done.id} defaultName={done.collectedBy ?? ""} defaultVehicle={done.vehicle ?? ""} />
         <div className="sc-done-acts">
           <a className="sc-go" href={`/release-note?id=${done.id}`} target="_blank" rel="noreferrer">Print release note</a>
           <button type="button" className="secondary" onClick={() => setDone(null)}>Release more</button>

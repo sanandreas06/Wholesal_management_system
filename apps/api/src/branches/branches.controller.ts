@@ -9,6 +9,8 @@ import { BranchesService } from "./branches.service";
 import { CreateBranchDto } from "./dto/create-branch.dto";
 import { UpdateBranchDto } from "./dto/update-branch.dto";
 import { BranchPaymentDto } from "./dto/branch-payment.dto";
+import { WhereInput, place } from "../trips/geo";
+import { BadRequestException } from "@nestjs/common";
 
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 @Controller("branches")
@@ -37,6 +39,15 @@ export class BranchesController {
   setPayment(@CurrentUser() user: AuthUser, @Param("id") id: string, @Body() dto: BranchPaymentDto) {
     const mine = scopeOf(user);
     return this.branches.setPayment(user.organizationId, mine && mine !== id ? "__none__" : id, dto);
+  }
+
+  /** Pins the branch on the map (from a phone standing in the branch, or typed). Used for the live map of goods on the road. */
+  @Put(":id/location")
+  @RequirePermissions("BRANCHES:UPDATE")
+  async setLocation(@CurrentUser() user: AuthUser, @Param("id") id: string, @Body() dto: WhereInput) {
+    const mine = scopeOf(user), p = place(dto);
+    if (!p) throw new BadRequestException("That location is not precise enough. Stand in the branch, turn on the phone's location, and try again.");
+    return this.branches.setLocation(user.organizationId, mine && mine !== id ? "__none__" : id, p);
   }
 
   @Get(":id")

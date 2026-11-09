@@ -7,6 +7,7 @@ import { toast } from "../lib/toast";
 import { usePermissions } from "../hooks/usePermissions";
 import { usePolling } from "../hooks/usePolling";
 import { getSessionUser } from "../lib/session";
+import { ShareWithDriver, TripView } from "./map/TripPanel";
 
 interface Ref { id: string; name: string }
 interface ProductRef { id: string; name: string; sku: string }
@@ -175,6 +176,7 @@ function TransferDetailModal({ transfer, canUpdate, onClose, onAction }: {
         {transfer.notes && <p className="muted">{transfer.notes}</p>}
 
         <StatusStepper steps={steps} currentKey={transfer.status} cancelledLabel={transfer.status === "CANCELLED" ? "This transfer was cancelled" : undefined} />
+        <TransferTrip transfer={transfer} canUpdate={canUpdate} />
 
         <div className="table-wrap" style={{ marginBottom: 16 }}>
           <table>
@@ -207,4 +209,18 @@ function TransferDetailModal({ transfer, canUpdate, onClose, onAction }: {
       </div>
     </div>
   );
+}
+
+/** Where the goods are on the road: the driver's live position on a map, or a way to send the driver a link. */
+function TransferTrip({ transfer, canUpdate }: { transfer: StockTransfer; canUpdate: boolean }) {
+  const [trips, setTrips] = useState<{ id: string; status: string }[] | null>(null);
+  useEffect(() => { if (transfer.status === "DISPATCHED" || transfer.status === "RECEIVED") api.get<{ id: string; status: string }[]>(`/trips?transferId=${transfer.id}`).then(setTrips).catch(() => setTrips([])); }, [transfer.id, transfer.status]);
+  if (!trips) return null;
+  const latest = trips[0];
+  if (transfer.status === "DISPATCHED") return (
+    <div className="st-trip">
+      {latest && latest.status !== "ENDED" ? <TripView tripId={latest.id} height={300} /> : canUpdate ? <ShareWithDriver transferId={transfer.id} onCreated={t => setTrips([{ id: t.id, status: t.status }])} /> : <p className="muted">No driver is sharing their location for this transfer.</p>}
+    </div>
+  );
+  return latest ? <details className="st-trip"><summary>The route this transfer took</summary><TripView tripId={latest.id} height={260} /></details> : null;
 }

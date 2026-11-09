@@ -42,6 +42,7 @@ model Organization {
   supplierPayments SupplierPayment[]
   cashierShifts  CashierShift[]
   dailySummaries DailySummaryLog[]
+  trips          Trip[]
   expenses       Expense[]
   deposits       Deposit[]
   varianceCases  VarianceCase[]
@@ -67,6 +68,8 @@ model Organization {
   /// Small picture shown on invoices (already shrunk by the browser)
   logo               String?   @db.Text
   plan               String    @default("PILOT")
+  /// Every single item of every product gets its own WHOLESTRA label (new products too), so no item can be scanned twice
+  trackAllItems      Boolean   @default(false)
   /// True for the shared read-only demo company. Nobody can sign in to it with an email and password.
   isDemo             Boolean   @default(false)
   /// True from the moment a company signs itself up until the owner finishes the profile screen. Companies that existed before this batch are never "pending".
@@ -138,6 +141,9 @@ model Branch {
   name           String
   code           String
   location       String?
+  /// Where the branch is on the map (set once from a phone standing in the branch, or typed)
+  lat            Float?
+  lng            Float?
   /// How customers pay this branch by mobile money, shown on the customer screen at the counter
   momoNumber     String?
   momoName       String?
@@ -727,6 +733,11 @@ model StockTransfer {
   /// true when the handover was confirmed by scanning every item, false when typed by hand (and questioned)
   sentByScan         Boolean?
   receivedByScan     Boolean?
+  /// where the goods were scanned out and in (when the person allowed location)
+  sentLat            Float?
+  sentLng            Float?
+  receivedLat        Float?
+  receivedLng        Float?
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
 
@@ -1213,6 +1224,10 @@ model UptimeCheck {
 // ---------------------------------------------------------------- Batch 43: item tracking and handover checks
 
 enum StockItemStatus {
+  /// label printed, not yet stuck on an item and scanned: not stock yet
+  PENDING
+  /// label printed but never stuck on an item (fewer items than labels): cancelled, never counts
+  VOID
   IN_STOCK
   IN_TRANSIT
   SOLD
@@ -1233,6 +1248,8 @@ model StockItem {
   /// the transfer it is travelling on, or went missing on
   transferId     String?
   saleId         String?
+  /// the print run that made the label (goods in, purchase order receipt, or labels for stock on the shelf)
+  labelRef       String?
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
 
@@ -1240,6 +1257,7 @@ model StockItem {
   product      Product          @relation(fields: [productId], references: [id], onDelete: Cascade)
   events       StockItemEvent[]
 
+  @@index([labelRef, status])
   @@index([organizationId, productId, status])
   @@index([branchId, productId])
   @@index([transferId])
@@ -1252,6 +1270,9 @@ model StockItemEvent {
   itemId         String
   type           String
   branchId       String?
+  /// where the phone or computer was when this was scanned (when the person allowed location)
+  lat            Float?
+  lng            Float?
   userId         String?
   referenceType  String?
   referenceId    String?
@@ -1322,6 +1343,9 @@ model GoodsRelease {
   /// who took the goods (customer, driver) and the vehicle, for deliveries
   collectedBy      String?
   vehicle          String?
+  /// where the goods were scanned out (when the person allowed location)
+  lat              Float?
+  lng              Float?
   /// the code in the QR on the receipt or release note; the customer opens it to confirm what they received
   confirmToken     String   @unique
   createdAt        DateTime @default(now())
@@ -1430,4 +1454,60 @@ model DailySummaryLog {
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@unique([organizationId, day])
+}
+
+// ---------------------------------------------------------------- Batch 49: live location of goods on the road
+
+/// Goods on the road: a transfer between branches, or a delivery to a customer. The driver's phone shares its location
+/// through a link made for this trip only (no account). The goods are wherever the driver is, until they are scanned in.
+model Trip {
+  id             String      @id @default(uuid())
+  organizationId String
+  /// TRANSFER or DELIVERY
+  kind           String
+  transferId     String?
+  releaseId      String?
+  /// the key in the driver's link; it stops working when the trip ends
+  token          String      @unique
+  driverName     String
+  driverPhone    String?
+  vehicle        String?
+  /// WAITING (link sent), LIVE (sharing), ENDED
+  status         String      @default("WAITING")
+  startedAt      DateTime?
+  endedAt        DateTime?
+  endReason      String?
+  lastLat        Float?
+  lastLng        Float?
+  lastAccuracy   Float?
+  lastAt         DateTime?
+  fromLabel      String
+  toLabel        String
+  fromLat        Float?
+  fromLng        Float?
+  toLat          Float?
+  toLng          Float?
+  createdByUserId String
+  createdAt      DateTime    @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  points       TripPoint[]
+
+  @@index([organizationId, status])
+  @@index([transferId])
+  @@index([releaseId])
+}
+
+model TripPoint {
+  id       String   @id @default(uuid())
+  tripId   String
+  lat      Float
+  lng      Float
+  accuracy Float?
+  speed    Float?
+  at       DateTime
+
+  trip Trip @relation(fields: [tripId], references: [id], onDelete: Cascade)
+
+  @@index([tripId, at])
 }

@@ -41,6 +41,7 @@ import { TrackingModule } from "./tracking/tracking.controller";
 import { BalancesModule } from "./balances/balances";
 import { ShiftsModule } from "./shifts/shifts";
 import { SummaryModule } from "./summary/summary";
+import { TripsModule } from "./trips/trips";
 
 @Module({
   imports: [
@@ -70,6 +71,7 @@ import { SummaryModule } from "./summary/summary";
     BalancesModule,
     ShiftsModule,
     SummaryModule,
+    TripsModule,
     StockAdjustmentsModule,
     StockTransfersModule,
     StockCountsModule,

@@ -49,6 +49,12 @@ export class BranchesService {
   }
 
   /** Mobile money details of one branch (with the QR picture, which lists leave out). */
+  async setLocation(organizationId: string, id: string, p: { lat: number; lng: number }) {
+    const b = await this.prisma.branch.findFirst({ where:{ id, organizationId }, select:{ id:true } });
+    if (!b) throw new NotFoundException("Branch not found");
+    return this.prisma.branch.update({ where:{ id }, data:{ lat:p.lat, lng:p.lng }, select:{ id:true, name:true, lat:true, lng:true } });
+  }
+
   async payment(organizationId: string, id: string) {
     const b = await this.prisma.branch.findFirst({ where:{ id, organizationId }, select:{ id:true, name:true, momoNumber:true, momoName:true, momoMerchantId:true, momoQr:true } });
     if (!b) throw new NotFoundException("Branch not found");

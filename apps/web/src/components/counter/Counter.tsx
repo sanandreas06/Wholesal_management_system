@@ -188,7 +188,7 @@ export default function Counter() {
       }
       try {
         const found = await api.get<Product>(`/products/lookup?code=${encodeURIComponent(label)}&branchId=${branchId}`);
-        if (found.item && (found.item.status !== "IN_STOCK" || !found.item.here)) { scanFeedback(false); say(found.item.status === "IN_STOCK" ? `This ${found.name} is recorded at another branch.` : `This ${found.name} is ${found.item.status.replace("_", " ").toLowerCase()}, so it cannot be sold.`, true); return false; }
+        if (found.item && (found.item.status !== "IN_STOCK" || !found.item.here)) { scanFeedback(false); say(found.item.status === "IN_STOCK" ? `This ${found.name} is recorded at another branch.` : found.item.status === "PENDING" ? `This ${found.name}'s label was printed but not yet scanned on Stick and scan, so it is not stock yet. Ask the store to finish Stick and scan.` : `This ${found.name} is ${found.item.status.replace("_", " ").toLowerCase()}, so it cannot be sold.`, true); return false; }
         setProducts(ps => ps && !ps.some(x => x.id === found.id) ? [...ps, found] : ps);
         scanFeedback(true); add(found, 1, label, true); say(`Scanned ${found.name} (${label})`);
         return true;
