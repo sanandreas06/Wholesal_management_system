@@ -8,7 +8,8 @@ import SavedViews from "./SavedViews";
 import AliasEditor from "./AliasEditor";
 import { usePermissions } from "../hooks/usePermissions";
 import { currencySymbol, money } from "../lib/format";
-import { shrinkImage } from "../lib/image";
+import { productPictures } from "../lib/image";
+import { suggest as suggestFromName } from "../lib/suggest";
 import ProductThumb from "./home/ProductThumb";
 import CameraScanner from "./CameraScanner";
 import { barcodeSvg } from "../lib/barcode";
@@ -135,6 +136,7 @@ export default function ProductsManager() {
         <ProductModal
           product={editing === "new" ? null : editing}
           categories={categories} brands={brands} units={units} canProfit={canProfit}
+          past={(products ?? []).map(p => ({ name: p.name, category: p.categoryRef?.name, brand: p.brand?.name }))}
           onOpenType={id => { const t = (products ?? []).find(x => x.id === id); if (t) setEditing(t); }}
           onClose={() => setEditing(null)}
           onSaved={() => { setEditing(null); load(); toast.success("Product saved"); }}
@@ -144,14 +146,18 @@ export default function ProductsManager() {
   );
 }
 
-function ProductModal({ product, categories, brands, units, canProfit, onClose, onSaved, onOpenType }: {
+function ProductModal({ product, categories, brands, units, canProfit, onClose, onSaved, onOpenType, past }: {
   product: Product | null; categories: Ref[]; brands: Ref[]; units: Ref[]; canProfit: boolean; onClose: () => void; onSaved: () => void; onOpenType: (id: string) => void;
+  past: { name: string; category?: string | null; brand?: string | null }[];
 }) {
   const [sku, setSku] = useState(product?.sku || "");
   const [name, setName] = useState(product?.name || "");
   // chosen by name from the ready-made lists (or typed under "Other"); the server makes the company's records itself
   const [category, setCategory] = useState(product?.categoryRef?.name || "");
   const [brand, setBrand] = useState(product?.brand?.name || "");
+  // filled in from the product's name as it is typed, until the person chooses one themselves
+  const [catAuto, setCatAuto] = useState(false);
+  const [brandAuto, setBrandAuto] = useState(false);
   // a new product in several types (one row each); an existing one shows its other types and can get another
   const [hasTypes, setHasTypes] = useState(false);
   const [types, setTypes] = useState<TypeRow[]>([{ name: "", stock: "0", price: "", barcode: "" }, { name: "", stock: "0", price: "", barcode: "" }]);
@@ -205,12 +211,23 @@ function ProductModal({ product, categories, brands, units, canProfit, onClose, 
     setPicking(true); setError("");
     try {
       // fitted whole into a square on white, whatever the photo's size or shape: no cropping by hand
-      const [full, thumb] = await Promise.all([shrinkImage(f, { maxSide: 640, maxChars: 68000, square: true }), shrinkImage(f, { maxSide: 128, maxChars: 13000, square: true })]);
-      setImage({ full, thumb });
+      setImage(await productPictures(f));
     } catch (e) { setError((e as Error).message); }
     finally { setPicking(false); }
   }
   const shownImage = image === undefined ? current : image.full || null;
+  // suggest the category and brand from the name (a new product, or one with none set), unless chosen by hand
+  useEffect(() => {
+    if (product && (product.categoryRef || product.brand)) return;
+    const t = window.setTimeout(() => {
+      const s = suggestFromName(name, past, brands.map(b => b.name));
+      if (s.category && (catAuto || !category)) { setCategory(s.category); setCatAuto(true); }
+      if (!s.category && catAuto) { setCategory(""); setCatAuto(false); }
+      if (s.brand && (brandAuto || !brand)) { setBrand(s.brand); setBrandAuto(true); }
+      if (!s.brand && brandAuto) { setBrand(""); setBrandAuto(false); }
+    }, 250);
+    return () => window.clearTimeout(t);
+  }, [name]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const price = Number(unitPrice), cost = Number(costPrice);
   const showMargin = canProfit && unitPrice !== "" && costPrice !== "" && price > 0;
@@ -259,8 +276,8 @@ function ProductModal({ product, categories, brands, units, canProfit, onClose, 
               <label>Product name<input value={name} onChange={e => setName(e.target.value)} placeholder={hasTypes ? "e.g. Air Wick Reed Diffuser" : "e.g. Premium Rice 25kg"} required /></label>
             </div>
             <div className="pm-class">
-              <CategoryPicker value={category} onChange={setCategory} own={categories.map(c => c.name)} />
-              <BrandPicker value={brand} onChange={setBrand} category={category} own={brands.map(b => b.name)} />
+              <CategoryPicker value={category} onChange={v => { setCategory(v); setCatAuto(false); }} own={categories.map(c => c.name)} auto={catAuto} />
+              <BrandPicker value={brand} onChange={v => { setBrand(v); setBrandAuto(false); }} category={category} own={brands.map(b => b.name)} auto={brandAuto} />
             </div>
           </section>
 
@@ -343,7 +360,7 @@ function ProductModal({ product, categories, brands, units, canProfit, onClose, 
             <div className="pm-pic">
               <label className="pm-pic-box" aria-label={shownImage ? "Change the picture" : "Add a picture"}>
                 {shownImage ? <img src={shownImage} alt="" /> : <span>{picking ? "..." : "+"}<small>{picking ? "Preparing" : "Add picture"}</small></span>}
-                <input type="file" accept="image/png,image/jpeg,image/webp" hidden onChange={e => { pickImage(e.target.files?.[0]); e.target.value = ""; }} />
+                <input type="file" accept="image/*" hidden onChange={e => { pickImage(e.target.files?.[0]); e.target.value = ""; }} />
               </label>
               <div className="pm-pic-text">
                 <p className="muted fine">Any photo works: it is fitted into a neat square for you, whole and centred, and made smaller. No cropping needed.</p>

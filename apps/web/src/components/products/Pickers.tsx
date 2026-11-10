@@ -1,21 +1,27 @@
 'use client';
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { CATALOG, ALL_CATEGORIES, brandsFor } from "../../lib/catalog";
 import "./pickers.css";
 
 const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 
-/** A sheet that slides up on a phone (and opens as a dialog on a computer) with a search box and a list to tap. */
+/**
+ * A sheet that slides up on a phone (and opens as a dialog on a computer) with a search box and a list to tap.
+ * It is drawn outside the product form (a portal), and no click or key inside it reaches the form or its dialog: tapping
+ * outside the sheet closes only the sheet, and pressing Enter never saves the product.
+ */
 function Sheet({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
   useEffect(() => { const k = (e: KeyboardEvent) => { if (e.key === "Escape") { e.stopPropagation(); onClose(); } }; window.addEventListener("keydown", k, true); return () => window.removeEventListener("keydown", k, true); }, [onClose]);
-  return (
-    <div className="pk-back" onClick={onClose}>
-      <div className="pk-sheet" role="dialog" aria-modal="true" aria-label={title} onClick={e => e.stopPropagation()}>
+  if (typeof document === "undefined") return null;
+  const stop = (e: React.SyntheticEvent) => e.stopPropagation();
+  return createPortal(
+    <div className="pk-back" onClick={e => { e.stopPropagation(); onClose(); }} onKeyDown={stop} onSubmit={e => { e.preventDefault(); e.stopPropagation(); }}>
+      <div className="pk-sheet" role="dialog" aria-modal="true" aria-label={title} onClick={stop}>
         <div className="pk-head"><b>{title}</b><button type="button" className="pk-x" onClick={onClose} aria-label="Close">×</button></div>
         {children}
       </div>
-    </div>
-  );
+    </div>, document.body);
 }
 
 /** "Other": type a name that is not in the list. */
@@ -24,18 +30,19 @@ function OtherBox({ label, initial, onUse }: { label: string; initial: string; o
   const ref = useRef<HTMLInputElement>(null);
   useEffect(() => { ref.current?.focus(); }, []);
   return (
-    <form className="pk-other" onSubmit={e => { e.preventDefault(); e.stopPropagation(); if (v.trim()) onUse(v.trim()); }}>
-      <label>{label}<input ref={ref} value={v} onChange={e => setV(e.target.value)} maxLength={80} placeholder="Type the name" /></label>
-      <button type="submit" disabled={!v.trim()}>Use this</button>
-    </form>
+    <div className="pk-other">
+      <label>{label}<input ref={ref} value={v} onChange={e => setV(e.target.value)} maxLength={80} placeholder="Type the name" enterKeyHint="done"
+        onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); e.stopPropagation(); if (v.trim()) onUse(v.trim()); } }} /></label>
+      <button type="button" disabled={!v.trim()} onClick={() => onUse(v.trim())}>Use this</button>
+    </div>
   );
 }
 
 /** The field on the form: shows the choice, opens the sheet. */
-function Field({ label, value, placeholder, onOpen, onClear }: { label: string; value: string; placeholder: string; onOpen: () => void; onClear: () => void }) {
+function Field({ label, value, placeholder, onOpen, onClear, suggested }: { label: string; value: string; placeholder: string; onOpen: () => void; onClear: () => void; suggested?: boolean }) {
   return (
     <div className="pk-field">
-      <span className="pk-label">{label}</span>
+      <span className="pk-label">{label}{suggested && value && <em className="pk-sug" title="Picked from the product name. Tap to change it.">✨ Suggested</em>}</span>
       <div className="pk-row">
         <button type="button" className={"pk-pick" + (value ? " set" : "")} onClick={onOpen}>
           <span>{value || placeholder}</span><i aria-hidden="true">›</i>
@@ -47,7 +54,7 @@ function Field({ label, value, placeholder, onOpen, onClear }: { label: string; 
 }
 
 /** Category: the ready-made list, grouped like an online store, plus the company's own; "Other" to type a new one. */
-export function CategoryPicker({ value, onChange, own = [] }: { value: string; onChange: (v: string) => void; own?: string[] }) {
+export function CategoryPicker({ value, onChange, own = [], auto }: { value: string; onChange: (v: string) => void; own?: string[]; auto?: boolean }) {
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
   const [group, setGroup] = useState<string | null>(null);
@@ -59,7 +66,7 @@ export function CategoryPicker({ value, onChange, own = [] }: { value: string; o
   const close = () => { setOpen(false); setQ(""); setGroup(null); setOther(false); };
   const shownGroup = CATALOG.find(g => g.group === group);
   return <>
-    <Field label="Category" value={value} placeholder="Choose a category" onOpen={() => setOpen(true)} onClear={() => onChange("")} />
+    <Field label="Category" value={value} placeholder="Choose a category" onOpen={() => setOpen(true)} onClear={() => onChange("")} suggested={auto} />
     {open && <Sheet title={other ? "Other category" : shownGroup ? shownGroup.group : "Choose a category"} onClose={close}>
       {other ? <OtherBox label="Category name" initial={q} onUse={pick} /> : <>
         <input className="pk-search" value={q} onChange={e => { setQ(e.target.value); setGroup(null); }} placeholder="Search, e.g. rice, tyres, phones" aria-label="Search categories" autoFocus />
@@ -86,7 +93,7 @@ export function CategoryPicker({ value, onChange, own = [] }: { value: string; o
 }
 
 /** Brand: suggested brands for the chosen category, brands the company already uses, a search, and "Other". */
-export function BrandPicker({ value, onChange, category, own = [] }: { value: string; onChange: (v: string) => void; category: string; own?: string[] }) {
+export function BrandPicker({ value, onChange, category, own = [], auto }: { value: string; onChange: (v: string) => void; category: string; own?: string[]; auto?: boolean }) {
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
   const [other, setOther] = useState(false);
@@ -98,7 +105,7 @@ export function BrandPicker({ value, onChange, category, own = [] }: { value: st
   const close = () => { setOpen(false); setQ(""); setOther(false); };
   const chips = (list: string[]) => <div className="pk-chips">{list.map(b => <button type="button" key={b} className={"pk-chip" + (norm(b) === norm(value) ? " on" : "")} onClick={() => pick(b)}>{b}</button>)}</div>;
   return <>
-    <Field label="Brand" value={value} placeholder="Choose a brand" onOpen={() => setOpen(true)} onClear={() => onChange("")} />
+    <Field label="Brand" value={value} placeholder="Choose a brand" onOpen={() => setOpen(true)} onClear={() => onChange("")} suggested={auto} />
     {open && <Sheet title={other ? "Other brand" : "Choose a brand"} onClose={close}>
       {other ? <OtherBox label="Brand name" initial={q} onUse={pick} /> : <>
         <input className="pk-search" value={q} onChange={e => setQ(e.target.value)} placeholder="Search brands" aria-label="Search brands" autoFocus />

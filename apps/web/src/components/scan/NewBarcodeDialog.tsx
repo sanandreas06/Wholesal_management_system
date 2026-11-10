@@ -1,6 +1,7 @@
 'use client';
 import { FormEvent, useEffect, useState } from "react";
 import { CategoryPicker } from "../products/Pickers";
+import { suggest } from "../../lib/suggest";
 import { api, ApiError } from "../../lib/api";
 import { getSessionUser } from "../../lib/session";
 
@@ -24,6 +25,7 @@ export default function NewBarcodeDialog({ code, allowNew, choices, onDone, onCl
   const [price, setPrice] = useState("");
   const [cost, setCost] = useState("");
   const [category, setCategory] = useState("");
+  const [catAuto, setCatAuto] = useState(false);
   const [cats, setCats] = useState<{ id: string; name: string }[]>([]);
   const [all, setAll] = useState<Pick[] | null>(choices ?? null);
   const [q, setQ] = useState("");
@@ -53,6 +55,16 @@ export default function NewBarcodeDialog({ code, allowNew, choices, onDone, onCl
   const t = q.trim().toLowerCase();
   const shown = (all ?? []).filter(p => !t || p.name.toLowerCase().includes(t) || p.sku.toLowerCase().includes(t)).slice(0, 40);
 
+  // the category is suggested from the name as it is typed, until chosen by hand
+  useEffect(() => {
+    const t = window.setTimeout(() => {
+      const c = suggest(name, [], []).category;
+      if (c && (catAuto || !category)) { setCategory(c); setCatAuto(true); }
+      if (!c && catAuto) { setCategory(""); setCatAuto(false); }
+    }, 250);
+    return () => window.clearTimeout(t);
+  }, [name]); // eslint-disable-line react-hooks/exhaustive-deps
+
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal nb" onClick={e => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="nb-h">
@@ -69,7 +81,7 @@ export default function NewBarcodeDialog({ code, allowNew, choices, onDone, onCl
             : info.found ? <p className="nb-hint ok">Found in {info.source}. Check the name and change it if your shop calls it something else.</p>
             : <p className="nb-hint">Not found in the public product lists. Type the name the way your shop calls it.</p>}
           <label>Product name<input value={name} onChange={e => setName(e.target.value)} required minLength={2} maxLength={160} autoFocus placeholder="e.g. Gino Tomato Paste 70g" /></label>
-          <CategoryPicker value={category} onChange={setCategory} own={cats.map(c => c.name)} />
+          <CategoryPicker value={category} onChange={v => { setCategory(v); setCatAuto(false); }} own={cats.map(c => c.name)} auto={catAuto} />
           {mayPrice ? <div className="nb-two">
             <label>Selling price (GH₵)<input type="number" step="0.01" min="0" value={price} onChange={e => setPrice(e.target.value)} required /></label>
             {mayCost && <label>Cost price (optional)<input type="number" step="0.01" min="0" value={cost} onChange={e => setCost(e.target.value)} /></label>}
