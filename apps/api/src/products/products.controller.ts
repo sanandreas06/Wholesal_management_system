@@ -6,7 +6,7 @@ import { CurrentUser } from "../common/decorators/current-user.decorator";
 import { AuthUser } from "../common/types/auth-user.type";
 import { ProductsService } from "./products.service";
 import { scopeOf } from "../common/branch/branch-scope";
-import { CreateProductDto } from "./dto/create-product.dto";
+import { CreateProductDto, ProductVariantInput } from "./dto/create-product.dto";
 import { UpdateProductDto } from "./dto/update-product.dto";
 
 @UseGuards(JwtAuthGuard, PermissionsGuard)
@@ -35,6 +35,16 @@ export class ProductsController {
   @Post()
   @RequirePermissions("PRODUCTS:CREATE")
   create(@CurrentUser() user: AuthUser, @Body() dto: CreateProductDto) { return this.products.create(user.organizationId, dto, user.permissions.includes("PROFIT:READ")); }
+
+  /** The other types of this product (a diffuser in Gardenia, Lilac, Coffee...). */
+  @Get(":id/types")
+  @RequirePermissions("PRODUCTS:READ")
+  types(@CurrentUser() user: AuthUser, @Param("id") id: string) { return this.products.types(user.organizationId, id); }
+
+  /** Add another type to this product: its own stock, code and labels; brand, category, unit, prices and picture are copied. */
+  @Post(":id/types")
+  @RequirePermissions("PRODUCTS:CREATE")
+  addType(@CurrentUser() user: AuthUser, @Param("id") id: string, @Body() dto: ProductVariantInput) { return this.products.addType(user.organizationId, id, dto, user.permissions.includes("PROFIT:READ")); }
 
   @Put(":id")
   @RequirePermissions("PRODUCTS:UPDATE")

@@ -30,8 +30,6 @@ const NAV: Entry[] = [
     { href: "/scan", label: "Scan", permission: "GOODS_RECEIVING:CREATE|STOCK_TRANSFERS:UPDATE|SALES:UPDATE" },
     { href: "/tracking", label: "Item Tracking", permission: "INVENTORY:READ|STOCK_TRANSFERS:READ|GOODS_RECEIVING:READ|AUDIT:READ" },
     { href: "/products", label: "Products", permission: "PRODUCTS:READ" },
-    { href: "/categories", label: "Categories", permission: "CATEGORIES:READ" },
-    { href: "/brands", label: "Brands", permission: "BRANDS:READ" },
     { href: "/units", label: "Units", permission: "UNITS:READ" },
     { href: "/inventory", label: "Stock Levels", permission: "INVENTORY:READ" },
     { href: "/stock-adjustments", label: "Stock Adjustments", permission: "STOCK_ADJUSTMENTS:READ" },

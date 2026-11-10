@@ -1,3 +1,4 @@
+import { randomUUID } from "crypto";
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from "@nestjs/common";
 import { PrismaService } from "../prisma/prisma.service";
 import { reservedAt } from "../releases/reserved";
@@ -45,6 +46,35 @@ export class ProductsService {
     if(!product) throw new NotFoundException("Product not found");
     if(branchScope) [product] = await this.atBranch(organizationId, branchScope, [product]);
     return scrub(product, canSeeCost);
+  }
+
+  /** A category or brand chosen by name (from the ready-made list or typed): found, or made for the company. */
+  private async refByName(kind: "category" | "brand", organizationId: string, raw: string | undefined): Promise<string | null | undefined> {
+    if (raw === undefined) return undefined;
+    const name = raw.replace(/\s+/g, " ").trim();
+    if (!name) return null;
+    const model = (kind === "category" ? this.prisma.category : this.prisma.brand) as unknown as {
+      findFirst(a: object): Promise<{ id: string } | null>; create(a: object): Promise<{ id: string }>;
+    };
+    const found = await model.findFirst({ where: { organizationId, name: { equals: name, mode: "insensitive" } }, select: { id: true } });
+    if (found) return found.id;
+    const base = name.toUpperCase().replace(/[^A-Z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 24) || "ITEM";
+    for (let i = 0; i < 20; i++) {
+      const code = i ? `${base}-${i + 1}` : base;
+      if (!await model.findFirst({ where: { organizationId, code }, select: { id: true } })) return (await model.create({ data: { organizationId, name, code }, select: { id: true } })).id;
+    }
+    throw new ConflictException(`Could not save the ${kind} "${name}". Try again.`);
+  }
+
+  /** categoryName / brandName become the ids the product stores (and replace any id sent alongside). */
+  private async namesToRefs<T extends { categoryName?: string; brandName?: string; categoryId?: string; brandId?: string }>(organizationId: string, dto: T) {
+    const { categoryName, brandName, ...rest } = dto;
+    const out: Record<string, unknown> = { ...rest };
+    const c = await this.refByName("category", organizationId, categoryName);
+    if (c !== undefined) { out.categoryId = c; out.category = categoryName!.trim() || null; }
+    const b = await this.refByName("brand", organizationId, brandName);
+    if (b !== undefined) out.brandId = b;
+    return out as Omit<T, "categoryName" | "brandName"> & { categoryId?: string | null; brandId?: string | null; category?: string | null };
   }
 
   private async assertRefsBelongToOrg(organizationId: string, dto: { categoryId?: string; brandId?: string; unitId?: string }) {
@@ -96,6 +126,9 @@ export class ProductsService {
   async create(organizationId: string, dto: CreateProductDto, canSeeCost = false) {
     if(dto.costPrice !== undefined && !canSeeCost) throw new ForbiddenException("You do not have permission to set cost prices");
     await this.assertRefsBelongToOrg(organizationId, dto);
+    if (dto.variants?.length) return this.createTypes(organizationId, dto, canSeeCost);
+    const { variants: _v, ...plain } = dto; void _v;
+    dto = await this.namesToRefs(organizationId, plain) as CreateProductDto;
     const existing = await this.prisma.product.findFirst({ where:{organizationId,sku:dto.sku} });
     if(existing) throw new ConflictException(`SKU "${dto.sku}" already exists`);
     // every new product gets its own permanent code, printed on its labels
@@ -110,6 +143,7 @@ export class ProductsService {
     if(dto.costPrice !== undefined && !canSeeCost) throw new ForbiddenException("You do not have permission to set cost prices");
     const current = await this.get(organizationId, id) as { ownCode?: string | null };
     await this.assertRefsBelongToOrg(organizationId, dto);
+    { const { variants: _v, ...plain } = dto as UpdateProductDto & { variants?: unknown }; void _v; dto = await this.namesToRefs(organizationId, plain) as UpdateProductDto; }
     if(dto.sku) {
       const existing = await this.prisma.product.findFirst({ where:{organizationId,sku:dto.sku,NOT:{id}} });
       if(existing) throw new ConflictException(`SKU "${dto.sku}" already exists`);
@@ -118,6 +152,81 @@ export class ProductsService {
     const { imageUrl, imageThumb, ...rest } = dto;
     // setting a selling price on a product the store added while scanning makes it sellable
     return scrub(await this.prisma.product.update({ where:{id}, data:{ ...rest, ...(rest.unitPrice !== undefined && rest.unitPrice > 0 ? { needsPrice:false } : {}), ...(imageUrl !== undefined ? { imageUrl: imageUrl || null } : {}), ...(imageThumb !== undefined ? { imageThumb: imageThumb || null } : {}) }, include:productInclude, omit:{imageUrl:true} }), canSeeCost);
+  }
+
+  /**
+   * One product in several types (a diffuser in Gardenia, Lilac, Coffee and Wild Flower): each type is its own product, with its own
+   * stock, code and labels, so it is counted, sold and tracked on its own; they share a group, a brand, a category and the main name.
+   */
+  private async createTypes(organizationId: string, dto: CreateProductDto, canSeeCost: boolean) {
+    const { variants = [], ...base } = dto;
+    const names = variants.map(v => v.name.replace(/\s+/g, " ").trim());
+    const dup = names.find((n, i) => names.findIndex(m => m.toLowerCase() === n.toLowerCase()) !== i);
+    if (dup) throw new BadRequestException(`The type "${dup}" is listed twice.`);
+    const groupId = randomUUID();
+    const refs = await this.namesToRefs(organizationId, { categoryName: base.categoryName, brandName: base.brandName, categoryId: base.categoryId, brandId: base.brandId });
+    const trackItems = base.trackItems ?? (await this.prisma.organization.findUnique({ where:{ id: organizationId }, select:{ trackAllItems:true } }))?.trackAllItems ?? false;
+    const slug = (s: string) => s.toUpperCase().replace(/[^A-Z0-9]+/g, "").slice(0, 8) || "T";
+    const skus = variants.map((v, i) => (v.sku?.trim() || `${base.sku}-${slug(names[i])}`).toUpperCase());
+    const clashSku = skus.find((s, i) => skus.indexOf(s) !== i);
+    if (clashSku) throw new BadRequestException(`Two types would get the code ${clashSku}. Give one of them its own code.`);
+    const taken = await this.prisma.product.findFirst({ where:{ organizationId, sku:{ in: skus } }, select:{ sku:true } });
+    if (taken) throw new ConflictException(`SKU "${taken.sku}" already exists`);
+    const allCodes = variants.flatMap(v => v.barcodes ?? []).map(c => c.trim()).filter(Boolean);
+    if (new Set(allCodes).size !== allCodes.length) throw new BadRequestException("The same barcode is on two types. Each type needs its own barcode.");
+    if (allCodes.length) await this.cleanBarcodes(organizationId, allCodes);
+    const made = [];
+    for (let i = 0; i < variants.length; i++) {
+      const v = variants[i], ownCode = await newOwnCode(this.prisma, organizationId);
+      const p = await this.prisma.product.create({ data: {
+        organizationId, groupId, variant: names[i], sku: skus[i], name: `${base.name.trim()} – ${names[i]}`, ownCode,
+        barcodes: [ownCode, ...[...new Set((v.barcodes ?? []).map(c => c.trim()).filter(Boolean))]],
+        categoryId: refs.categoryId ?? null, category: refs.category ?? null, brandId: refs.brandId ?? null, unitId: base.unitId ?? null,
+        unitPrice: v.unitPrice ?? base.unitPrice, ...(base.costPrice !== undefined ? { costPrice: base.costPrice } : {}),
+        stockQuantity: v.stockQuantity ?? 0, reorderLevel: base.reorderLevel ?? 10, trackItems,
+        imageUrl: base.imageUrl || null, imageThumb: base.imageThumb || null,
+      }, include: productInclude, omit:{ imageUrl:true } });
+      made.push(scrub(p, canSeeCost));
+    }
+    return { groupId, products: made };
+  }
+
+  /** The other types of a product, and a new type added to it later (copying its brand, category, unit, prices and picture). */
+  async types(organizationId: string, id: string) {
+    const p = await this.prisma.product.findFirst({ where:{ id, organizationId }, select:{ groupId:true } });
+    if (!p) throw new NotFoundException("Product not found");
+    if (!p.groupId) return [];
+    return this.prisma.product.findMany({ where:{ organizationId, groupId: p.groupId }, select:{ id:true, sku:true, name:true, variant:true, stockQuantity:true, unitPrice:true }, orderBy:{ createdAt:"asc" } });
+  }
+
+  async addType(organizationId: string, id: string, dto: { name: string; sku?: string; unitPrice?: number; stockQuantity?: number; barcodes?: string[] }, canSeeCost = false) {
+    const src = await this.prisma.product.findFirst({ where:{ id, organizationId }, omit:{ imageUrl:false } });
+    if (!src) throw new NotFoundException("Product not found");
+    const name = dto.name.replace(/\s+/g, " ").trim();
+    let groupId = src.groupId, baseName = src.name;
+    if (groupId && src.variant) baseName = src.name.replace(new RegExp(`\\s*–\\s*${src.variant.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`), "");
+    const siblings = groupId ? await this.prisma.product.findMany({ where:{ organizationId, groupId }, select:{ variant:true } }) : [];
+    if (siblings.some(s => s.variant?.toLowerCase() === name.toLowerCase())) throw new ConflictException(`"${baseName}" already has the type "${name}".`);
+    const slug = name.toUpperCase().replace(/[^A-Z0-9]+/g, "").slice(0, 8) || "T";
+    const baseSku = src.variant ? src.sku.replace(/-[A-Z0-9]+$/, "") : src.sku;
+    const sku = (dto.sku?.trim() || `${baseSku}-${slug}`).toUpperCase();
+    if (await this.prisma.product.findFirst({ where:{ organizationId, sku }, select:{ id:true } })) throw new ConflictException(`SKU "${sku}" already exists`);
+    const ownCode = await newOwnCode(this.prisma, organizationId);
+    const barcodes = await this.cleanBarcodes(organizationId, dto.barcodes ?? [], undefined, ownCode);
+    return this.prisma.$transaction(async (tx) => {
+      // the first time: the original product becomes the group's first type, keeping its name with its own type label
+      if (!groupId) {
+        groupId = randomUUID();
+        await tx.product.update({ where:{ id: src.id }, data:{ groupId, variant: "Standard" } });
+      }
+      const p = await tx.product.create({ data: {
+        organizationId, groupId, variant: name, sku, name: `${baseName} – ${name}`, ownCode, barcodes: barcodes ?? [ownCode],
+        categoryId: src.categoryId, category: src.category, brandId: src.brandId, unitId: src.unitId,
+        unitPrice: dto.unitPrice ?? src.unitPrice, costPrice: src.costPrice, stockQuantity: dto.stockQuantity ?? 0, reorderLevel: src.reorderLevel,
+        trackItems: src.trackItems, imageUrl: src.imageUrl, imageThumb: src.imageThumb,
+      }, include: productInclude, omit:{ imageUrl:true } });
+      return scrub(p, canSeeCost);
+    });
   }
 
   async remove(organizationId: string, id: string) {

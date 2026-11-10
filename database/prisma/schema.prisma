@@ -231,6 +231,10 @@ model Product {
   id                 String              @id @default(uuid())
   organizationId     String
   sku                String
+  /// products that are types of one product (e.g. a diffuser in Gardenia, Lilac, Coffee) share a group id
+  groupId            String?
+  /// the type's name within its group, e.g. "Gardenia"
+  variant            String?
   /// Barcodes printed on the product (maker's EAN/UPC on the item or carton), or WHOLESTRA labels. Scanning any of them finds this product.
   barcodes           String[]           @default([])
   name               String
@@ -263,6 +267,7 @@ model Product {
   @@unique([organizationId, sku])
   /// kept unique by the code that makes it (a database unique rule would make the automatic update on Render stop to ask)
   @@index([organizationId, ownCode])
+  @@index([organizationId, groupId])
   @@index([organizationId])
   @@index([categoryId])
   @@index([brandId])

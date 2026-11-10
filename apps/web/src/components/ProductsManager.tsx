@@ -12,6 +12,7 @@ import { shrinkImage } from "../lib/image";
 import ProductThumb from "./home/ProductThumb";
 import CameraScanner from "./CameraScanner";
 import { barcodeSvg } from "../lib/barcode";
+import { BrandPicker, CategoryPicker } from "./products/Pickers";
 
 interface Ref { id: string; name: string }
 interface Product {
@@ -27,7 +28,11 @@ interface Product {
   needsPrice?: boolean;
   /** the product's own permanent WHOLESTRA code (on its labels); also the first of `barcodes` */
   ownCode?: string | null;
+  /** types of one product (a diffuser in Gardenia, Lilac...) share a group */
+  groupId?: string | null; variant?: string | null;
 }
+interface TypeRow { name: string; stock: string; price: string; barcode: string }
+interface Sibling { id: string; sku: string; name: string; variant: string | null; stockQuantity: number }
 
 
 export default function ProductsManager() {
@@ -58,7 +63,13 @@ export default function ProductsManager() {
     catch (e) { toast.error(e instanceof ApiError ? e.message : "Delete failed"); }
   }
 
-  const shown = (products ?? []).filter(p => (!fCategory || p.categoryRef?.name === fCategory) && (!needsPriceOnly || p.needsPrice));
+  // the types of one product stay together in the list, in the order they were made
+  const ordered = (() => {
+    const list = products ?? [], first = new Map<string, number>();
+    list.forEach((p, i) => { if (p.groupId && !first.has(p.groupId)) first.set(p.groupId, i); });
+    return list.map((p, i) => ({ p, k: p.groupId ? first.get(p.groupId)! + i / 1e6 : i })).sort((a, b) => a.k - b.k).map(x => x.p);
+  })();
+  const shown = ordered.filter(p => (!fCategory || p.categoryRef?.name === fCategory) && (!needsPriceOnly || p.needsPrice));
   const unpriced = (products ?? []).filter(p => p.needsPrice).length;
 
   return (
@@ -97,7 +108,7 @@ export default function ProductsManager() {
                 return (
                   <tr key={p.id}>
                     <td>{p.sku}</td>
-                    <td><span className="pname"><ProductThumb name={p.name} src={p.imageThumb} size={34} />{p.name}</span></td>
+                    <td><span className="pname"><ProductThumb name={p.name} src={p.imageThumb} size={34} />{p.name}{p.variant && <span className="pm-type-tag">Type</span>}</span></td>
                     <td>{p.categoryRef?.name || "—"}</td>
                     <td>{p.brand?.name || "—"}</td>
                     <td>{p.unit?.name || "—"}</td>
@@ -124,6 +135,7 @@ export default function ProductsManager() {
         <ProductModal
           product={editing === "new" ? null : editing}
           categories={categories} brands={brands} units={units} canProfit={canProfit}
+          onOpenType={id => { const t = (products ?? []).find(x => x.id === id); if (t) setEditing(t); }}
           onClose={() => setEditing(null)}
           onSaved={() => { setEditing(null); load(); toast.success("Product saved"); }}
         />
@@ -132,13 +144,32 @@ export default function ProductsManager() {
   );
 }
 
-function ProductModal({ product, categories, brands, units, canProfit, onClose, onSaved }: {
-  product: Product | null; categories: Ref[]; brands: Ref[]; units: Ref[]; canProfit: boolean; onClose: () => void; onSaved: () => void;
+function ProductModal({ product, categories, brands, units, canProfit, onClose, onSaved, onOpenType }: {
+  product: Product | null; categories: Ref[]; brands: Ref[]; units: Ref[]; canProfit: boolean; onClose: () => void; onSaved: () => void; onOpenType: (id: string) => void;
 }) {
   const [sku, setSku] = useState(product?.sku || "");
   const [name, setName] = useState(product?.name || "");
-  const [categoryId, setCategoryId] = useState(product?.categoryRef?.id || "");
-  const [brandId, setBrandId] = useState(product?.brand?.id || "");
+  // chosen by name from the ready-made lists (or typed under "Other"); the server makes the company's records itself
+  const [category, setCategory] = useState(product?.categoryRef?.name || "");
+  const [brand, setBrand] = useState(product?.brand?.name || "");
+  // a new product in several types (one row each); an existing one shows its other types and can get another
+  const [hasTypes, setHasTypes] = useState(false);
+  const [types, setTypes] = useState<TypeRow[]>([{ name: "", stock: "0", price: "", barcode: "" }, { name: "", stock: "0", price: "", barcode: "" }]);
+  const [siblings, setSiblings] = useState<Sibling[]>([]);
+  const [newType, setNewType] = useState({ name: "", stock: "0" });
+  const [addingType, setAddingType] = useState(false);
+  useEffect(() => { if (product) api.get<Sibling[]>(`/products/${product.id}/types`).then(setSiblings).catch(() => setSiblings([])); }, [product]);
+  const setType = (i: number, k: keyof TypeRow, v: string) => setTypes(ts => ts.map((t, j) => j === i ? { ...t, [k]: v } : t));
+  async function addType() {
+    if (!product || !newType.name.trim()) return;
+    setAddingType(true); setError("");
+    try {
+      const made = await api.post<Product>(`/products/${product.id}/types`, { name: newType.name.trim(), stockQuantity: Number(newType.stock) || 0 });
+      toast.success(`Added "${made.name}"`); setNewType({ name: "", stock: "0" });
+      setSiblings(await api.get<Sibling[]>(`/products/${product.id}/types`));
+    } catch (e) { setError(e instanceof ApiError ? e.message : "Could not add the type"); }
+    finally { setAddingType(false); }
+  }
   const [unitId, setUnitId] = useState(product?.unit?.id || "");
   const [unitPrice, setUnitPrice] = useState(product ? String(product.unitPrice) : "");
   const [costPrice, setCostPrice] = useState(product?.costPrice != null ? String(product.costPrice) : "");
@@ -173,7 +204,8 @@ function ProductModal({ product, categories, brands, units, canProfit, onClose, 
     if (!f) return;
     setPicking(true); setError("");
     try {
-      const [full, thumb] = await Promise.all([shrinkImage(f, { maxSide: 640, maxChars: 68000 }), shrinkImage(f, { maxSide: 128, maxChars: 13000 })]);
+      // fitted whole into a square on white, whatever the photo's size or shape: no cropping by hand
+      const [full, thumb] = await Promise.all([shrinkImage(f, { maxSide: 640, maxChars: 68000, square: true }), shrinkImage(f, { maxSide: 128, maxChars: 13000, square: true })]);
       setImage({ full, thumb });
     } catch (e) { setError((e as Error).message); }
     finally { setPicking(false); }
@@ -186,17 +218,21 @@ function ProductModal({ product, categories, brands, units, canProfit, onClose, 
   const profit = showMargin ? price - cost : 0;
 
   async function submit(e: FormEvent) {
-    e.preventDefault(); setSaving(true); setError("");
+    e.preventDefault(); setError("");
+    const rows = types.filter(t => t.name.trim());
+    if (!product && hasTypes && rows.length < 2) { setError("Add at least two types, or switch off \"comes in different types\"."); return; }
+    setSaving(true);
     const payload = {
       sku: sku.trim(), name: name.trim(),
-      categoryId: categoryId || undefined, brandId: brandId || undefined, unitId: unitId || undefined,
+      categoryName: category, brandName: brand, unitId: unitId || undefined,
       unitPrice: Number(unitPrice), ...(canProfit && costPrice !== "" ? { costPrice: Number(costPrice) } : {}),
       reorderLevel: Number(reorderLevel),
       barcodes: code.trim() && !barcodes.includes(code.trim()) ? [...barcodes, code.trim()] : barcodes,
       trackItems,
       ...(image !== undefined ? { imageUrl: image.full, imageThumb: image.thumb } : {}),
       // stock on an existing product changes only through stock adjustments, so it stays in the ledger
-      ...(product ? {} : { stockQuantity: Number(stockQuantity) })
+      ...(product ? {} : { stockQuantity: Number(stockQuantity) }),
+      ...(!product && hasTypes ? { variants: rows.map(t => ({ name: t.name.trim(), stockQuantity: Number(t.stock) || 0, ...(t.price !== "" ? { unitPrice: Number(t.price) } : {}), ...(t.barcode.trim() ? { barcodes: [t.barcode.trim()] } : {}) })) } : {}),
     };
     try {
       if (product) await api.put(`/products/${product.id}`, payload);
@@ -206,15 +242,6 @@ function ProductModal({ product, categories, brands, units, canProfit, onClose, 
     finally { setSaving(false); }
   }
 
-  const select = (label: string, value: string, set: (v: string) => void, list: Ref[], page: string) => (
-    <label>{label}
-      <select value={value} onChange={e => set(e.target.value)}>
-        <option value="">Not set</option>
-        {list.map(x => <option key={x.id} value={x.id}>{x.name}</option>)}
-      </select>
-      {list.length === 0 && <span className="field-hint">None yet. Add one on the {page} page.</span>}
-    </label>
-  );
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
@@ -229,9 +256,54 @@ function ProductModal({ product, categories, brands, units, canProfit, onClose, 
             <h4>Basics</h4>
             <div className="form-grid">
               <label>SKU<input value={sku} onChange={e => setSku(e.target.value.toUpperCase())} placeholder="e.g. RICE-003" required autoFocus={!product} /><span className="field-hint">A short code that is unique to this product.</span></label>
-              <label>Product name<input value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Premium Rice 25kg" required /></label>
+              <label>Product name<input value={name} onChange={e => setName(e.target.value)} placeholder={hasTypes ? "e.g. Air Wick Reed Diffuser" : "e.g. Premium Rice 25kg"} required /></label>
+            </div>
+            <div className="pm-class">
+              <CategoryPicker value={category} onChange={setCategory} own={categories.map(c => c.name)} />
+              <BrandPicker value={brand} onChange={setBrand} category={category} own={brands.map(b => b.name)} />
             </div>
           </section>
+
+          {!product && (
+            <section>
+              <h4>Types</h4>
+              <label className="pm-track">
+                <input type="checkbox" checked={hasTypes} onChange={e => setHasTypes(e.target.checked)} />
+                <span><b>This product comes in different types</b>Scents, flavours, colours or sizes, like a diffuser in Gardenia, Lilac, Coffee and Wild Flower. Each type gets its own stock, code and labels, all under one product.</span>
+              </label>
+              {hasTypes && <div className="pm-types">
+                <div className="pm-types-head"><span>Type</span><span>Opening stock</span><span>Price ({currencySymbol()}) <small>if different</small></span><span>Barcode <small>optional</small></span><span /></div>
+                {types.map((t, i) => (
+                  <div className="pm-type" key={i}>
+                    <input value={t.name} onChange={e => setType(i, "name", e.target.value)} placeholder={["e.g. Gardenia", "e.g. Lilac", "e.g. Coffee", "e.g. Wild Flower"][i] ?? "Type name"} aria-label={`Type ${i + 1} name`} maxLength={60} />
+                    <label className="pm-tl"><small>Opening stock</small><input type="number" min="0" value={t.stock} onChange={e => setType(i, "stock", e.target.value)} aria-label={`Type ${i + 1} opening stock`} /></label>
+                    <label className="pm-tl"><small>Price, if different</small><input type="number" min="0" step="0.01" value={t.price} onChange={e => setType(i, "price", e.target.value)} placeholder={unitPrice || "Same"} aria-label={`Type ${i + 1} price`} /></label>
+                    <label className="pm-tl pm-tl-code"><small>Barcode (optional)</small><input value={t.barcode} onChange={e => setType(i, "barcode", e.target.value)} placeholder="Scan or type" aria-label={`Type ${i + 1} barcode`} maxLength={64} onKeyDown={e => { if (e.key === "Enter") e.preventDefault(); }} /></label>
+                    <button type="button" className="pm-type-x" onClick={() => setTypes(ts => ts.length > 1 ? ts.filter((_, j) => j !== i) : ts)} aria-label={`Remove type ${i + 1}`} disabled={types.length <= 1}>×</button>
+                  </div>
+                ))}
+                {types.length < 30 && <button type="button" className="secondary pm-type-add" onClick={() => setTypes(ts => [...ts, { name: "", stock: "0", price: "", barcode: "" }])}>+ Add a type</button>}
+                {name.trim() && types.some(t => t.name.trim()) && <p className="muted fine">Saved as {types.filter(t => t.name.trim()).slice(0, 3).map(t => `"${name.trim()} – ${t.name.trim()}"`).join(", ")}{types.filter(t => t.name.trim()).length > 3 ? "…" : ""}.</p>}
+              </div>}
+            </section>
+          )}
+
+          {product && (
+            <section>
+              <h4>Types</h4>
+              {siblings.length > 0 && <ul className="pm-sibs">{siblings.map(s => (
+                <li key={s.id} className={s.id === product.id ? "on" : ""}>
+                  <span><b>{s.variant ?? s.name}</b><small>{s.sku} · {s.stockQuantity} in stock</small></span>
+                  {s.id === product.id ? <em>Editing</em> : <button type="button" className="linkish" onClick={() => onOpenType(s.id)}>Open</button>}
+                </li>))}</ul>}
+              <p className="muted fine">{siblings.length ? "Add another type of this product:" : "Does this product come in other types (scent, flavour, colour, size)? Add one: it gets its own stock, code and labels."}</p>
+              <div className="pm-type-new">
+                <input value={newType.name} onChange={e => setNewType(t => ({ ...t, name: e.target.value }))} placeholder="New type, e.g. Lilac" aria-label="New type name" maxLength={60} onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); addType(); } }} />
+                <input type="number" min="0" value={newType.stock} onChange={e => setNewType(t => ({ ...t, stock: e.target.value }))} aria-label="Opening stock of the new type" title="Opening stock" />
+                <button type="button" className="secondary" disabled={addingType || !newType.name.trim()} onClick={addType}>{addingType ? "Adding…" : "+ Add type"}</button>
+              </div>
+            </section>
+          )}
 
           <section>
             <h4>Codes</h4>
@@ -274,24 +346,17 @@ function ProductModal({ product, categories, brands, units, canProfit, onClose, 
                 <input type="file" accept="image/png,image/jpeg,image/webp" hidden onChange={e => { pickImage(e.target.files?.[0]); e.target.value = ""; }} />
               </label>
               <div className="pm-pic-text">
-                <p className="muted fine">A clear photo of the product or its pack helps staff pick the right item. It is made smaller for you.</p>
+                <p className="muted fine">Any photo works: it is fitted into a neat square for you, whole and centred, and made smaller. No cropping needed.</p>
                 {shownImage && <button type="button" className="secondary" onClick={() => setImage({ full: "", thumb: "" })}>Remove picture</button>}
               </div>
             </div>
           </section>
 
-          <section>
-            <h4>Classification</h4>
-            <div className="form-grid three">
-              {select("Category", categoryId, setCategoryId, categories, "Categories")}
-              {select("Brand", brandId, setBrandId, brands, "Brands")}
-              {select("Unit", unitId, setUnitId, units, "Units")}
-            </div>
-          </section>
 
           <section>
             <h4>Pricing</h4>
             <div className="form-grid">
+              <label>Sold by<select value={unitId} onChange={e => setUnitId(e.target.value)}><option value="">Piece (each)</option>{units.map(x => <option key={x.id} value={x.id}>{x.name}</option>)}</select></label>
               <label>Selling price ({currencySymbol()})<input type="number" step="0.01" min="0" value={unitPrice} onChange={e => setUnitPrice(e.target.value)} placeholder="0.00" required /></label>
               {canProfit && (
                 <label>Cost price ({currencySymbol()})<input type="number" step="0.01" min="0" value={costPrice} onChange={e => setCostPrice(e.target.value)} placeholder="What one unit costs you" />
@@ -312,6 +377,7 @@ function ProductModal({ product, categories, brands, units, canProfit, onClose, 
               {product ? (
                 <label>On hand now<input value={product.stockQuantity} readOnly disabled /><span className="field-hint">To change stock, use Stock Adjustments so there is a record of why.</span></label>
               ) : (
+                hasTypes ? <p className="muted fine">Opening stock is set for each type above.</p> :
                 <label>Opening stock<input type="number" min="0" value={stockQuantity} onChange={e => setStockQuantity(e.target.value)} required /><span className="field-hint">How many you have right now. Use 0 if none yet.</span></label>
               )}
               <label>Reorder level<input type="number" min="0" value={reorderLevel} onChange={e => setReorderLevel(e.target.value)} required /><span className="field-hint">You get a low-stock alert at or below this number.</span></label>

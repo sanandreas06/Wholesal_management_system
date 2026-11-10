@@ -175,3 +175,9 @@ Good to know:
 - **Print these labels again** reprints the same codes (for a jammed printer), so a reprint still counts once.
 - **Labels for stock already on the shelf** work the same way, so they double as a shelf count. A label with no item to go on means that item is not on the shelf: Done cancels it, lowers the stock and asks the branch where it went ("Items not on the shelf").
 - Stock with labels from before this update keeps working as it is.
+
+# Adding products made easy (Batch 52)
+
+- **Category and brand without setting anything up.** On **Products, New product**, tap **Category** for a ready-made list grouped like an online store (Groceries, Drinks, Household, Health & Beauty, Phones, Electronics, Automobile, Building & Hardware, Fashion, Agriculture and more), or search ("rice", "tyres"). **Brand** then suggests the brands popular in that category in Ghana, plus the brands you already sell. Not in the list? Tap **Other** and type the name. WHOLESTRA saves new names for you, so the separate Categories and Brands pages are no longer in the menu.
+- **Pictures fit themselves.** Any photo, of any shape or size, is fitted whole into a neat square on white, centred and made smaller. No cropping.
+- **One product in several types.** Tick **This product comes in different types** and list them, for example Gardenia, Lilac, Coffee and Wild Flower. Each type gets its own stock, price (if different), barcode, WHOLESTRA code and labels, saved as "Air Wick Reed Diffuser – Gardenia" and so on, and the types are shown together on Products. To add a type later, open any type (or a single product) and use **Add type** under **Types**: the brand, category, unit, prices and picture are copied.

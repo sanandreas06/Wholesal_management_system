@@ -14,6 +14,8 @@ export class QuickProductDto {
   @IsString() @Matches(CODE, { message: "The barcode can only contain letters, digits and symbols." }) barcode!: string;
   @IsString() @MinLength(2) @MaxLength(160) name!: string;
   @IsOptional() @IsUUID() categoryId?: string;
+  /** A category by name from the ready-made list (or typed): created for the company if new. */
+  @IsOptional() @IsString() @MaxLength(80) categoryName?: string;
   /** Only people who may set prices (Products: create) can fill these; for anyone else the product waits for a manager to price it. */
   @IsOptional() @IsNumber() @Min(0) unitPrice?: number;
   @IsOptional() @IsNumber() @Min(0) costPrice?: number;
@@ -93,6 +95,16 @@ export class QuickAddService {
     if (same) throw new ConflictException(`A product called "${same.name}" already exists. If it is the same product, choose "We already have it" and pick it, so the barcode is added to it.`);
     const mayPrice = user.permissions.includes("PRODUCTS:CREATE"), maySeeCost = user.permissions.includes("PROFIT:READ");
     if (mayPrice && dto.unitPrice === undefined) throw new BadRequestException("Set the selling price.");
+    if (dto.categoryName?.trim() && !dto.categoryId) {
+      const nm = dto.categoryName.replace(/\s+/g, " ").trim();
+      const hit = await this.prisma.category.findFirst({ where: { organizationId: org, name: { equals: nm, mode: "insensitive" } }, select: { id: true } });
+      if (hit) dto.categoryId = hit.id;
+      else {
+        const base = nm.toUpperCase().replace(/[^A-Z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 24) || "ITEM";
+        let code = base; for (let i = 2; await this.prisma.category.findFirst({ where: { organizationId: org, code }, select: { id: true } }); i++) code = `${base}-${i}`;
+        dto.categoryId = (await this.prisma.category.create({ data: { organizationId: org, name: nm, code }, select: { id: true } })).id;
+      }
+    }
     const category = dto.categoryId ? await this.prisma.category.findUnique({ where: { id: dto.categoryId }, select: { name: true } }) : null;
     const trackAll = (await this.prisma.organization.findUnique({ where: { id: org }, select: { trackAllItems: true } }))?.trackAllItems ?? false;
     const p = await this.prisma.product.create({

@@ -6,6 +6,10 @@ export class UpdateProductDto {
   @IsOptional() @IsUUID() categoryId?: string;
   @IsOptional() @IsUUID() brandId?: string;
   @IsOptional() @IsUUID() unitId?: string;
+  /** Category by name (ready-made list or typed): created for the company if new; "" clears it. */
+  @IsOptional() @IsString() @MaxLength(80) categoryName?: string;
+  /** Brand by name (suggested or typed): created for the company if new; "" clears it. */
+  @IsOptional() @IsString() @MaxLength(80) brandName?: string;
   @IsOptional() @IsNumber() @Min(0) unitPrice?: number;
   @IsOptional() @IsNumber() @Min(0) costPrice?: number;
   @IsOptional() @IsInt() @Min(0) stockQuantity?: number;

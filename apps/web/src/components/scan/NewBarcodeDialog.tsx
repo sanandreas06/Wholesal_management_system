@@ -1,5 +1,6 @@
 'use client';
 import { FormEvent, useEffect, useState } from "react";
+import { CategoryPicker } from "../products/Pickers";
 import { api, ApiError } from "../../lib/api";
 import { getSessionUser } from "../../lib/session";
 
@@ -22,7 +23,7 @@ export default function NewBarcodeDialog({ code, allowNew, choices, onDone, onCl
   const [name, setName] = useState("");
   const [price, setPrice] = useState("");
   const [cost, setCost] = useState("");
-  const [categoryId, setCategoryId] = useState("");
+  const [category, setCategory] = useState("");
   const [cats, setCats] = useState<{ id: string; name: string }[]>([]);
   const [all, setAll] = useState<Pick[] | null>(choices ?? null);
   const [q, setQ] = useState("");
@@ -39,7 +40,7 @@ export default function NewBarcodeDialog({ code, allowNew, choices, onDone, onCl
   async function create(e: FormEvent) {
     e.preventDefault(); setBusy(true); setError("");
     try {
-      const p = await api.post<AddedProduct>("/products/quick", { barcode: code, name: name.trim(), categoryId: categoryId || undefined, ...(mayPrice ? { unitPrice: Number(price) } : {}), ...(mayPrice && mayCost && cost !== "" ? { costPrice: Number(cost) } : {}) });
+      const p = await api.post<AddedProduct>("/products/quick", { barcode: code, name: name.trim(), ...(category ? { categoryName: category } : {}), ...(mayPrice ? { unitPrice: Number(price) } : {}), ...(mayPrice && mayCost && cost !== "" ? { costPrice: Number(cost) } : {}) });
       onDone(p);
     } catch (er) { setError(er instanceof ApiError ? er.message : "Could not save. Check your connection."); setBusy(false); }
   }
@@ -68,7 +69,7 @@ export default function NewBarcodeDialog({ code, allowNew, choices, onDone, onCl
             : info.found ? <p className="nb-hint ok">Found in {info.source}. Check the name and change it if your shop calls it something else.</p>
             : <p className="nb-hint">Not found in the public product lists. Type the name the way your shop calls it.</p>}
           <label>Product name<input value={name} onChange={e => setName(e.target.value)} required minLength={2} maxLength={160} autoFocus placeholder="e.g. Gino Tomato Paste 70g" /></label>
-          {cats.length > 0 && <label>Category (optional)<select value={categoryId} onChange={e => setCategoryId(e.target.value)}><option value="">None</option>{cats.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}</select></label>}
+          <CategoryPicker value={category} onChange={setCategory} own={cats.map(c => c.name)} />
           {mayPrice ? <div className="nb-two">
             <label>Selling price (GH₵)<input type="number" step="0.01" min="0" value={price} onChange={e => setPrice(e.target.value)} required /></label>
             {mayCost && <label>Cost price (optional)<input type="number" step="0.01" min="0" value={cost} onChange={e => setCost(e.target.value)} /></label>}
