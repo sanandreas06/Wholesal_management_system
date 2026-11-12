@@ -13,6 +13,7 @@ import Avatar from "./Avatar";
 import Logo from "./Logo";
 import ProfileModal, { Profile } from "./ProfileModal";
 import ContactBlock from "./ContactBlock";
+import BottomBar from "./BottomBar";
 import Assistant from "./assistant/Assistant";
 import PhoneTables from "./PhoneTables";
 import AccessNotice, { WorkspaceNotice } from "./status/AccessNotice";
@@ -382,6 +383,7 @@ export default function AppShell({ title, children }: { title: string; children:
           </div>
         </div>
       )}
+      {user && <BottomBar can={can} pathname={pathname ?? ""} />}
     </div>
   );
 }

@@ -238,6 +238,8 @@ function ProductModal({ product, categories, brands, units, canProfit, onClose, 
     e.preventDefault(); setError("");
     const rows = types.filter(t => t.name.trim());
     if (!product && hasTypes && rows.length < 2) { setError("Add at least two types, or switch off \"comes in different types\"."); return; }
+    const shortCode = rows.find(t => t.barcode.trim() && t.barcode.trim().length < 6);
+    if (shortCode) { setError(`"${shortCode.barcode.trim()}" (${shortCode.name.trim()}) is not a real barcode. Leave the barcode empty: WHOLESTRA makes its own barcode and QR code for every type. Only scan the barcode printed on the maker's box.`); return; }
     setSaving(true);
     const payload = {
       sku: sku.trim(), name: name.trim(),
@@ -255,7 +257,7 @@ function ProductModal({ product, categories, brands, units, canProfit, onClose, 
       if (product) await api.put(`/products/${product.id}`, payload);
       else await api.post("/products", payload);
       onSaved();
-    } catch (e) { setError(e instanceof ApiError ? e.message : "Save failed"); }
+    } catch (e) { setError(e instanceof ApiError ? e.message : `Could not save: ${(e as Error)?.message || "unknown problem"}. Nothing was saved.`); }
     finally { setSaving(false); }
   }
 
@@ -289,13 +291,14 @@ function ProductModal({ product, categories, brands, units, canProfit, onClose, 
                 <span><b>This product comes in different types</b>Scents, flavours, colours or sizes, like a diffuser in Gardenia, Lilac, Coffee and Wild Flower. Each type gets its own stock, code and labels, all under one product.</span>
               </label>
               {hasTypes && <div className="pm-types">
-                <div className="pm-types-head"><span>Type</span><span>Opening stock</span><span>Price ({currencySymbol()}) <small>if different</small></span><span>Barcode <small>optional</small></span><span /></div>
+                <p className="muted fine pm-types-note">WHOLESTRA gives every type <b>its own barcode and QR code automatically</b>. Leave &quot;Maker&apos;s barcode&quot; empty unless the box already has one printed by the maker: then scan it, so it scans at the counter too.</p>
+                <div className="pm-types-head"><span>Type</span><span>Opening stock</span><span>Price ({currencySymbol()}) <small>if different</small></span><span>Maker&apos;s barcode <small>optional</small></span><span /></div>
                 {types.map((t, i) => (
                   <div className="pm-type" key={i}>
                     <input value={t.name} onChange={e => setType(i, "name", e.target.value)} placeholder={["e.g. Gardenia", "e.g. Lilac", "e.g. Coffee", "e.g. Wild Flower"][i] ?? "Type name"} aria-label={`Type ${i + 1} name`} maxLength={60} />
                     <label className="pm-tl"><small>Opening stock</small><input type="number" min="0" value={t.stock} onChange={e => setType(i, "stock", e.target.value)} aria-label={`Type ${i + 1} opening stock`} /></label>
                     <label className="pm-tl"><small>Price, if different</small><input type="number" min="0" step="0.01" value={t.price} onChange={e => setType(i, "price", e.target.value)} placeholder={unitPrice || "Same"} aria-label={`Type ${i + 1} price`} /></label>
-                    <label className="pm-tl pm-tl-code"><small>Barcode (optional)</small><input value={t.barcode} onChange={e => setType(i, "barcode", e.target.value)} placeholder="Scan or type" aria-label={`Type ${i + 1} barcode`} maxLength={64} onKeyDown={e => { if (e.key === "Enter") e.preventDefault(); }} /></label>
+                    <label className="pm-tl pm-tl-code"><small>Maker&apos;s barcode (optional, leave empty if none)</small><input value={t.barcode} onChange={e => setType(i, "barcode", e.target.value)} placeholder="Empty, or scan the box" aria-label={`Type ${i + 1} barcode`} maxLength={64} onKeyDown={e => { if (e.key === "Enter") e.preventDefault(); }} /></label>
                     <button type="button" className="pm-type-x" onClick={() => setTypes(ts => ts.length > 1 ? ts.filter((_, j) => j !== i) : ts)} aria-label={`Remove type ${i + 1}`} disabled={types.length <= 1}>×</button>
                   </div>
                 ))}

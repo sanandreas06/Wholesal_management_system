@@ -188,3 +188,17 @@ Good to know:
 - It works inside the app, free and offline: it spots brand names, recognises the words that point to a category, and learns from how your company filed its earlier products. Choosing a category or brand yourself always wins.
 - The category list now covers far more: about 150 kinds in 18 groups, including Computing, Gaming, Furniture, Hair Extensions & Wigs, Makeup, Medical Supplies, Packaging, Industrial & Safety, Pets and Musical Instruments.
 - Pictures: photos straight from a phone camera (including very large ones, ones still in Google Photos, and files with no type) now open reliably. A HEIC photo the browser cannot open gets a clear message saying what to do.
+
+# The bottom bar on phones (Batch 55)
+
+On a phone, the five places people use most sit at the bottom of the screen, within reach of the thumb: **Home, Inventory, Scan** (the big round button in the middle), **Sales** and **Settings**. Everything else is still in the ☰ menu at the top.
+
+The bar follows each person's role, and never shows a page they cannot open:
+
+| Role | Tabs |
+|---|---|
+| Owner, administrator, manager | Home · Inventory · Scan · Sales · Settings |
+| Store person | Home · Inventory · Scan · Orders (purchase orders) · Settings |
+| Cashier | Home · Inventory · Sell (the counter) · Sales · Settings |
+
+The bar hides while a form or picker is open, and on computers, where the menu on the left is always visible.
